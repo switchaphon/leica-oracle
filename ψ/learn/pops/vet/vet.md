@@ -37,4 +37,4 @@ A Next.js 16 / React 19 frontend for **POPS** — a Thai veterinary clinic platf
 
 ## Cross-references
 
-This deep-learn snapshot will be copied into `vet-oracle`'s brain when that PM Oracle is awakened — the Oracle owns this knowledge for its lifetime, refreshing on demand when the codebase evolves.
+This deep-learn snapshot will be copied into `pops-clinic-oracle`'s brain when that PM Oracle is awakened — the Oracle owns this knowledge for its lifetime, refreshing on demand when the codebase evolves.

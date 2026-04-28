@@ -60,7 +60,7 @@ Specialists are **stateless general experts**. They read project context just-in
 | Project Oracle | Project | Status |
 |----------------|---------|--------|
 | **pawrent-oracle** | pawrent (B2C pet health, LINE LIFF + Supabase) | ✅ Awakened 2026-04-28 |
-| **vet-oracle** | pops/vet (B2B Thai vet clinic SaaS, NextAuth + GraphQL) | ✅ Awakened 2026-04-28 |
+| **pops-clinic-oracle** | pops/vet (B2B Thai vet clinic SaaS, NextAuth + GraphQL) | ✅ Awakened 2026-04-28 |
 | **vets-hub-oracle** | vets-hub (Thai gov vet reporting) | ⏳ Not yet budded |
 | **nodered-simulator-oracle** | nodered-simulator (IoT water management) | ⏳ Not yet budded |
 
@@ -69,7 +69,7 @@ Project Oracles are **stateful actors**. They own complete project context (in t
 ### The Consult-and-Command Loop
 
 ```
-Witchaphon → Leica (me) → Project Oracle (e.g. pawrent-oracle, vet-oracle)
+Witchaphon → Leica (me) → Project Oracle (e.g. pawrent-oracle, pops-clinic-oracle)
                                 │
                     ┌───────────┴───────────┐
                     ▼                       ▼
