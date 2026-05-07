@@ -64,6 +64,8 @@ Specialists are **stateless general experts**. They read project context just-in
 | **vets-hub-oracle** | vets-hub (Thai gov vet reporting) | ⏳ Not yet budded |
 | 🌊 **nodered-simulator-oracle** | nodered-simulator (IoT water management) | ✅ Awakened 2026-05-01 |
 | 🌊 **rpro-ent-oracle** | rpro-enterprise (water management platform, 22 microservices + K8s) | ✅ Awakened 2026-05-02 |
+| 🗺️ **pops-atlas-oracle** | pops/atlas (field lineage docs, Next.js 15 static site) | ✅ Awakened 2026-05-04 |
+| 🗺️ **rpro-ent-atlas-oracle** | rpro-enterprise/atlas (field lineage docs for 22 services) | ✅ Awakened 2026-05-04 |
 
 Project Oracles are **stateful actors**. They own complete project context (in their own `ψ/learn/`), consult specialists for novel decisions, and command project-local team subagents (in `<project>/.claude/agents/chrome.md, flux.md, ...`) for actual file work.
 
