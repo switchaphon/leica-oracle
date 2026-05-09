@@ -61,7 +61,7 @@ Specialists are **stateless general experts**. They read project context just-in
 |----------------|---------|--------|
 | 🐾 **pawrent-oracle** | pawrent (B2C pet health, LINE LIFF + Supabase) | ✅ Awakened 2026-04-28 |
 | 🏥 **pops-clinic-oracle** | pops/vet (B2B Thai vet clinic SaaS, NextAuth + GraphQL) | ✅ Awakened 2026-04-28 |
-| **vets-hub-oracle** | vets-hub (Thai gov vet reporting) | ⏳ Not yet budded |
+| 📋 **vets-hub-oracle** | vets-hub (Thai gov vet reporting) | ✅ Awakened 2026-05-09 |
 | 🌊 **nodered-simulator-oracle** | nodered-simulator (IoT water management) | ✅ Awakened 2026-05-01 |
 | 🌊 **rpro-ent-oracle** | rpro-enterprise (water management platform, 22 microservices + K8s) | ✅ Awakened 2026-05-02 |
 | 🗺️ **pops-atlas-oracle** | pops/atlas (field lineage docs, Next.js 15 static site) | ✅ Awakened 2026-05-04 |
