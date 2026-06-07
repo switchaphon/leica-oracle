@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leica Chronicle 📜</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Fira Code', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 1.4em; } header span { color: var(--muted); font-size: 0.85em; }
+  .stats { display: flex; gap: 24px; padding: 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; } .stat .num { font-size: 1.6em; font-weight: bold; color: var(--accent); } .stat .label { font-size: 0.75em; color: var(--muted); }
+  .filters { padding: 12px 24px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .filters button { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 16px; cursor: pointer; font-size: 0.8em; font-family: inherit; }
+  .filters button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  #feed { padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; }
+  .event { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+  .event .meta { display: flex; gap: 12px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+  .event .oracle { color: var(--green); font-weight: bold; }
+  .event .author { color: var(--orange); }
+  .event .time { color: var(--muted); font-size: 0.8em; }
+  .event .channel { color: var(--accent); font-size: 0.8em; }
+  .event .content { color: var(--text); white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+  .event .type-badge { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: var(--border); color: var(--muted); }
+  .loading { text-align: center; padding: 48px; color: var(--muted); }
+  .error { text-align: center; padding: 48px; color: #f85149; }
+  @media (max-width: 600px) { header { flex-direction: column; align-items: flex-start; } .stats { gap: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>📜 Leica Chronicle</h1>
+  <span>Real-time Oracle feed — timestamp is truth</span>
+</header>
+<div class="stats" id="stats"></div>
+<div class="filters" id="filters"></div>
+<div id="feed"><div class="loading">Loading feed...</div></div>
+
+<script>
+const API = 'https://oracle-chronicle.laris.workers.dev/api/feed';
+let allEvents = [];
+let activeFilter = null;
+
+async function load() {
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    allEvents = (data.events || []).sort((a, b) => new Date(b.ts) - new Date(a.ts));
+    renderStats();
+    renderFilters();
+    render();
+  } catch (e) {
+    document.getElementById('feed').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+  }
+}
+
+function renderStats() {
+  const oracles = new Set(allEvents.map(e => e.oracle));
+  const authors = new Set(allEvents.map(e => e.author));
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><span class="num">${allEvents.length}</span><span class="label">events</span></div>
+    <div class="stat"><span class="num">${oracles.size}</span><span class="label">oracles</span></div>
+    <div class="stat"><span class="num">${authors.size}</span><span class="label">authors</span></div>
+  `;
+}
+
+function renderFilters() {
+  const oracles = [...new Set(allEvents.map(e => e.oracle))].sort();
+  const el = document.getElementById('filters');
+  el.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.textContent = 'All';
+  allBtn.className = !activeFilter ? 'active' : '';
+  allBtn.addEventListener('click', () => setFilter(null));
+  el.appendChild(allBtn);
+  for (const o of oracles) {
+    const btn = document.createElement('button');
+    btn.textContent = o;
+    btn.className = activeFilter === o ? 'active' : '';
+    btn.addEventListener('click', () => setFilter(o));
+    el.appendChild(btn);
+  }
+}
+
+function setFilter(oracle) { activeFilter = oracle; renderFilters(); render(); }
+
+function render() {
+  const events = activeFilter ? allEvents.filter(e => e.oracle === activeFilter) : allEvents;
+  if (events.length === 0) { document.getElementById('feed').innerHTML = '<div class="loading">No events</div>'; return; }
+  document.getElementById('feed').innerHTML = events.slice(0, 200).map(e => `
+    <div class="event">
+      <div class="meta">
+        <span class="oracle">${esc(e.oracle)}</span>
+        <span class="author">@${esc(e.author || '?')}</span>
+        <span class="channel">#${esc(e.channel_id || '?')}</span>
+        <span class="type-badge">${esc(e.type || 'event')}</span>
+        <span class="time">${new Date(e.ts).toLocaleString()}</span>
+      </div>
+      <div class="content">${esc((e.content || '').slice(0, 500))}</div>
+    </div>
+  `).join('');
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>
