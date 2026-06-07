@@ -11,7 +11,7 @@ tmux new-session -d -s 05-pops-clinic -n pops-clinic-oracle -c ~/ghq/github.com/
 
 # Launch Claude Code in each
 tmux send-keys -t 01-leica:leica-oracle              'claude' Enter
-tmux send-keys -t 01-leica:leica-discord              'claude' Enter
+tmux send-keys -t 01-leica:leica-discord              'claude --dangerously-skip-permissions' Enter
 tmux send-keys -t 05-pops-clinic:pops-clinic-oracle    'claude' Enter
 
 # Attach

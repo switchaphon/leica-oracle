@@ -3,7 +3,8 @@
  * "The lens that sees clearly keeps the human human."
  */
 import type { InvokeContext, InvokeResult } from "maw-js/plugin/types";
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { execFileSync } from "child_process";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -66,6 +67,11 @@ export default async function handler(ctx: InvokeContext): Promise<InvokeResult>
     log("  whoami              identity check");
     log("  chronicle sync      sync Discord feed → backend");
     log("  chronicle status    show sync state per channel");
+    log("  voice start         spawn voice daemon");
+    log("  voice join <ch> <g> join voice channel");
+    log("  voice say <text>    speak via TTS");
+    log("  voice leave         leave voice channel");
+    log("  voice status        check daemon");
     return done(true);
   }
 
@@ -95,6 +101,72 @@ export default async function handler(ctx: InvokeContext): Promise<InvokeResult>
       log("  repo: switchaphon/leica-oracle");
       log('  theme: "The lens that sees clearly keeps the human human."');
       break;
+    }
+    case "voice": {
+      const VOICE_PORT = 14807;
+      const PID_FILE = join(homedir(), ".maw", "leica-voice.pid");
+      const DAEMON_PATH = join(__dirname, "voice-daemon.ts");
+      const action = args[1]?.toLowerCase();
+
+      if (action === "start") {
+        if (existsSync(PID_FILE)) {
+          const pid = parseInt(readFileSync(PID_FILE, "utf8").trim());
+          try { process.kill(pid, 0); log(`🐱 voice daemon already running (PID ${pid})`); break; } catch {}
+        }
+        try {
+          execFileSync("bun", ["run", DAEMON_PATH], { detached: true, stdio: "ignore" });
+          log(`🐱 voice daemon spawned on port ${VOICE_PORT}`);
+        } catch (e) {
+          log(`✗ failed to spawn daemon: ${e instanceof Error ? e.message : String(e)}`);
+          return done(false);
+        }
+        break;
+      }
+      if (action === "status") {
+        try {
+          const res = await fetch(`http://localhost:${VOICE_PORT}/status`);
+          const data = await res.json() as any;
+          log(`🐱 voice daemon: PID ${data.pid}, connected=${data.connected}, player=${data.playerStatus}`);
+        } catch {
+          log("🐱 voice daemon: offline");
+        }
+        break;
+      }
+      if (action === "join") {
+        const channelId = args[2]; const guildId = args[3];
+        if (!channelId || !guildId) { log("usage: maw leica voice join <channelId> <guildId>"); return done(false); }
+        try {
+          const res = await fetch(`http://localhost:${VOICE_PORT}/join`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ channelId, guildId }),
+          });
+          const data = await res.json() as any;
+          log(data.ok ? `🐱 joined voice channel ${channelId}` : `✗ ${data.error}`);
+        } catch { log("✗ voice daemon not running — run 'maw leica voice start' first"); return done(false); }
+        break;
+      }
+      if (action === "say") {
+        const text = args.slice(2).join(" ");
+        if (!text) { log("usage: maw leica voice say <text>"); return done(false); }
+        try {
+          const res = await fetch(`http://localhost:${VOICE_PORT}/say`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          const data = await res.json() as any;
+          log(data.ok ? `🐱 said: "${text}"` : `✗ ${data.error}`);
+        } catch { log("✗ voice daemon not running"); return done(false); }
+        break;
+      }
+      if (action === "leave") {
+        try {
+          await fetch(`http://localhost:${VOICE_PORT}/leave`, { method: "POST" });
+          log("🐱 left voice channel");
+        } catch { log("✗ voice daemon not running"); }
+        break;
+      }
+      log("usage: maw leica voice <start|join|say|leave|status>");
+      return done(false);
     }
     case "chronicle": {
       const action = args[1]?.toLowerCase();
