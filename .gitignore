@@ -1,5 +1,14 @@
 .env
 .env.*
 .DS_Store
+node_modules/
+*.log
 
 .discord-state/
+
+# Learn symlinks (source lives in ghq)
+ψ/learn/**/origin
+
+# PDF artifacts (regenerate from markdown)
+docs/*.pdf
+ψ/writing/*.pdf
