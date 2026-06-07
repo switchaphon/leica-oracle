@@ -12,3 +12,4 @@ node_modules/
 # PDF artifacts (regenerate from markdown)
 docs/*.pdf
 ψ/writing/*.pdf
+ψ/writing/workshop-01-maw-plugin
