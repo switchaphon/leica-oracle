@@ -13,3 +13,8 @@ node_modules/
 docs/*.pdf
 ψ/writing/*.pdf
 ψ/writing/workshop-01-maw-plugin
+.claude/scheduled_tasks.lock
+.playwright-mcp/
+screenshot-chronicle-ui.png
+workshop-02-voice-bot
+.envrc
