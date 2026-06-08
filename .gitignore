@@ -18,3 +18,7 @@ docs/*.pdf
 screenshot-chronicle-ui.png
 workshop-02-voice-bot
 .envrc
+
+# Audio artifacts (voice bot workshop)
+*.mp3
+*.aiff

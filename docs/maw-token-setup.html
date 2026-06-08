@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>maw token setup guide</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --accent: #f5c542;
+    --accent-dim: #a68520;
+    --green: #4ade80;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --cyan: #22d3ee;
+    --purple: #c084fc;
+    --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Menlo', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--mono);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  header .subtitle {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin-top: 0.3rem;
+  }
+
+  header .audience {
+    display: inline-block;
+    margin-top: 0.6rem;
+    padding: 0.3rem 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.72rem;
+    color: var(--cyan);
+  }
+
+  .section-title {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-top: 2.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .section-intro {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+  }
+
+  .step {
+    margin-bottom: 2.2rem;
+    padding-left: 2.2rem;
+    position: relative;
+  }
+
+  .step::before {
+    content: attr(data-n);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--accent-dim);
+    color: var(--bg);
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+  }
+
+  .step h3 {
+    font-size: 0.95rem;
+    color: var(--accent);
+    margin-bottom: 0.3rem;
+  }
+
+  .step p {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 0.6rem;
+  }
+
+  pre {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 0.8rem 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 0.5rem 0;
+    font-size: 0.78rem;
+    line-height: 1.7;
+  }
+
+  .c { color: #555; }
+  .g { color: var(--green); }
+  .b { color: var(--blue); }
+  .y { color: var(--accent); }
+  .r { color: var(--red); }
+  .p { color: var(--purple); }
+  .d { color: var(--text-dim); }
+
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.6rem 1rem;
+    margin: 0.8rem 0;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    border-radius: 4px;
+  }
+
+  .note strong { color: var(--accent); }
+
+  .warn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    padding: 0.6rem 1rem;
+    margin: 0.8rem 0;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    border-radius: 4px;
+  }
+
+  .warn strong { color: var(--red); }
+
+  .success {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    padding: 0.6rem 1rem;
+    margin: 0.8rem 0;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    border-radius: 4px;
+  }
+
+  .success strong { color: var(--green); }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .badge-once { background: #1a2e1a; color: var(--green); }
+  .badge-each { background: #2e2a1a; color: var(--accent); }
+  .badge-verify { background: #1a1a2e; color: var(--blue); }
+  .badge-prereq { background: #1a2e2e; color: var(--cyan); }
+
+  .concept {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.2rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .concept h4 {
+    color: var(--cyan);
+    font-size: 0.82rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .concept-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.3rem 1rem;
+  }
+
+  .concept-grid dt {
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .concept-grid dd { color: var(--text-dim); }
+
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.2rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--text-dim);
+  }
+
+  .prereq-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin: 0.8rem 0;
+  }
+
+  .prereq-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.8rem 1rem;
+    border-radius: 4px;
+  }
+
+  .prereq-card h4 {
+    color: var(--cyan);
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .prereq-card .desc {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .prereq-card code {
+    font-size: 0.72rem;
+    color: var(--green);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin-top: 1rem;
+  }
+
+  th {
+    text-align: left;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+
+  td code {
+    color: var(--text);
+    font-size: 0.75rem;
+  }
+
+  .expected { color: var(--green); }
+
+  .limits {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .limits h2 {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .limits ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .limits li {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    padding: 0.4rem 0;
+    padding-left: 1.2rem;
+    position: relative;
+  }
+
+  .limits li::before {
+    content: '\2192';
+    position: absolute;
+    left: 0;
+    color: var(--accent-dim);
+  }
+
+  .limits li strong { color: var(--text); }
+
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1rem 1.2rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-size: 0.78rem;
+    line-height: 2;
+    text-align: center;
+    color: var(--text-dim);
+  }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1rem 1.2rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+  }
+
+  .toc h4 {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  .toc ol {
+    list-style: none;
+    padding: 0;
+    counter-reset: toc;
+  }
+
+  .toc li {
+    counter-increment: toc;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    padding: 0.15rem 0;
+  }
+
+  .toc li::before {
+    content: counter(toc) ".";
+    color: var(--accent-dim);
+    margin-right: 0.5rem;
+    font-weight: 600;
+  }
+
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .toc a:hover { color: var(--accent); }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.7rem;
+    color: #444;
+  }
+
+  @media (max-width: 600px) {
+    .prereq-grid { grid-template-columns: 1fr; }
+    .concept-grid { grid-template-columns: 1fr; }
+    body { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>maw token setup guide</h1>
+  <div class="subtitle">Switch between multiple Claude Code accounts from the terminal</div>
+  <div class="audience">For: CLI users who have used one Claude account and want to switch between 2&ndash;3</div>
+</header>
+
+<!-- ==================== WHAT & WHY ==================== -->
+
+<div class="concept">
+  <h4>What this guide does</h4>
+  <p>After following this guide, you'll be able to switch Claude Code between multiple accounts with one command:</p>
+<pre style="border:none; background:none; padding:0.4rem 0; margin:0;">
+<span class="g">maw token use token-A</span>   <span class="c"># switch to account A</span>
+<span class="g">claude</span>                   <span class="c"># authenticated as account A</span>
+
+<span class="g">maw token use token-B</span>   <span class="c"># switch to account B</span>
+<span class="g">claude</span>                   <span class="c"># authenticated as account B</span>
+</pre>
+</div>
+
+<div class="concept">
+  <h4>How it works (the 5 tools)</h4>
+  <dl class="concept-grid">
+    <dt>Claude Code</dt>
+    <dd>Anthropic's AI CLI. Reads <code>CLAUDE_CODE_OAUTH_TOKEN</code> from env to authenticate.</dd>
+    <dt>maw</dt>
+    <dd>A CLI tool that rewrites <code>.envrc</code> to point at the chosen token. One command to switch.</dd>
+    <dt>direnv</dt>
+    <dd>Auto-loads <code>.envrc</code> files when you <code>cd</code> into a directory. Sets env vars for you.</dd>
+    <dt>pass</dt>
+    <dd>Encrypts your tokens with GPG. The <code>.envrc</code> calls <code>pass show</code> to decrypt at load time.</dd>
+    <dt>GPG</dt>
+    <dd>The encryption engine behind <code>pass</code>. You create one key, <code>pass</code> uses it automatically.</dd>
+  </dl>
+</div>
+
+<div class="arch-diagram"><span style="color:var(--accent)">Data flow when you open a terminal</span>
+
+  You type: <span class="g">cd ~/my-project</span>
+
+  direnv detects <span class="b">.envrc</span> in that directory
+          |
+          v
+  .envrc runs: <span class="b">pass show claude/token-A</span>
+          |
+          v
+  GPG decrypts the token from <span class="b">~/.password-store/</span>
+          |
+          v
+  <span class="g">CLAUDE_CODE_OAUTH_TOKEN</span> is now set in your shell
+          |
+          v
+  You type: <span class="g">claude</span> &rarr; authenticated as account A
+</div>
+
+<!-- ==================== TABLE OF CONTENTS ==================== -->
+
+<div class="toc">
+  <h4>Steps</h4>
+  <ol>
+    <li><a href="#install">Install tools</a> (brew/bun &mdash; 5 min)</li>
+    <li><a href="#gpg">Create GPG key</a> (one-time &mdash; 2 min)</li>
+    <li><a href="#pass">Initialize pass</a> (one-time &mdash; 1 min)</li>
+    <li><a href="#direnv">Set up direnv</a> (one-time &mdash; 1 min)</li>
+    <li><a href="#maw">Install maw</a> (one-time &mdash; 2 min)</li>
+    <li><a href="#tokens">Generate &amp; save tokens</a> (per account &mdash; 3 min each)</li>
+    <li><a href="#activate">Activate in your project</a> (per directory &mdash; 30 sec)</li>
+    <li><a href="#verify">Full verification</a></li>
+  </ol>
+</div>
+
+<!-- ==================== PART 1: INSTALL ==================== -->
+
+<h2 class="section-title" id="install">Step 1 &mdash; Install tools <span class="badge badge-once">once per machine</span></h2>
+<p class="section-intro">macOS with Homebrew. All 5 tools are needed.</p>
+
+<div class="prereq-grid">
+  <div class="prereq-card">
+    <h4>Homebrew</h4>
+    <div class="desc">macOS package manager (if you don't have it)</div>
+    <code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</code>
+  </div>
+  <div class="prereq-card">
+    <h4>Bun</h4>
+    <div class="desc">JavaScript runtime &mdash; maw runs on it</div>
+    <code>curl -fsSL https://bun.sh/install | bash</code>
+  </div>
+  <div class="prereq-card">
+    <h4>GnuPG</h4>
+    <div class="desc">Encryption engine for pass</div>
+    <code>brew install gnupg</code>
+  </div>
+  <div class="prereq-card">
+    <h4>pass</h4>
+    <div class="desc">Password store &mdash; encrypts your tokens</div>
+    <code>brew install pass</code>
+  </div>
+  <div class="prereq-card">
+    <h4>direnv</h4>
+    <div class="desc">Auto-loads .envrc per directory</div>
+    <code>brew install direnv</code>
+  </div>
+  <div class="prereq-card">
+    <h4>Claude Code</h4>
+    <div class="desc">Anthropic CLI (if you don't have it)</div>
+    <code>npm i -g @anthropic-ai/claude-code</code>
+  </div>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify all installs <span class="badge badge-verify">verify</span></h3>
+  <p>Run each command. All should print a version, no errors.</p>
+<pre>
+<span class="g">bun --version</span>        <span class="c"># e.g. 1.3.13</span>
+<span class="g">gpg --version</span>        <span class="c"># e.g. gpg (GnuPG) 2.x.x</span>
+<span class="g">pass version</span>         <span class="c"># e.g. pass: the standard unix password manager</span>
+<span class="g">direnv version</span>       <span class="c"># e.g. 2.37.1</span>
+<span class="g">claude --version</span>     <span class="c"># e.g. 2.1.x</span>
+</pre>
+  <div class="warn">
+    <strong>Stuck?</strong> If <code>bun</code> is not found after install, close and reopen your terminal. The installer adds bun to your PATH in <code>~/.zshrc</code>.
+  </div>
+</div>
+
+<!-- ==================== PART 2: GPG ==================== -->
+
+<h2 class="section-title" id="gpg">Step 2 &mdash; Create GPG key <span class="badge badge-once">once per machine</span></h2>
+<p class="section-intro">
+  <code>pass</code> uses GPG to encrypt your tokens. You need one GPG key. Skip if you already have one (<code>gpg --list-keys</code> shows a key).
+</p>
+
+<div class="step" data-n="2">
+  <h3>Generate key</h3>
+  <p>This only asks for your name and email. GPG picks the best key type automatically.</p>
+<pre>
+<span class="g">gpg --generate-key</span>
+
+<span class="d">Real name:</span>  <span class="y">Your Name</span>
+<span class="d">Email address:</span>  <span class="y">you@example.com</span>
+
+<span class="d">You selected this USER-ID:</span>
+<span class="d">    "Your Name &lt;you@example.com&gt;"</span>
+
+<span class="d">Change (N)ame, (E)mail, or (O)kay/(Q)uit?</span>
+<span class="y">O</span>                             <span class="c">&larr; type O, press Enter</span>
+
+<span class="c"># A passphrase prompt appears (in the terminal or as a dialog box).</span>
+<span class="c"># Choose something you'll remember &mdash; you'll need it</span>
+<span class="c"># the first time you decrypt tokens in each session.</span>
+</pre>
+
+<div class="note">
+    <strong>Passphrase:</strong> GPG will ask for this passphrase later when <code>pass</code> decrypts tokens. On macOS, the prompt appears in the terminal (via <code>pinentry-curses</code>) or as a system dialog (if you installed <code>pinentry-mac</code>). Either way, enter the passphrase you set here. <code>gpg-agent</code> caches it so you only enter it once per login session.
+  </div>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify GPG key <span class="badge badge-verify">verify</span></h3>
+<pre>
+<span class="g">gpg --list-keys</span>
+
+<span class="c"># Expected: you should see your name and email.</span>
+<span class="c"># The key type (rsa, ed25519, etc.) doesn't matter &mdash; any type works with pass.</span>
+<span class="d">pub   ...</span>
+<span class="d">uid           [ultimate] Your Name &lt;you@example.com&gt;</span>
+</pre>
+</div>
+
+<!-- ==================== PART 3: PASS ==================== -->
+
+<h2 class="section-title" id="pass">Step 3 &mdash; Initialize pass <span class="badge badge-once">once per machine</span></h2>
+<p class="section-intro">
+  Tell <code>pass</code> which GPG key to encrypt with. Use the email you entered in step 2.
+</p>
+
+<div class="step" data-n="3">
+  <h3>Init password store</h3>
+<pre>
+<span class="g">pass init "you@example.com"</span>
+
+<span class="c"># Expected output:</span>
+<span class="d">Password store initialized for you@example.com</span>
+</pre>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify <span class="badge badge-verify">verify</span></h3>
+<pre>
+<span class="g">pass ls</span>
+
+<span class="c"># Expected: shows "Password Store" (empty is fine)</span>
+<span class="g">ls ~/.password-store/</span>
+
+<span class="c"># Expected: .gpg-id file exists</span>
+</pre>
+</div>
+
+<!-- ==================== PART 4: DIRENV ==================== -->
+
+<h2 class="section-title" id="direnv">Step 4 &mdash; Set up direnv <span class="badge badge-once">once per machine</span></h2>
+<p class="section-intro">
+  direnv needs a hook in your shell config to auto-load <code>.envrc</code> files. Without this, env vars won't be set when you <code>cd</code> into a directory.
+</p>
+
+<div class="step" data-n="4">
+  <h3>Add direnv hook to your shell</h3>
+<pre>
+<span class="c"># If you use zsh (default on macOS):</span>
+<span class="g">echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc</span>
+
+<span class="c"># If you use bash:</span>
+<span class="g">echo 'eval "$(direnv hook bash)"' >> ~/.bashrc</span>
+</pre>
+
+  <div class="warn">
+    <strong>Important:</strong> After adding, you must <strong>fully close and reopen your terminal</strong> (not just <code>source ~/.zshrc</code>). Some terminal apps need a full restart to pick up shell hooks.
+  </div>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify <span class="badge badge-verify">verify</span></h3>
+  <p>Open a <strong>new terminal window</strong> and run:</p>
+<pre>
+<span class="g">direnv version</span>     <span class="c"># should print version</span>
+
+<span class="c"># Quick test: create a temp .envrc and see if direnv detects it</span>
+<span class="g">cd /tmp && echo 'export TEST_VAR=hello' > .envrc && direnv allow</span>
+<span class="g">echo $TEST_VAR</span>     <span class="c"># should print: hello</span>
+<span class="g">rm /tmp/.envrc</span>     <span class="c"># clean up</span>
+</pre>
+</div>
+
+<!-- ==================== PART 5: MAW ==================== -->
+
+<h2 class="section-title" id="maw">Step 5 &mdash; Install maw <span class="badge badge-once">once per machine</span></h2>
+<p class="section-intro">
+  maw is the CLI that ties everything together. It's a bun package on GitHub (public repo).
+</p>
+
+<div class="step" data-n="5">
+  <h3>Install maw globally</h3>
+<pre>
+<span class="g">bun add -g maw-js@github:Soul-Brews-Studio/maw-js</span>
+</pre>
+</div>
+
+<div class="step" data-n="5">
+  <h3>Run first-time setup</h3>
+  <p>maw has an interactive wizard with 3 questions.</p>
+<pre>
+<span class="g">maw init</span>
+
+<span class="d">Node name (this machine's identity in the federation):</span>
+<span class="y">my-laptop</span>                     <span class="c">&larr; any name for this machine, press Enter</span>
+
+<span class="d">Claude token (blank = use $CLAUDE_CODE_OAUTH_TOKEN or ~/.claude/credentials):</span>
+                               <span class="c">&larr; leave blank, press Enter (we use pass+direnv instead)</span>
+
+<span class="d">Federate with other machines? (y/N):</span>
+                               <span class="c">&larr; press Enter (defaults to N &mdash; not needed for token switching)</span>
+</pre>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify <span class="badge badge-verify">verify</span></h3>
+<pre>
+<span class="g">maw --version</span>          <span class="c"># e.g. maw v26.6.x</span>
+<span class="g">maw token --help</span>       <span class="c"># should show: usage: maw token &lt;list|use|current|...&gt;</span>
+</pre>
+  <div class="note">
+    <strong>Note:</strong> The <code>maw token</code> plugin is built into maw &mdash; no separate install needed.
+  </div>
+</div>
+
+<!-- ==================== PART 6: TOKENS ==================== -->
+
+<h2 class="section-title" id="tokens">Step 6 &mdash; Generate &amp; save tokens <span class="badge badge-once">once per account</span></h2>
+<p class="section-intro">
+  For each Claude account you want to use, generate a long-lived token and save it to <code>pass</code>.
+  <br>Example: <strong>token-A</strong> = your personal account, <strong>token-B</strong> = your work account.
+  <br>The name can be anything &mdash; <code>personal</code>, <code>work</code>, <code>alice</code>, whatever helps you remember.
+</p>
+
+<div class="step" data-n="6a">
+  <h3>Account A: login &amp; generate token</h3>
+  <p>This opens your browser for OAuth login, then prints a token.</p>
+<pre>
+<span class="c"># Make sure you're logged out first</span>
+<span class="g">claude auth logout</span>
+
+<span class="c"># Login as account A (opens browser)</span>
+<span class="g">claude auth login</span>
+<span class="c"># Your browser opens an Anthropic login page.</span>
+<span class="c"># Sign in with account A's email.</span>
+<span class="c"># Come back to terminal when it says "Logged in".</span>
+
+<span class="c"># Generate a long-lived token</span>
+<span class="g">claude setup-token</span>
+<span class="c"># This opens your browser — click "Authorize".</span>
+<span class="c"># Browser says "You're all set up" — go back to terminal.</span>
+<span class="c"># Terminal prints:</span>
+<span class="c">#</span>
+<span class="g">#   ✓ Long-lived authentication token created successfully!</span>
+<span class="c">#</span>
+<span class="y">#   Your OAuth token (valid for 1 year):</span>
+<span class="c">#</span>
+<span class="y">#   eyJhbGciOi...very_long_string...    &larr; THIS is your token</span>
+<span class="c">#</span>
+<span class="d">#   Store this token securely. You won't be able to see it again.</span>
+<span class="d">#   Use this token by setting: export CLAUDE_CODE_OAUTH_TOKEN=&lt;token&gt;</span>
+<span class="c">#</span>
+<span class="c"># Copy the long string under "Your OAuth token".</span>
+<span class="c"># Do NOT copy the last line — &lt;token&gt; there is a placeholder, not your real token.</span>
+</pre>
+
+  <div class="warn">
+    <strong>Requirement:</strong> <code>claude setup-token</code> requires a paid Claude subscription (Pro, Team, or Max). Free-tier accounts cannot generate long-lived tokens.
+  </div>
+</div>
+
+<div class="step" data-n="6b">
+  <h3>Account A: save token to pass</h3>
+  <p><code>pass insert</code> asks you to type (paste) the token twice to confirm.</p>
+<pre>
+<span class="g">pass insert claude/token-A</span>
+
+<span class="d">Enter password for claude/token-A:</span>   <span class="c">&larr; paste the token, press Enter</span>
+<span class="d">Retype password for claude/token-A:</span>  <span class="c">&larr; paste again, press Enter</span>
+</pre>
+
+  <div class="note">
+    <strong>Tip:</strong> The token is invisible when you paste &mdash; this is normal (like typing a password). Just paste and press Enter. If the two entries don't match, it asks you to try again.
+  </div>
+</div>
+
+<div class="step" data-n="6c">
+  <h3>Verify account A <span class="badge badge-verify">verify</span></h3>
+<pre>
+<span class="g">pass show claude/token-A | wc -c</span>
+
+<span class="c"># Expected: a number greater than 0 (the token length in bytes)</span>
+<span class="c"># If you see 0, the token wasn't saved &mdash; repeat step 6b.</span>
+</pre>
+
+  <div class="note">
+    <strong>GPG passphrase:</strong> The first time you run <code>pass show</code> in a session, a passphrase prompt appears (in the terminal or as a dialog). Enter the passphrase from step 2. GPG caches it for the rest of your login session.
+  </div>
+</div>
+
+<div class="step" data-n="6d">
+  <h3>Repeat for account B (and C, D, ...)</h3>
+<pre>
+<span class="g">claude auth logout</span>
+<span class="g">claude auth login</span>          <span class="c"># login as account B in browser</span>
+<span class="g">claude setup-token</span>         <span class="c"># copy the token</span>
+<span class="g">pass insert claude/token-B</span> <span class="c"># paste twice to save</span>
+
+<span class="c"># Verify</span>
+<span class="g">pass show claude/token-B | wc -c</span>   <span class="c"># must be &gt; 0</span>
+</pre>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify all tokens <span class="badge badge-verify">verify</span></h3>
+<pre>
+<span class="g">pass ls claude/</span>
+
+<span class="c"># Expected output:</span>
+<span class="d">claude</span>
+<span class="d">&boxvr;&boxh; token-A</span>
+<span class="d">&boxur;&boxh; token-B</span>
+</pre>
+</div>
+
+<!-- ==================== PART 7: ACTIVATE ==================== -->
+
+<h2 class="section-title" id="activate">Step 7 &mdash; Activate in your project <span class="badge badge-each">per directory</span></h2>
+<p class="section-intro">
+  <code>maw token use</code> creates a <code>.envrc</code> file <strong>in the directory where you run it</strong>. You need to run it from each project directory where you use Claude Code. (Or once from a parent directory &mdash; direnv loads parent <code>.envrc</code> files into subdirectories automatically.)
+</p>
+
+<div class="step" data-n="7">
+  <h3>Switch to a token in your project</h3>
+<pre>
+<span class="c"># Go to your project directory</span>
+<span class="g">cd ~/my-project</span>
+
+<span class="c"># Activate token-A for this directory</span>
+<span class="g">maw token use token-A</span>
+
+<span class="c"># Expected output:</span>
+<span class="d">Now using: token-A</span>
+</pre>
+
+  <p>What happened behind the scenes:</p>
+<pre>
+<span class="c"># 1. maw wrote/updated .envrc in ~/my-project/:</span>
+<span class="d">export CLAUDE_TOKEN_NAME="token-A"</span>
+<span class="d">export CLAUDE_CODE_OAUTH_TOKEN="$(pass show claude/token-A)"</span>
+<span class="d">export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</span>
+
+<span class="c"># 2. maw ran `direnv allow .` automatically</span>
+
+<span class="c"># 3. Next time you cd into this directory, direnv loads the .envrc</span>
+</pre>
+
+  <div class="note">
+    <strong>Key concept:</strong> The <code>.envrc</code> does NOT contain your actual token. It contains a command (<code>pass show ...</code>) that decrypts it on demand. Your token is safe even if someone sees the file.
+  </div>
+
+  <p>Add <code>.envrc</code> to <code>.gitignore</code> so it doesn't get committed:</p>
+<pre>
+<span class="g">echo '.envrc' >> .gitignore</span>
+</pre>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify it works <span class="badge badge-verify">verify</span></h3>
+  <p>Leave the directory and come back to trigger direnv:</p>
+<pre>
+<span class="g">cd ~</span>
+<span class="g">cd ~/my-project</span>
+
+<span class="c"># direnv should print: direnv: loading .envrc</span>
+
+<span class="g">echo "NAME: $CLAUDE_TOKEN_NAME"</span>
+<span class="c"># Expected: NAME: token-A</span>
+
+<span class="g">echo "TOKEN SET: $([ ${#CLAUDE_CODE_OAUTH_TOKEN} -gt 0 ] && echo YES || echo NO)"</span>
+<span class="c"># Expected: TOKEN SET: YES</span>
+</pre>
+</div>
+
+<div class="step" data-n="7">
+  <h3>Test Claude Code authenticates</h3>
+<pre>
+<span class="g">claude --version</span>
+
+<span class="c"># If the token is valid, this prints the version number</span>
+<span class="c"># without asking you to login.</span>
+<span class="c"># If it asks for login, the token may be expired &mdash;</span>
+<span class="c"># re-run step 6 for that account.</span>
+</pre>
+</div>
+
+<div class="step" data-n="7">
+  <h3>Switch to a different account</h3>
+<pre>
+<span class="c"># From the same project directory:</span>
+<span class="g">maw token use token-B</span>
+
+<span class="c"># Leave and come back to reload:</span>
+<span class="g">cd ~ && cd ~/my-project</span>
+
+<span class="g">echo $CLAUDE_TOKEN_NAME</span>
+<span class="c"># Expected: token-B</span>
+
+<span class="g">claude</span>
+<span class="c"># Now authenticated as account B</span>
+</pre>
+</div>
+
+<!-- ==================== DAILY WORKFLOW ==================== -->
+
+<h2 class="section-title">Daily workflow</h2>
+<p class="section-intro">
+  After setup is complete, this is all you need:
+</p>
+
+<div class="flow">
+  <span style="color:var(--green)">maw token use token-A</span>
+  <span style="color:var(--accent-dim)"> &rarr; </span>
+  <span>cd ~/my-project</span>
+  <span style="color:var(--accent-dim)"> &rarr; </span>
+  <span style="color:var(--green)">claude</span>
+  <span style="color:var(--accent-dim)"> &rarr; </span>
+  <span style="color:var(--green)">authenticated</span>
+</div>
+
+<pre>
+<span class="c"># Switch account (run from your project directory)</span>
+<span class="g">cd ~/my-project</span>
+<span class="g">maw token use token-A</span>
+
+<span class="c"># Reload direnv (leave and come back &mdash; direnv triggers on cd)</span>
+<span class="g">cd ~ && cd ~/my-project</span>
+
+<span class="c"># Now start Claude Code</span>
+<span class="g">claude</span>                  <span class="c"># authenticated as token-A</span>
+
+<span class="c"># Check which token is active anytime:</span>
+<span class="g">maw token current</span>       <span class="c"># prints: token-A</span>
+
+<span class="c"># List all saved tokens:</span>
+<span class="g">maw token list</span>          <span class="c"># shows all, marks active one</span>
+</pre>
+
+<div class="note">
+  <strong>Why cd out and back?</strong> <code>direnv</code> only reloads <code>.envrc</code> when it detects you entering a directory. After <code>maw token use</code> changes the file, you need to trigger a reload by leaving and coming back. Alternatively, run <code>eval "$(direnv export zsh)"</code> to reload without leaving.
+</div>
+
+<!-- ==================== FULL VERIFICATION ==================== -->
+
+<h2 class="section-title" id="verify">Full verification checklist</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Command</th>
+      <th>Expected</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><code>bun --version</code></td>
+      <td class="expected">version number</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><code>maw --version</code></td>
+      <td class="expected">maw v26.x.x</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><code>gpg --list-keys</code></td>
+      <td class="expected">at least 1 key</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><code>pass ls claude/</code></td>
+      <td class="expected">token-A, token-B listed</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><code>pass show claude/token-A | wc -c</code></td>
+      <td class="expected">&gt; 0</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><code>pass show claude/token-B | wc -c</code></td>
+      <td class="expected">&gt; 0</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><code>cd ~/my-project && maw token use token-A</code></td>
+      <td class="expected">"Now using: token-A"</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><code>cd ~ && cd ~/my-project && echo $CLAUDE_TOKEN_NAME</code></td>
+      <td class="expected">token-A</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td><code>maw token use token-B && cd ~ && cd ~/my-project && echo $CLAUDE_TOKEN_NAME</code></td>
+      <td class="expected">token-B</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td><code>claude --version</code> (with token set)</td>
+      <td class="expected">version, no login prompt</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="success">
+  <strong>Done!</strong> If all 10 checks pass, you can switch between Claude accounts with <code>maw token use &lt;name&gt;</code>.
+</div>
+
+<!-- ==================== LIMITATIONS ==================== -->
+
+<div class="limits">
+  <h2>Things to know</h2>
+  <ul>
+    <li><strong>.envrc is per-directory</strong> &mdash; run <code>maw token use</code> from each project directory where you use Claude. Or run it from a parent directory to cover all subdirectories.</li>
+    <li><strong>Already-running Claude sessions</strong> won't pick up the change &mdash; exit Claude and start it again after switching.</li>
+    <li><strong>Tokens from <code>setup-token</code></strong> are inference-only &mdash; no MCP auth or project access.</li>
+    <li><strong>Requires a paid Claude subscription</strong> &mdash; free-tier accounts can't generate long-lived tokens.</li>
+    <li><strong>GPG passphrase</strong> is asked once per login session (on first <code>pass</code> decrypt). Appears in terminal or as dialog.</li>
+    <li><strong>Tokens live in <code>~/.password-store/</code></strong> &mdash; to share across machines, export your GPG key and copy the password store.</li>
+    <li><strong>Add <code>.envrc</code> to your <code>.gitignore</code></strong> &mdash; you don't want to commit it (even though it doesn't contain the raw token).</li>
+  </ul>
+</div>
+
+<!-- ==================== TROUBLESHOOTING ==================== -->
+
+<div class="limits">
+  <h2>Troubleshooting</h2>
+  <ul>
+    <li><strong><code>pass show</code> returns 0 bytes</strong> &mdash; the token was never saved. Run <code>pass insert claude/token-&lt;name&gt;</code> and paste the token.</li>
+    <li><strong>direnv not loading .envrc</strong> &mdash; make sure <code>eval "$(direnv hook zsh)"</code> is in your <code>~/.zshrc</code> and you opened a <strong>new terminal</strong>. Then run <code>direnv allow</code> in the project directory.</li>
+    <li><strong><code>CLAUDE_CODE_OAUTH_TOKEN</code> is empty</strong> &mdash; try <code>cd ~ && cd ~/my-project</code> to re-trigger direnv. If still empty, check <code>pass show claude/token-&lt;name&gt; | wc -c</code>.</li>
+    <li><strong>Claude still asks for login</strong> &mdash; the token may be expired. Re-run step 6 (<code>claude auth login</code> &rarr; <code>setup-token</code> &rarr; <code>pass insert</code>).</li>
+    <li><strong>GPG passphrase prompt doesn't appear</strong> &mdash; run <code>gpgconf --kill gpg-agent && gpg-agent --daemon</code> to restart the GPG agent.</li>
+    <li><strong><code>maw token use</code> says "not found in pass"</strong> &mdash; the pass entry name must match exactly. Run <code>pass ls claude/</code> to see what names exist.</li>
+    <li><strong><code>maw: command not found</code></strong> &mdash; close and reopen terminal. If still missing, run <code>bun add -g maw-js@github:Soul-Brews-Studio/maw-js</code> again.</li>
+    <li><strong><code>pass insert</code> says "passwords don't match"</strong> &mdash; you pasted different text the two times. Try again, paste carefully.</li>
+    <li><strong><code>pass insert</code> says "no public key"</strong> &mdash; the email in <code>pass init</code> must match your GPG key exactly. Run <code>gpg --list-keys</code> to see your email, then re-run <code>pass init "correct@email.com"</code>.</li>
+    <li><strong>Copied the wrong line from <code>setup-token</code></strong> &mdash; copy the long string under "Your OAuth token (valid for 1 year):", NOT the last line which says <code>&lt;token&gt;</code> (that's a placeholder). Run <code>pass insert -f claude/token-A</code> and paste the real token.</li>
+    <li><strong>env vars not updating after <code>maw token use</code></strong> &mdash; direnv reloads on directory change. Run <code>cd ~ && cd ~/my-project</code> or <code>eval "$(direnv export zsh)"</code> to force reload. (<code>cd .</code> does NOT work &mdash; direnv ignores same-directory changes.)</li>
+  </ul>
+</div>
+
+<footer>
+  maw token setup guide &mdash; 2026-06-07
+</footer>
+
+</body>
+</html>
