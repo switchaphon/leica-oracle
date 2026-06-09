@@ -860,44 +860,244 @@
 </pre>
 </div>
 
-<!-- ==================== DAILY WORKFLOW ==================== -->
+<!-- ==================== HOW SWITCHING ACTUALLY WORKS ==================== -->
 
-<h2 class="section-title">Daily workflow</h2>
+<h2 class="section-title">How token switching actually works</h2>
 <p class="section-intro">
-  After setup is complete, this is all you need:
+  There are 4 pieces in the chain. If any one breaks, the switch won't take effect.
 </p>
 
-<div class="flow">
-  <span style="color:var(--green)">maw token use token-A</span>
-  <span style="color:var(--accent-dim)"> &rarr; </span>
-  <span>cd ~/my-project</span>
-  <span style="color:var(--accent-dim)"> &rarr; </span>
-  <span style="color:var(--green)">claude</span>
-  <span style="color:var(--accent-dim)"> &rarr; </span>
-  <span style="color:var(--green)">authenticated</span>
+<div class="concept">
+  <h4>The chain: 4 pieces, in order</h4>
+<pre style="border:none; background:none; padding:0.4rem 0; margin:0; line-height:2.2;">
+<span class="b">1. pass</span>        <span class="d">token &ldquo;token-A&rdquo; encrypted on disk at ~/.password-store/</span>
+    <span class="d">&darr; decrypted when .envrc runs</span>
+<span class="b">2. .envrc</span>      <span class="d">file in your project folder that says &ldquo;use token-A&rdquo;</span>
+    <span class="d">&darr; loaded by direnv when you cd into the folder</span>
+<span class="b">3. env var</span>     <span class="d">CLAUDE_CODE_OAUTH_TOKEN set in your shell</span>
+    <span class="d">&darr; read by Claude at startup</span>
+<span class="b">4. claude</span>      <span class="d">uses whatever token was in env when it started</span>
+</pre>
 </div>
 
-<pre>
-<span class="c"># Switch account (run from your project directory)</span>
-<span class="g">cd ~/my-project</span>
-<span class="g">maw token use token-A</span>
+<div class="concept">
+  <h4>What each command actually does</h4>
+  <dl class="concept-grid">
+    <dt><code>maw token use X</code></dt>
+    <dd>Rewrites <code>.envrc</code> <strong>in the current folder</strong> to point at token X. That&rsquo;s ALL it does &mdash; no env vars change yet.</dd>
+    <dt><code>cd ~ && cd ~/project</code></dt>
+    <dd>Triggers direnv to re-read <code>.envrc</code> and set the new token in your shell.</dd>
+    <dt><code>eval "$(direnv export zsh)"</code></dt>
+    <dd>Same as above but without leaving the folder. Alternative to the cd trick.</dd>
+    <dt><code>claude</code></dt>
+    <dd>Reads <code>CLAUDE_CODE_OAUTH_TOKEN</code> from env <strong>once, at startup</strong>. Never re-reads it.</dd>
+  </dl>
+</div>
 
-<span class="c"># Reload direnv (leave and come back &mdash; direnv triggers on cd)</span>
+<div class="warn">
+  <strong>The 3 traps</strong>
+  <ul style="margin-top:0.4rem; padding-left:1.2rem; list-style:disc;">
+    <li><strong>Forgot to reload direnv</strong> &mdash; <code>maw token use</code> changed the file, but your shell still has the old env var. Fix: <code>cd ~ && cd ~/project</code> or <code>eval "$(direnv export zsh)"</code>.</li>
+    <li><strong>Claude is still running</strong> &mdash; even after reloading direnv, Claude reads the token once at startup. Fix: <code>/exit</code> Claude and start it again.</li>
+    <li><strong>.envrc is in the wrong folder</strong> &mdash; direnv loads the <code>.envrc</code> of the folder you&rsquo;re in, not a global setting. If folder B has no <code>.envrc</code>, it gets no token. Fix: run <code>maw token use</code> from each folder, or use a single parent folder that contains all projects.</li>
+  </ul>
+</div>
+
+<!-- ==================== DAILY WORKFLOW ==================== -->
+
+<h2 class="section-title">Daily workflow &mdash; single Claude session</h2>
+<p class="section-intro">
+  Opening Claude manually in one terminal.
+</p>
+
+<div class="step" data-n="1">
+  <h3>Switch token</h3>
+  <p>Run from the folder where you&rsquo;ll use Claude.</p>
+<pre>
+<span class="g">cd ~/my-project</span>
+<span class="g">maw token use token-A</span>          <span class="c"># rewrites .envrc</span>
+</pre>
+</div>
+
+<div class="step" data-n="2">
+  <h3>Reload env</h3>
+  <p>direnv needs a trigger to re-read .envrc. Pick one:</p>
+<pre>
+<span class="c"># Option A: leave and come back</span>
 <span class="g">cd ~ && cd ~/my-project</span>
 
-<span class="c"># Now start Claude Code</span>
-<span class="g">claude</span>                  <span class="c"># authenticated as token-A</span>
-
-<span class="c"># Check which token is active anytime:</span>
-<span class="g">maw token current</span>       <span class="c"># prints: token-A</span>
-
-<span class="c"># List all saved tokens:</span>
-<span class="g">maw token list</span>          <span class="c"># shows all, marks active one</span>
+<span class="c"># Option B: force reload in-place</span>
+<span class="g">eval "$(direnv export zsh)"</span>
 </pre>
+</div>
+
+<div class="step" data-n="3">
+  <h3>Verify &amp; launch</h3>
+<pre>
+<span class="g">echo $CLAUDE_TOKEN_NAME</span>        <span class="c"># should print: token-A</span>
+<span class="g">claude</span>                          <span class="c"># authenticated as token-A</span>
+</pre>
+</div>
 
 <div class="note">
-  <strong>Why cd out and back?</strong> <code>direnv</code> only reloads <code>.envrc</code> when it detects you entering a directory. After <code>maw token use</code> changes the file, you need to trigger a reload by leaving and coming back. Alternatively, run <code>eval "$(direnv export zsh)"</code> to reload without leaving.
+  <strong>Switching mid-work?</strong> You must <code>/exit</code> Claude first, switch token (steps 1&ndash;2), then start Claude again. There is no way to switch while Claude is running.
 </div>
+
+<!-- ==================== TMUX / START.SH WORKFLOW ==================== -->
+
+<h2 class="section-title">Daily workflow &mdash; tmux fleet (start.sh)</h2>
+<p class="section-intro">
+  If you use <code>start.sh</code> to launch multiple Claude sessions in tmux, the flow is different. <code>start.sh</code> reads the token from <strong>one folder</strong> (leica-oracle) and copies it into every tmux pane.
+</p>
+
+<div class="arch-diagram"><span style="color:var(--accent)">How start.sh distributes the token</span>
+
+  start.sh runs from <span class="b">leica-oracle/</span>
+          |
+  reads <span class="b">.envrc</span> &rarr; decrypts token via pass
+          |
+  copies token into <span class="g">$TOKEN_CMD</span> variable
+          |
+  injects <span class="g">$TOKEN_CMD</span> into every tmux pane via send-keys
+          |
+  each pane runs: <span class="g">export CLAUDE_CODE_OAUTH_TOKEN='...' && claude</span>
+</div>
+
+<div class="step" data-n="1">
+  <h3>Switch token (for the whole fleet)</h3>
+<pre>
+<span class="g">cd ~/ghq/github.com/switchaphon/leica-oracle</span>
+<span class="g">maw token use token-B</span>
+</pre>
+  <p>This only matters in <strong>leica-oracle/</strong> &mdash; that&rsquo;s the one folder start.sh reads from.</p>
+</div>
+
+<div class="step" data-n="2">
+  <h3>Kill all old sessions</h3>
+<pre>
+<span class="g">tmux kill-server</span>
+</pre>
+</div>
+
+<div class="step" data-n="3">
+  <h3>Restart</h3>
+<pre>
+<span class="g">./start.sh</span>                      <span class="c"># all panes now use token-B</span>
+</pre>
+</div>
+
+<div class="warn">
+  <strong>No shortcut.</strong> You cannot switch tokens for already-running tmux sessions. Claude reads the token once at startup, and tmux panes got their token from start.sh. Kill and restart is the only way.
+</div>
+
+<!-- ==================== BEFORE YOU KILL ==================== -->
+
+<h2 class="section-title">Before you kill &mdash; save your work</h2>
+<p class="section-intro">
+  <code>tmux kill-server</code> kills <strong>every</strong> session, window, and pane &mdash; including all running Claude processes. Any unsaved conversation context is gone forever.
+</p>
+
+<div class="concept">
+  <h4>What survives vs. what dies</h4>
+  <table style="margin:0;">
+    <thead>
+      <tr><th>What</th><th>Where it lives</th><th>After kill?</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Identity (SOUL, CLAUDE.md)</td><td>Files on disk</td><td class="expected">Survives</td></tr>
+      <tr><td>Memory / learnings</td><td>&psi;/memory/</td><td class="expected">Survives</td></tr>
+      <tr><td>Skills</td><td>.claude/skills/</td><td class="expected">Survives</td></tr>
+      <tr><td>Discord bot token</td><td>.discord-state/</td><td class="expected">Survives</td></tr>
+      <tr><td>Conversation context</td><td style="color:var(--red)">RAM (Claude process)</td><td style="color:var(--red)">Dies</td></tr>
+      <tr><td>What you were working on</td><td style="color:var(--red)">RAM (Claude process)</td><td style="color:var(--red)">Dies</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Save before killing</h3>
+  <p>Go to each tmux pane that has an active Claude session with in-progress work, and run:</p>
+<pre>
+<span class="g">/rrr</span>              <span class="c"># save session summary to disk</span>
+<span class="c"># or</span>
+<span class="g">/forward</span>          <span class="c"># save + create handoff for next session</span>
+</pre>
+  <p>If the oracle was just idling (no work in progress), you can skip this.</p>
+</div>
+
+<div class="note">
+  <strong>You do NOT need to /bud or /awaken again.</strong> Those create the oracle&rsquo;s identity and brain on disk &mdash; one-time only. After <code>kill-server</code> + <code>start.sh</code>, the oracle wakes up and reads its existing &psi;/ brain. It just won&rsquo;t remember the <em>conversation</em> from last session unless you saved it with <code>/rrr</code> or <code>/forward</code>.
+</div>
+
+<!-- ==================== FULL PROCEDURE ==================== -->
+
+<h2 class="section-title">Full procedure &mdash; switch token for the fleet</h2>
+<p class="section-intro">
+  All oracles share one token. Switch once, restart once, everyone gets the new token.
+</p>
+
+<div class="step" data-n="1">
+  <h3>Save work in active sessions</h3>
+  <p>In each tmux pane with in-progress Claude work:</p>
+<pre>
+<span class="g">/rrr</span>
+</pre>
+</div>
+
+<div class="step" data-n="2">
+  <h3>Switch token at leica-oracle</h3>
+<pre>
+<span class="g">cd ~/ghq/github.com/switchaphon/leica-oracle</span>
+<span class="g">maw token use token-nat</span>
+</pre>
+</div>
+
+<div class="step" data-n="3">
+  <h3>Kill and restart</h3>
+<pre>
+<span class="g">tmux kill-server</span>
+<span class="g">./start.sh</span>
+</pre>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify</h3>
+<pre>
+<span class="c"># In any Claude pane, check who you are:</span>
+<span class="g">/who-are-you</span>
+</pre>
+</div>
+
+<div class="note">
+  <strong>Partial restart (keep other oracles alive):</strong> If you have oracles running outside of <code>start.sh</code> (e.g. opened manually with <code>maw workon</code>) and don&rsquo;t want to kill them:
+<pre style="border:none; background:none; padding:0.4rem 0; margin:0;">
+<span class="g">tmux kill-session -t 01-leica</span>
+<span class="g">tmux kill-session -t 05-pops-clinic</span>
+<span class="g">./start.sh</span>
+</pre>
+  Other sessions stay alive but keep using the <strong>old token</strong>. Only sessions created by <code>start.sh</code> get the new one.
+</div>
+
+<!-- ==================== QUICK REFERENCE ==================== -->
+
+<h2 class="section-title">Quick reference</h2>
+
+<pre>
+<span class="c"># Check which token is active in this shell:</span>
+<span class="g">echo $CLAUDE_TOKEN_NAME</span>
+
+<span class="c"># Check which token maw thinks is active (reads .envrc):</span>
+<span class="g">maw token current</span>
+
+<span class="c"># List all saved tokens:</span>
+<span class="g">maw token list</span>
+
+<span class="c"># Force direnv to reload without cd:</span>
+<span class="g">eval "$(direnv export zsh)"</span>
+
+<span class="c"># Confirm the env var is actually set:</span>
+<span class="g">[ ${#CLAUDE_CODE_OAUTH_TOKEN} -gt 0 ] && echo "TOKEN SET" || echo "NO TOKEN"</span>
+</pre>
 
 <!-- ==================== FULL VERIFICATION ==================== -->
 
@@ -1004,7 +1204,7 @@
 </div>
 
 <footer>
-  maw token setup guide &mdash; 2026-06-07
+  maw token setup guide &mdash; 2026-06-08
 </footer>
 
 </body>
