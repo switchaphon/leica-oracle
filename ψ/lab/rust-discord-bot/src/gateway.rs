@@ -266,4 +266,64 @@ mod tests {
         assert_eq!(payload["op"], 1);
         assert_eq!(payload["d"], 12);
     }
+
+    #[test]
+    fn payload_with_missing_event_type_parses() -> Result<(), DiscordError> {
+        let payload = parse_gateway_payload(r#"{"op":11,"d":null,"s":42}"#)?;
+
+        assert_eq!(payload.op, 11);
+        assert_eq!(payload.t, None);
+        assert_eq!(payload.s, Some(42));
+        Ok(())
+    }
+
+    #[test]
+    fn heartbeat_ack_is_ignored_by_message_parser() -> Result<(), DiscordError> {
+        let message = parse_message_create(r#"{"op":11,"d":null,"s":42}"#)?;
+
+        assert_eq!(message, None);
+        Ok(())
+    }
+
+    #[test]
+    fn null_data_for_non_message_event_does_not_fail() -> Result<(), DiscordError> {
+        let message = parse_message_create(r#"{"op":0,"d":null,"s":43,"t":"READY"}"#)?;
+
+        assert_eq!(message, None);
+        Ok(())
+    }
+
+    #[test]
+    fn payload_with_unknown_fields_parses() -> Result<(), DiscordError> {
+        let payload = parse_gateway_payload(
+            r#"{"op":11,"d":null,"s":44,"t":null,"future_field":{"nested":true}}"#,
+        )?;
+
+        assert_eq!(payload.op, 11);
+        assert_eq!(payload.s, Some(44));
+        Ok(())
+    }
+
+    #[test]
+    fn very_large_message_create_payload_parses() -> Result<(), DiscordError> {
+        let content = "x".repeat(70 * 1024);
+        let event = serde_json::json!({
+            "op": 0,
+            "d": {
+                "id": "large-message",
+                "channel_id": "channel",
+                "content": content,
+                "author": {"id": "human", "username": "human"},
+                "mentions": []
+            },
+            "s": 45,
+            "t": "MESSAGE_CREATE"
+        });
+
+        let message = parse_message_create(&event.to_string())?
+            .ok_or_else(|| DiscordError::Gateway("expected large message".to_owned()))?;
+
+        assert_eq!(message.content.len(), 70 * 1024);
+        Ok(())
+    }
 }
