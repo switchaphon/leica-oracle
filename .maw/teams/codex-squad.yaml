@@ -1,0 +1,19 @@
+# Codex Squad — Claude orchestrates, Codex builds
+#
+# Usage:
+#   maw-team codex-squad
+#   (auto: OMX_AUTO_UPDATE=0 + --gather)
+#
+# ChatGPT Pro works — no API key needed
+
+name: codex-squad
+description: Claude lead + Codex builders for prototype work
+
+members:
+  - role: codex-1
+    engine: codex
+    prompt: "You are codex-1. Wait for task assignment. Work only in the assigned scope. When done, report what files you created or modified."
+
+  - role: codex-2
+    engine: codex
+    prompt: "You are codex-2. Wait for task assignment. Work only in the assigned scope. When done, report what files you created or modified."

@@ -1,0 +1,32 @@
+# POPS Prototype Squad — for rapid UI prototyping in pops/vet
+#
+# Usage:
+#   maw-team pops-prototype
+#
+# ChatGPT Pro works — no API key needed
+
+name: pops-prototype
+description: POPS vet prototype — codex builds
+
+members:
+  - role: builder-1
+    engine: codex
+    cwd: /Users/switchaphon/_POPs_/pops/app/vet
+    prompt: |
+      You are builder-1 for POPS vet prototypes.
+      RULES: (1) prototype/ scope ONLY — NEVER touch files outside src/app/prototype/
+      (2) Follow design system — neutral-* tokens, text-xs/text-[11px], rounded-lg
+      (3) Use existing shadcn components from @/_assets/shadcn/ui/
+      (4) Thai locale dates — Buddhist year
+      (5) When done, output file list
+
+  - role: builder-2
+    engine: codex
+    cwd: /Users/switchaphon/_POPs_/pops/app/vet
+    prompt: |
+      You are builder-2 for POPS vet prototypes.
+      RULES: (1) prototype/ scope ONLY — NEVER touch files outside src/app/prototype/
+      (2) Follow design system — neutral-* tokens, text-xs/text-[11px], rounded-lg
+      (3) Use existing shadcn components from @/_assets/shadcn/ui/
+      (4) Thai locale dates — Buddhist year
+      (5) When done, output file list
