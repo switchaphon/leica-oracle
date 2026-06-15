@@ -1,0 +1,13 @@
+{
+  "name": "leica-nowcast",
+  "version": "1.0.0",
+  "entry": "./index.ts",
+  "sdk": "^1.0.0",
+  "description": "PM2.5 Nowcast for Chiang Mai — rain radar + sensors",
+  "author": "Leica Oracle",
+  "cli": {
+    "command": "nowcast",
+    "aliases": ["nc"],
+    "help": "maw nowcast <radar|pm25|forecast|status>"
+  }
+}
