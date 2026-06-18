@@ -4,6 +4,8 @@ from: leica
 to: Un
 date: 2026-05-08
 status: pending
+read: true
+readAt: 2026-06-11T08:48:37.551Z
 ---
 
 # Review: Skill Distribution Design

@@ -137,6 +137,7 @@ codex doctor 2>&1 | grep "auth mode"   # → chatgpt (OK)
 | 8 | Charter lead spawn เป็น zsh เปล่า | ไม่ต้องมี lead — Oracle เป็น lead อยู่แล้ว |
 | 9 | `OMX_AUTO_UPDATE=0` ลืมใส่ | Codex update ตัวเองระหว่างทำงาน |
 | 10 | Orphan worktree block team up | `git worktree prune` ก่อน spawn |
+| 11 | `workspace-write` commit ไม่ได้ — `.git/index.lock: Operation not permitted` | ให้ Oracle lead commit แทน (เข้ากับ review flow) หรือใช้ `-s danger-full-access` |
 
 ## 8. Token Usage Reference
 

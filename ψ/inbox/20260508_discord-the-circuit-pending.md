@@ -3,6 +3,8 @@ topic: discord-the-circuit
 from: leica
 timestamp: 2026-05-08 18:30
 status: blocked (waiting on Un)
+read: true
+readAt: 2026-06-11T08:48:37.551Z
 ---
 
 # Discord "The Circuit" — Mobile Gateway

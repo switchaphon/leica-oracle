@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POPS Vet — Agent Team Structure (Before/After)</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-2: #1a1a26;
+      --border: #2a2a3a;
+      --border-glow: #3a3a5a;
+      --text: #e4e4ef;
+      --text-dim: #8888a0;
+      --accent: #7c6aef;
+      --green: #4ade80;
+      --green-dim: #166534;
+      --amber: #fbbf24;
+      --amber-dim: #92400e;
+      --red: #f87171;
+      --red-dim: #7f1d1d;
+      --cyan: #22d3ee;
+      --cyan-dim: #164e63;
+      --pink: #f472b6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .header {
+      text-align: center;
+      padding: 3rem 0 2rem;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0.5rem 0.2rem;
+    }
+
+    .badge-before { background: var(--red-dim); color: var(--red); }
+    .badge-after { background: var(--green-dim); color: var(--green); }
+    .badge-pending { background: var(--amber-dim); color: var(--amber); }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin: 2.5rem 0 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 3px;
+      height: 1.1rem;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* Stats Row */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .stat-value.red { color: var(--red); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.amber { color: var(--amber); }
+    .stat-value.cyan { color: var(--cyan); }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.3rem;
+    }
+
+    /* Comparison Layout */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    @media (max-width: 900px) {
+      .comparison-grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+
+    .panel-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .panel-title .dot-red { background: var(--red); }
+    .panel-title .dot-green { background: var(--green); }
+
+    /* Agent List */
+    .agent-list {
+      list-style: none;
+      padding: 0;
+      font-size: 0.75rem;
+    }
+
+    .agent-list li {
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.15s;
+    }
+
+    .agent-list li:hover {
+      background: var(--surface-2);
+    }
+
+    .agent-list .tag {
+      font-size: 0.6rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .tag-dup { background: var(--red-dim); color: var(--red); }
+    .tag-overlap { background: var(--amber-dim); color: var(--amber); }
+    .tag-unique { background: var(--cyan-dim); color: var(--cyan); }
+    .tag-delete { background: var(--red-dim); color: var(--red); }
+    .tag-keep { background: var(--green-dim); color: var(--green); }
+    .tag-merge { background: var(--accent); color: white; opacity: 0.9; }
+
+    .agent-name {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .agent-desc {
+      color: var(--text-dim);
+      margin-left: auto;
+      font-size: 0.65rem;
+      text-align: right;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lines {
+      color: var(--text-dim);
+      font-size: 0.6rem;
+      flex-shrink: 0;
+      width: 40px;
+      text-align: right;
+    }
+
+    /* Merge Map */
+    .merge-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .merge-table th {
+      text-align: left;
+      padding: 0.7rem 0.8rem;
+      border-bottom: 2px solid var(--border);
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .merge-table td {
+      padding: 0.6rem 0.8rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .merge-table tr:hover td {
+      background: var(--surface-2);
+    }
+
+    .merge-table .new-name {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .merge-table .absorbs {
+      color: var(--text-dim);
+      font-size: 0.7rem;
+    }
+
+    .merge-table .absorbs code {
+      background: var(--surface-2);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      margin-right: 0.3rem;
+      display: inline-block;
+      margin-bottom: 0.2rem;
+    }
+
+    .merge-table .role-desc {
+      color: var(--text-dim);
+      font-size: 0.7rem;
+    }
+
+    /* Safety Section */
+    .safety {
+      background: var(--surface);
+      border: 1px solid var(--green-dim);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .safety h3 {
+      color: var(--green);
+      font-size: 0.85rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .safety ul {
+      list-style: none;
+      padding: 0;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    .safety li {
+      padding: 0.3rem 0;
+      padding-left: 1.2rem;
+      position: relative;
+    }
+
+    .safety li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    /* Alignment Section */
+    .alignment {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.5rem;
+      margin: 1rem 0;
+      font-size: 0.75rem;
+    }
+
+    @media (max-width: 768px) {
+      .alignment { grid-template-columns: 1fr; }
+    }
+
+    .align-col {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .align-col h4 {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.6rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .align-col ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .align-col li {
+      padding: 0.25rem 0;
+      color: var(--text);
+    }
+
+    .align-col .icon { margin-right: 0.3rem; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 3rem 0 2rem;
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>POPS Vet — Agent Team Structure</h1>
+      <p>.claude/agents/ cleanup plan — before &amp; after</p>
+      <div>
+        <span class="badge badge-before">before: 27 agents</span>
+        <span class="badge badge-after">after: 10 agents</span>
+        <span class="badge badge-pending">status: pending</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-value red">27</div>
+        <div class="stat-label">Current agents</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value green">10</div>
+        <div class="stat-label">Target agents</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value amber">14</div>
+        <div class="stat-label">Duplicates (7 pairs)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value cyan">2,779</div>
+        <div class="stat-label">Total lines (before)</div>
+      </div>
+    </div>
+
+    <!-- Before / After -->
+    <div class="section-title">Before vs After</div>
+    <div class="comparison-grid">
+
+      <!-- BEFORE -->
+      <div class="panel">
+        <div class="panel-title"><span class="dot dot-red"></span> Current (27 agents)</div>
+        <ul class="agent-list">
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">backend-engineer</span><span class="lines">100L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-backend-engineer</span><span class="lines">111L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">frontend-engineer</span><span class="lines">76L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-frontend-engineer</span><span class="lines">87L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">devops-engineer</span><span class="lines">76L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-devops-engineer</span><span class="lines">87L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">qa-tester</span><span class="lines">97L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-qa-tester</span><span class="lines">77L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">security-auditor</span><span class="lines">91L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-security-auditor</span><span class="lines">102L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">product-manager</span><span class="lines">63L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-product-manager</span><span class="lines">74L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">premium-ux-designer</span><span class="lines">137L</span></li>
+          <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-ux-designer</span><span class="lines">148L</span></li>
+          <li><span class="tag tag-overlap">OVERLAP</span><span class="agent-name">code-reviewer</span><span class="lines">84L</span></li>
+          <li><span class="tag tag-overlap">OVERLAP</span><span class="agent-name">senior-code-reviewer</span><span class="lines">174L</span></li>
+          <li><span class="tag tag-overlap">OVERLAP</span><span class="agent-name">staff-engineer</span><span class="lines">161L</span></li>
+          <li><span class="tag tag-overlap">OVERLAP</span><span class="agent-name">system-architect</span><span class="lines">54L</span></li>
+          <li><span class="tag tag-overlap">OVERLAP</span><span class="agent-name">shadcn-implementation-builder</span><span class="lines">104L</span></li>
+          <li><span class="tag tag-overlap">OVERLAP</span><span class="agent-name">shadcn-quick-helper</span><span class="lines">96L</span></li>
+          <li><span class="tag tag-overlap">OVERLAP</span><span class="agent-name">shadcn-requirements-analyzer</span><span class="lines">66L</span></li>
+          <li><span class="tag tag-unique">UNIQUE</span><span class="agent-name">team-lead</span><span class="lines">58L</span></li>
+          <li><span class="tag tag-unique">UNIQUE</span><span class="agent-name">prototype-porter</span><span class="lines">176L</span></li>
+          <li><span class="tag tag-unique">UNIQUE</span><span class="agent-name">docs-updater</span><span class="lines">127L</span></li>
+          <li><span class="tag tag-unique">UNIQUE</span><span class="agent-name">frontend-test-writer</span><span class="lines">288L</span></li>
+          <li><span class="tag tag-delete">DELETE</span><span class="agent-name">git-commit-helper</span><span class="lines">65L</span><span class="agent-desc">Claude does this natively</span></li>
+          <li><span class="tag tag-delete">DELETE</span><span class="agent-name">product-manager</span><span class="lines">63L</span><span class="agent-desc">PM Oracle IS the PM</span></li>
+        </ul>
+      </div>
+
+      <!-- AFTER -->
+      <div class="panel">
+        <div class="panel-title"><span class="dot dot-green"></span> Target (10 agents)</div>
+        <ul class="agent-list">
+          <li><span class="tag tag-merge">MERGE</span><span class="agent-name">chrome.md</span><span class="agent-desc">frontend + shadcn (5 files)</span></li>
+          <li><span class="tag tag-merge">MERGE</span><span class="agent-name">flux.md</span><span class="agent-desc">backend (2 files)</span></li>
+          <li><span class="tag tag-merge">MERGE</span><span class="agent-name">static.md</span><span class="agent-desc">qa + test + security (5 files)</span></li>
+          <li><span class="tag tag-merge">MERGE</span><span class="agent-name">wire.md</span><span class="agent-desc">devops (2 files)</span></li>
+          <li><span class="tag tag-merge">MERGE</span><span class="agent-name">neon.md</span><span class="agent-desc">ux designer (2 files)</span></li>
+          <li><span class="tag tag-merge">MERGE</span><span class="agent-name">reviewer.md</span><span class="agent-desc">code review (2 files)</span></li>
+          <li><span class="tag tag-merge">MERGE</span><span class="agent-name">architect.md</span><span class="agent-desc">system + staff (2 files)</span></li>
+          <li><span class="tag tag-keep">KEEP</span><span class="agent-name">prototype-porter.md</span><span class="agent-desc">unique, high value</span></li>
+          <li><span class="tag tag-keep">KEEP</span><span class="agent-name">docs.md</span><span class="agent-desc">renamed from docs-updater</span></li>
+          <li><span class="tag tag-keep">KEEP</span><span class="agent-name">lead.md</span><span class="agent-desc">renamed from team-lead</span></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Merge Map -->
+    <div class="section-title">Merge Map</div>
+    <table class="merge-table">
+      <thead>
+        <tr>
+          <th>New Agent</th>
+          <th>Absorbs</th>
+          <th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="new-name">chrome.md</td>
+          <td class="absorbs">
+            <code>frontend-engineer</code>
+            <code>team-frontend-engineer</code>
+            <code>shadcn-implementation-builder</code>
+            <code>shadcn-quick-helper</code>
+            <code>shadcn-requirements-analyzer</code>
+          </td>
+          <td class="role-desc">React components, shadcn/UI, forms, SWR data binding, Tailwind, dynamic imports</td>
+        </tr>
+        <tr>
+          <td class="new-name">flux.md</td>
+          <td class="absorbs">
+            <code>backend-engineer</code>
+            <code>team-backend-engineer</code>
+          </td>
+          <td class="role-desc">NestJS microservices, GraphQL resolvers, Apollo Federation, Sequelize, auth</td>
+        </tr>
+        <tr>
+          <td class="new-name">static.md</td>
+          <td class="absorbs">
+            <code>qa-tester</code>
+            <code>team-qa-tester</code>
+            <code>frontend-test-writer</code>
+            <code>security-auditor</code>
+            <code>team-security-auditor</code>
+          </td>
+          <td class="role-desc">Vitest + Playwright + security audit + coverage thresholds + E2E auth state</td>
+        </tr>
+        <tr>
+          <td class="new-name">wire.md</td>
+          <td class="absorbs">
+            <code>devops-engineer</code>
+            <code>team-devops-engineer</code>
+          </td>
+          <td class="role-desc">Docker, GitLab CI, migrations, env vars, deploy triggers</td>
+        </tr>
+        <tr>
+          <td class="new-name">neon.md</td>
+          <td class="absorbs">
+            <code>premium-ux-designer</code>
+            <code>team-ux-designer</code>
+          </td>
+          <td class="role-desc">Figma handoff, design system, accessibility, user flows, wireframes</td>
+        </tr>
+        <tr>
+          <td class="new-name">reviewer.md</td>
+          <td class="absorbs">
+            <code>code-reviewer</code>
+            <code>senior-code-reviewer</code>
+          </td>
+          <td class="role-desc">Architecture review, bug detection, code quality, production readiness</td>
+        </tr>
+        <tr>
+          <td class="new-name">architect.md</td>
+          <td class="absorbs">
+            <code>system-architect</code>
+            <code>staff-engineer</code>
+          </td>
+          <td class="role-desc">System design, scalability, refactoring strategy, technical decisions</td>
+        </tr>
+        <tr>
+          <td class="new-name">prototype-porter.md</td>
+          <td class="absorbs"><em>no change</em></td>
+          <td class="role-desc">Prototype &rarr; production migration, mock &rarr; hook wiring</td>
+        </tr>
+        <tr>
+          <td class="new-name">docs.md</td>
+          <td class="absorbs"><code>docs-updater</code></td>
+          <td class="role-desc">README, CHANGELOG, module status tracking</td>
+        </tr>
+        <tr>
+          <td class="new-name">lead.md</td>
+          <td class="absorbs"><code>team-lead</code></td>
+          <td class="role-desc">Multi-agent orchestration, task decomposition, parallel coordination</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Naming Alignment -->
+    <div class="section-title">Naming Alignment — One Mental Model</div>
+    <div class="alignment">
+      <div class="align-col">
+        <h4>Oracle Family</h4>
+        <ul>
+          <li><span class="icon">&#x1F534;</span> Chrome (frontend)</li>
+          <li><span class="icon">&#x26A1;</span> Flux (backend)</li>
+          <li><span class="icon">&#x1F6E1;</span> Static (QA)</li>
+          <li><span class="icon">&#x1F50C;</span> Wire (devops)</li>
+          <li><span class="icon">&#x1F31F;</span> Neon (UX)</li>
+        </ul>
+      </div>
+      <div class="align-col">
+        <h4>Claude Agents (.claude/agents/)</h4>
+        <ul>
+          <li><span class="icon">&#x1F534;</span> chrome.md</li>
+          <li><span class="icon">&#x26A1;</span> flux.md</li>
+          <li><span class="icon">&#x1F6E1;</span> static.md</li>
+          <li><span class="icon">&#x1F50C;</span> wire.md</li>
+          <li><span class="icon">&#x1F31F;</span> neon.md</li>
+        </ul>
+      </div>
+      <div class="align-col">
+        <h4>Codex Agents (agents/)</h4>
+        <ul>
+          <li><span class="icon">&#x1F534;</span> chrome.md</li>
+          <li><span class="icon">&#x26A1;</span> flux.md</li>
+          <li><span class="icon">&#x1F6E1;</span> static.md</li>
+          <li><span class="icon">&#x1F50C;</span> (not needed yet)</li>
+          <li><span class="icon">&#x1F31F;</span> (not needed yet)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Safety -->
+    <div class="safety">
+      <h3>&#x1F6E1; Nothing is Deleted — Safety Plan</h3>
+      <ul>
+        <li>Git tracks all history — every original .md is recoverable via <code>git log --all -- .claude/agents/</code></li>
+        <li>Step 1 of execution: <code>git add .claude/agents/ && git commit -m "snapshot: 27 agents before cleanup"</code></li>
+        <li>Only then proceed with merge — original content lives in git forever</li>
+        <li>Merged agents take BEST content from each source — nothing valuable is dropped</li>
+        <li>If any merged agent is wrong: <code>git show HEAD~1:.claude/agents/original-name.md</code> restores it</li>
+        <li>Backup branch: <code>git branch agents-backup-27</code> before any changes</li>
+      </ul>
+    </div>
+
+    <!-- Deleted with reason -->
+    <div class="section-title">Agents Deleted (with reason)</div>
+    <table class="merge-table">
+      <thead>
+        <tr>
+          <th>Agent</th>
+          <th>Lines</th>
+          <th>Reason for deletion</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>git-commit-helper</td>
+          <td>65</td>
+          <td class="role-desc">Claude Code generates commit messages natively — agent adds no value</td>
+        </tr>
+        <tr>
+          <td>product-manager</td>
+          <td>63</td>
+          <td class="role-desc">pops-clinic-oracle IS the PM — duplicates Oracle's own role</td>
+        </tr>
+        <tr>
+          <td>team-product-manager</td>
+          <td>74</td>
+          <td class="role-desc">Same as above (team- duplicate)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Execution Steps -->
+    <div class="section-title">Execution Sequence</div>
+    <div class="panel">
+      <ol style="font-size: 0.8rem; color: var(--text-dim); padding-left: 1.5rem; line-height: 2.2;">
+        <li><strong style="color: var(--green);">Snapshot</strong> — commit current state + create backup branch</li>
+        <li><strong style="color: var(--cyan);">Merge</strong> — create new 10 agents with best content from originals + project context</li>
+        <li><strong style="color: var(--amber);">Delete</strong> — remove all 27 originals</li>
+        <li><strong style="color: var(--accent);">Update lead.md</strong> — new agent names for orchestration</li>
+        <li><strong style="color: var(--pink);">Test</strong> — open Claude session in vet project, verify routing works</li>
+        <li><strong style="color: var(--green);">Commit</strong> — final clean state</li>
+      </ol>
+    </div>
+
+    <div class="footer">
+      Built by Leica &mdash; Father Oracle<br>
+      Project: pops/vet &middot; Location: <code>~/_POPs_/pops/app/vet/.claude/agents/</code><br>
+      <br>
+      <em>"Nothing is deleted — git remembers everything."</em>
+    </div>
+
+  </div>
+</body>
+</html>

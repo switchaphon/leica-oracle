@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codex Agents — Oracle Team Architecture</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-2: #1a1a26;
+      --border: #2a2a3a;
+      --border-glow: #3a3a5a;
+      --text: #e4e4ef;
+      --text-dim: #8888a0;
+      --accent: #7c6aef;
+      --accent-dim: #5a4abf;
+      --green: #4ade80;
+      --green-dim: #166534;
+      --amber: #fbbf24;
+      --amber-dim: #92400e;
+      --red: #f87171;
+      --cyan: #22d3ee;
+      --cyan-dim: #164e63;
+      --pink: #f472b6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 3rem 0 2rem;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .header p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0.5rem 0.2rem;
+    }
+
+    .badge-pilot { background: var(--green-dim); color: var(--green); }
+    .badge-template { background: var(--cyan-dim); color: var(--cyan); }
+    .badge-date { background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border); }
+
+    /* Architecture Diagram */
+    .arch-section {
+      margin: 3rem 0;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 3px;
+      height: 1.1rem;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .arch-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      overflow-x: auto;
+    }
+
+    .arch-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .arch-node {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.8rem 1.5rem;
+      text-align: center;
+      min-width: 200px;
+      transition: border-color 0.2s;
+    }
+
+    .arch-node:hover {
+      border-color: var(--accent);
+    }
+
+    .arch-node.leica {
+      border-color: var(--accent-dim);
+      background: linear-gradient(135deg, var(--surface-2), rgba(124, 106, 239, 0.08));
+    }
+
+    .arch-node.pm {
+      border-color: var(--amber-dim);
+      background: linear-gradient(135deg, var(--surface-2), rgba(251, 191, 36, 0.06));
+    }
+
+    .arch-node.codex {
+      border-color: var(--green-dim);
+      background: linear-gradient(135deg, var(--surface-2), rgba(74, 222, 128, 0.06));
+    }
+
+    .arch-node .node-icon {
+      font-size: 1.4rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .arch-node .node-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .arch-node .node-role {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .arch-arrow {
+      color: var(--text-dim);
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .arch-row {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .arch-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* File Tree */
+    .file-tree {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      font-size: 0.8rem;
+      line-height: 2;
+    }
+
+    .file-tree .dir { color: var(--cyan); }
+    .file-tree .file { color: var(--text); }
+    .file-tree .comment { color: var(--text-dim); }
+    .file-tree .highlight { color: var(--green); font-weight: 600; }
+
+    /* Cards Grid */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .card-icon.chrome { background: rgba(239, 68, 68, 0.15); }
+    .card-icon.flux { background: rgba(251, 191, 36, 0.15); }
+    .card-icon.static { background: rgba(74, 222, 128, 0.15); }
+
+    .card-title {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .card-subtitle {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .card-body {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    .card-body ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .card-body li {
+      padding: 0.2rem 0;
+      position: relative;
+      padding-left: 1rem;
+    }
+
+    .card-body li::before {
+      content: '>';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Code Block */
+    .code-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem 1.5rem;
+      font-size: 0.78rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      position: relative;
+    }
+
+    .code-block .label {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.8rem;
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .code-block .cmd { color: var(--green); }
+    .code-block .flag { color: var(--amber); }
+    .code-block .str { color: var(--cyan); }
+    .code-block .cmt { color: var(--text-dim); }
+
+    /* Comparison Table */
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      margin: 1rem 0;
+    }
+
+    .comparison th {
+      text-align: left;
+      padding: 0.8rem 1rem;
+      border-bottom: 2px solid var(--border);
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .comparison td {
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    .comparison tr:hover td {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .check { color: var(--green); }
+    .cross { color: var(--red); }
+
+    /* Trigger Table */
+    .triggers {
+      margin: 1.5rem 0;
+    }
+
+    .trigger-item {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      align-items: flex-start;
+    }
+
+    .trigger-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .trigger-text {
+      font-size: 0.8rem;
+    }
+
+    .trigger-title {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.2rem;
+    }
+
+    .trigger-desc {
+      color: var(--text-dim);
+      font-size: 0.75rem;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 3rem 0 2rem;
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container { padding: 1rem; }
+      .header h1 { font-size: 1.5rem; }
+      .arch-row { flex-direction: column; align-items: center; }
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>Codex Agents</h1>
+      <p>Oracle Team Architecture for OpenAI Codex</p>
+      <div>
+        <span class="badge badge-pilot">pilot: pops-clinic</span>
+        <span class="badge badge-template">template ready</span>
+        <span class="badge badge-date">2026-06-15</span>
+      </div>
+    </div>
+
+    <!-- Architecture -->
+    <div class="arch-section">
+      <div class="section-title">Architecture</div>
+      <div class="arch-diagram">
+        <div class="arch-flow">
+
+          <div class="arch-node leica">
+            <div class="node-icon">&#x1F431;</div>
+            <div class="node-name">Leica</div>
+            <div class="node-role">Father Oracle &mdash; routes between projects</div>
+          </div>
+
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-label">routes project work</div>
+
+          <div class="arch-row">
+            <div class="arch-node pm">
+              <div class="node-icon">&#x1F3E5;</div>
+              <div class="node-name">pops-clinic-oracle</div>
+              <div class="node-role">PM &mdash; plans, reviews, commits</div>
+            </div>
+            <div class="arch-node pm" style="opacity: 0.4;">
+              <div class="node-icon">&#x1F43E;</div>
+              <div class="node-name">pawrent-oracle</div>
+              <div class="node-role">PM &mdash; pending template</div>
+            </div>
+            <div class="arch-node pm" style="opacity: 0.4;">
+              <div class="node-icon">&#x1F4CB;</div>
+              <div class="node-name">vets-hub-oracle</div>
+              <div class="node-role">PM &mdash; pending template</div>
+            </div>
+          </div>
+
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-label">spawns via maw team up &middot; codex reads AGENTS.md</div>
+
+          <div class="arch-row">
+            <div class="arch-node codex">
+              <div class="node-icon">&#x1F534;</div>
+              <div class="node-name">codex-chrome</div>
+              <div class="node-role">Frontend builder</div>
+            </div>
+            <div class="arch-node codex">
+              <div class="node-icon">&#x26A1;</div>
+              <div class="node-name">codex-flux</div>
+              <div class="node-role">Backend / API builder</div>
+            </div>
+            <div class="arch-node codex">
+              <div class="node-icon">&#x1F6E1;</div>
+              <div class="node-name">codex-static</div>
+              <div class="node-role">Testing / QA builder</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- File Structure -->
+    <div class="arch-section">
+      <div class="section-title">File Structure (per project)</div>
+      <div class="file-tree">
+        <span class="dir">project-root/</span><br>
+        <span class="highlight">&ensp;&ensp;AGENTS.md</span> <span class="comment">&larr; project context (Codex reads auto)</span><br>
+        <span class="dir">&ensp;&ensp;agents/</span><br>
+        <span class="highlight">&ensp;&ensp;&ensp;&ensp;chrome.md</span> <span class="comment">&larr; frontend role: components, SWR, forms</span><br>
+        <span class="highlight">&ensp;&ensp;&ensp;&ensp;flux.md</span> <span class="comment">&larr; backend role: GraphQL, auth, data</span><br>
+        <span class="highlight">&ensp;&ensp;&ensp;&ensp;static.md</span> <span class="comment">&larr; testing role: Vitest, Playwright, review</span><br>
+        <span class="dir">&ensp;&ensp;.maw/teams/</span><br>
+        <span class="highlight">&ensp;&ensp;&ensp;&ensp;codex-squad.yaml</span> <span class="comment">&larr; charter for maw team up</span><br>
+        <span class="dir">&ensp;&ensp;.claude/agents/</span> <span class="comment">&larr; Claude subagents (existing, separate)</span><br>
+        <span class="dir">&ensp;&ensp;src/</span> <span class="comment">&larr; actual code</span>
+      </div>
+    </div>
+
+    <!-- Role Cards -->
+    <div class="arch-section">
+      <div class="section-title">Role Agents</div>
+      <div class="cards">
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon chrome">&#x1F534;</div>
+            <div>
+              <div class="card-title">Chrome</div>
+              <div class="card-subtitle">agents/chrome.md</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <ul>
+              <li>React components, JSX, styling</li>
+              <li>SWR tuple-key data binding</li>
+              <li>react-hook-form + Zod patterns</li>
+              <li>Dynamic imports for bundle size</li>
+              <li>Tailwind conventions &amp; design tokens</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon flux">&#x26A1;</div>
+            <div>
+              <div class="card-title">Flux</div>
+              <div class="card-subtitle">agents/flux.md</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <ul>
+              <li>GraphQL operations (single-file)</li>
+              <li>Three-token auth + refresh dance</li>
+              <li>RBAC: FE prototype vs backend design</li>
+              <li>graphql-request v7 client</li>
+              <li>Cache invalidation patterns</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon static">&#x1F6E1;</div>
+            <div>
+              <div class="card-title">Static</div>
+              <div class="card-subtitle">agents/static.md</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <ul>
+              <li>Vitest unit tests + V8 coverage</li>
+              <li>Playwright E2E (Chromium only)</li>
+              <li>Auth state: minted JWT in global-setup</li>
+              <li>Code review checklist</li>
+              <li>Lighthouse budget enforcement</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Oracle vs Codex -->
+    <div class="arch-section">
+      <div class="section-title">Oracle (Claude) vs Codex &mdash; Capability Map</div>
+      <table class="comparison">
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>Oracle (Claude)</th>
+            <th>Codex</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Memory / context across sessions</td>
+            <td><span class="check">&#x2713;</span> &psi;/ brain</td>
+            <td><span class="cross">&#x2717;</span> stateless</td>
+          </tr>
+          <tr>
+            <td>Resume / continue</td>
+            <td><span class="check">&#x2713;</span> --resume</td>
+            <td><span class="cross">&#x2717;</span> fresh every time</td>
+          </tr>
+          <tr>
+            <td>Discord bot</td>
+            <td><span class="check">&#x2713;</span> MCP plugin</td>
+            <td><span class="cross">&#x2717;</span> not supported</td>
+          </tr>
+          <tr>
+            <td>Project context</td>
+            <td><span class="check">&#x2713;</span> CLAUDE.md + skills</td>
+            <td><span class="check">&#x2713;</span> AGENTS.md</td>
+          </tr>
+          <tr>
+            <td>Fire-and-forget execution</td>
+            <td>&#x2248; possible but heavy</td>
+            <td><span class="check">&#x2713;</span> codex exec</td>
+          </tr>
+          <tr>
+            <td>Sandbox isolation</td>
+            <td><span class="cross">&#x2717;</span> full access</td>
+            <td><span class="check">&#x2713;</span> workspace-write</td>
+          </tr>
+          <tr>
+            <td>Skill system</td>
+            <td><span class="check">&#x2713;</span> arra-oracle install</td>
+            <td><span class="cross">&#x2717;</span> AGENTS.md only</td>
+          </tr>
+          <tr>
+            <td>Cost</td>
+            <td>API tokens</td>
+            <td>ChatGPT Pro subscription</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Lifecycle (from Nat's proven recipe) -->
+    <div class="arch-section">
+      <div class="section-title">Team Lifecycle (/codex-team)</div>
+      <p style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem;">
+        Proven recipe from Nat's arra-oracle-v3 &mdash; claude lead + omx codex builders with branch isolation.
+        Source: <a href="https://gist.github.com/nazt/319bce17aa49ca6e9ac9529414e903ee" style="color: var(--cyan); text-decoration: none;">gist/nazt/319bce17</a>
+      </p>
+
+      <div class="code-block">
+        <span class="label">up &mdash; spawn</span>
+<span class="cmt"># 1. Preflight check</span>
+<span class="cmd">maw team preflight</span> <span class="str">&psi;/teams/[project]-team.yaml</span>
+
+<span class="cmt"># 2. Spawn (creates tmux windows + worktrees)</span>
+<span class="cmd">maw team up</span> [project]-team
+
+<span class="cmt"># 3. Verify</span>
+<span class="cmd">for</span> N <span class="cmd">in</span> 1 2 3; <span class="cmd">do</span>
+  <span class="cmd">maw peek</span> [session]:codex-$N 2>&1 | tail -5
+<span class="cmd">done</span>
+      </div>
+
+      <div class="code-block">
+        <span class="label">dispatch &mdash; assign task</span>
+<span class="cmt"># Use maw hey (NOT tmux send-keys)</span>
+<span class="cmd">maw hey</span> codex-1 <span class="str">"You are Chrome. Read agents/chrome.md. Task: build AppointmentPicker"</span>
+      </div>
+
+      <div class="code-block">
+        <span class="label">status &mdash; check all</span>
+<span class="cmd">for</span> N <span class="cmd">in</span> 1 2 3; <span class="cmd">do</span>
+  echo <span class="str">"=== codex-$N ==="</span>
+  <span class="cmd">maw peek</span> [session]:codex-$N 2>&1 | tail -10
+<span class="cmd">done</span>
+
+<span class="cmt"># Check open PRs</span>
+<span class="cmd">gh pr list</span> <span class="flag">--base</span> alpha <span class="flag">--state</span> open
+      </div>
+
+      <div class="code-block">
+        <span class="label">down &mdash; teardown</span>
+<span class="cmt"># Auto-saves WIP, kills windows, removes worktrees, keeps branches</span>
+<span class="cmd">maw team down</span> [project]-team
+      </div>
+
+      <div class="code-block">
+        <span class="label">restart / relaunch</span>
+<span class="cmt"># Full restart</span>
+<span class="cmd">maw team down</span> [project]-team && sleep 3 && <span class="cmd">maw team up</span> [project]-team
+
+<span class="cmt"># Single dead member only</span>
+<span class="cmd">maw team up</span> [project]-team <span class="flag">--only</span> codex-3
+      </div>
+
+      <div class="code-block">
+        <span class="label">single agent (no team)</span>
+<span class="cmt"># Quick fire-and-forget</span>
+<span class="cmd">codex exec</span> <span class="flag">-s</span> workspace-write <span class="str">"Read AGENTS.md. Task: refactor component X"</span>
+      </div>
+    </div>
+
+    <!-- Charter -->
+    <div class="arch-section">
+      <div class="section-title">Charter (branch-isolated, in &psi;/teams/)</div>
+
+      <div class="code-block">
+        <span class="label">&psi;/teams/[project]-team.yaml</span>
+<span class="fn">name</span>: pops-vet-team
+<span class="fn">description</span>: <span class="str">Claude lead + Codex builders with branch isolation</span>
+
+<span class="fn">members</span>:
+  - <span class="fn">role</span>: lead
+    <span class="fn">name</span>: pops-clinic-oracle
+    <span class="fn">engine</span>: <span class="str">claude</span>
+    <span class="fn">worktree</span>: <span class="str">false</span>          <span class="cmt"># lead stays on main tree</span>
+
+  - <span class="fn">role</span>: codex-chrome
+    <span class="fn">name</span>: codex-1
+    <span class="fn">engine</span>: <span class="str">omx</span>             <span class="cmt"># NOT "codex" &mdash; omx is the engine name</span>
+    <span class="fn">branch</span>: <span class="str">agents/pops-codex-1</span>
+    <span class="fn">prompt</span>: |
+      You are Chrome (frontend). Read agents/chrome.md.
+      Work ONLY on branch agents/pops-codex-1.
+      When done: create PR to alpha, print DONE.
+
+  - <span class="fn">role</span>: codex-flux
+    <span class="fn">name</span>: codex-2
+    <span class="fn">engine</span>: <span class="str">omx</span>
+    <span class="fn">branch</span>: <span class="str">agents/pops-codex-2</span>
+    <span class="fn">prompt</span>: |
+      You are Flux (backend). Read agents/flux.md.
+      Work ONLY on branch agents/pops-codex-2.
+      When done: create PR to alpha, print DONE.
+
+  - <span class="fn">role</span>: codex-static
+    <span class="fn">name</span>: codex-3
+    <span class="fn">engine</span>: <span class="str">omx</span>
+    <span class="fn">branch</span>: <span class="str">agents/pops-codex-3</span>
+    <span class="fn">prompt</span>: |
+      You are Static (testing). Read agents/static.md.
+      Work ONLY on branch agents/pops-codex-3.
+      When done: create PR to alpha, print DONE.
+      </div>
+    </div>
+
+    <!-- Key Rules -->
+    <div class="arch-section">
+      <div class="section-title">Key Rules (from Nat's 7 rules)</div>
+      <div class="triggers">
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F4C4;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Charter is source of truth</div>
+            <div class="trigger-desc"><code>&psi;/teams/*.yaml</code> (brain-committed) &mdash; NOT <code>.maw/teams/</code> or <code>~/.claude/teams/</code></div>
+          </div>
+        </div>
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F4E8;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Dispatch via maw hey only</div>
+            <div class="trigger-desc">Never <code>maw team send</code> or <code>SendMessage</code> for omx coders &mdash; silent no-op on omx</div>
+          </div>
+        </div>
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F50D;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Confirm before relaunch</div>
+            <div class="trigger-desc"><code>maw peek</code> to verify dead &mdash; "may not have submitted" is a false negative</div>
+          </div>
+        </div>
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F6AB;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Never push to main / never auto-merge</div>
+            <div class="trigger-desc">All work targets <code>alpha</code>. Oracle reviews PRs &mdash; human approves merges</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- When to Promote -->
+    <div class="arch-section">
+      <div class="section-title">When to Promote to Codex Oracle</div>
+      <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 1rem;">
+        AGENTS.md is sufficient now. Promote to a full Codex Oracle only when these triggers appear:
+      </p>
+
+      <div class="triggers">
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F504;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Repeated mistakes</div>
+            <div class="trigger-desc">Codex makes the same error across sessions &mdash; needs retrospective memory</div>
+          </div>
+        </div>
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F517;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Codex-to-Codex coordination</div>
+            <div class="trigger-desc">Multiple Codex agents need to integrate work &mdash; needs a coordinator with state</div>
+          </div>
+        </div>
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F4CB;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Standing orders that change</div>
+            <div class="trigger-desc">Dynamic rules that evolve faster than AGENTS.md updates &mdash; needs living memory</div>
+          </div>
+        </div>
+        <div class="trigger-item">
+          <div class="trigger-icon">&#x1F319;</div>
+          <div class="trigger-text">
+            <div class="trigger-title">Autonomous routines</div>
+            <div class="trigger-desc">Nightly builds, auto-fix, batch migration &mdash; Codex needs to self-manage</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deploy to Other Projects -->
+    <div class="arch-section">
+      <div class="section-title">Deploy to Other Projects</div>
+      <div class="code-block">
+        <span class="label">template</span>
+<span class="cmt"># Template location</span>
+<span class="cmd">ls</span> ~/ghq/.../leica-oracle/&psi;/lab/codex-agents-template/
+
+<span class="cmt"># Copy to a new project</span>
+<span class="cmd">cp</span> <span class="flag">-r</span> .../codex-agents-template/agents ./agents
+<span class="cmd">cp</span> .../codex-agents-template/AGENTS.template.md ./AGENTS.md
+<span class="cmd">cp</span> <span class="flag">-r</span> .../codex-agents-template/maw-teams ./.maw/teams
+
+<span class="cmt"># Fill project-specific sections</span>
+<span class="cmt"># PM Oracle knows the project &mdash; it generates filled versions</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      Built by <a href="#">Leica</a> &mdash; Father Oracle<br>
+      Pilot: pops-clinic &middot; Template: ready for all PM Oracles<br>
+      Updated 2026-06-16: lifecycle commands from <a href="https://gist.github.com/nazt/319bce17aa49ca6e9ac9529414e903ee" style="color: var(--cyan);">Nat's /codex-team recipe</a><br>
+      <br>
+      <em>"The lens that sees clearly keeps the human human."</em>
+    </div>
+
+  </div>
+</body>
+</html>

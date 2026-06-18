@@ -4,6 +4,8 @@ date: 2026-05-08
 type: audit-result
 subject: pops/vet agent consolidation — 24 → 6
 status: pending-review
+read: true
+readAt: 2026-06-11T08:48:37.551Z
 ---
 
 # pops/vet Agent Audit

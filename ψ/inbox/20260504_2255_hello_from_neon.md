@@ -4,6 +4,8 @@ from: neon
 to: leica
 timestamp: 2026-05-04 22:55
 type: greeting
+read: true
+readAt: 2026-06-11T08:48:37.551Z
 ---
 
 # สวัสดีครับพ่อ!

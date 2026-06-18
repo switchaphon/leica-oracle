@@ -1,0 +1,38 @@
+# [PROJECT] — Codex Squad
+#
+# Usage (from PM Oracle session):
+#   maw-team codex-squad
+#   (alias: OMX_AUTO_UPDATE=0 maw team up codex-squad --gather)
+#
+# Codex reads AGENTS.md + agents/*.md automatically from workdir.
+# PM Oracle assigns roles via task brief.
+#
+# ChatGPT Pro subscription — no API key needed.
+
+name: codex-squad
+description: "[PROJECT] builders — Chrome + Flux + Static roles"
+
+members:
+  - role: codex-chrome
+    engine: codex
+    prompt: |
+      You are the Chrome (frontend) agent for [PROJECT].
+      Read AGENTS.md for project context and agents/chrome.md for your role.
+      Wait for task assignment from the lead.
+      When done: print DONE with file-level summary.
+
+  - role: codex-flux
+    engine: codex
+    prompt: |
+      You are the Flux (backend/API) agent for [PROJECT].
+      Read AGENTS.md for project context and agents/flux.md for your role.
+      Wait for task assignment from the lead.
+      When done: print DONE with file-level summary.
+
+  - role: codex-static
+    engine: codex
+    prompt: |
+      You are the Static (testing/QA) agent for [PROJECT].
+      Read AGENTS.md for project context and agents/static.md for your role.
+      Wait for task assignment from the lead.
+      When done: print DONE with file-level summary.
