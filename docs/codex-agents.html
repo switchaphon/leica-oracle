@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Codex Agents — Oracle Team Architecture</title>
+  <title>Codex Team Lifecycle — Oracle Fleet</title>
   <style>
     :root {
       --bg: #0a0a0f;
@@ -20,6 +20,7 @@
       --amber: #fbbf24;
       --amber-dim: #92400e;
       --red: #f87171;
+      --red-dim: #7f1d1d;
       --cyan: #22d3ee;
       --cyan-dim: #164e63;
       --pink: #f472b6;
@@ -89,8 +90,9 @@
     .badge-pilot { background: var(--green-dim); color: var(--green); }
     .badge-template { background: var(--cyan-dim); color: var(--cyan); }
     .badge-date { background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border); }
+    .badge-accent { background: rgba(124, 106, 239, 0.18); color: var(--accent); border: 1px solid var(--accent-dim); }
 
-    /* Architecture Diagram */
+    /* Section scaffold */
     .arch-section {
       margin: 3rem 0;
     }
@@ -113,6 +115,25 @@
       border-radius: 2px;
     }
 
+    .section-intro {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 1.2rem;
+      max-width: 760px;
+    }
+
+    .section-intro code,
+    .trigger-desc code,
+    .card-body code,
+    .note code {
+      background: var(--surface-2);
+      padding: 0.05rem 0.3rem;
+      border-radius: 3px;
+      color: var(--cyan);
+      font-size: 0.92em;
+    }
+
+    /* Architecture Diagram (3-layer stack) */
     .arch-diagram {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -128,84 +149,135 @@
       gap: 0.5rem;
     }
 
-    .arch-node {
+    .layer-node {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      width: 100%;
+      max-width: 680px;
       background: var(--surface-2);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.8rem 1.5rem;
-      text-align: center;
-      min-width: 200px;
-      transition: border-color 0.2s;
+      border-radius: 10px;
+      padding: 1rem 1.4rem;
+      transition: border-color 0.2s, transform 0.2s;
     }
 
-    .arch-node:hover {
-      border-color: var(--accent);
-    }
+    .layer-node:hover { border-color: var(--accent); transform: translateY(-2px); }
 
-    .arch-node.leica {
+    .layer-node.l1 {
       border-color: var(--accent-dim);
       background: linear-gradient(135deg, var(--surface-2), rgba(124, 106, 239, 0.08));
     }
-
-    .arch-node.pm {
-      border-color: var(--amber-dim);
-      background: linear-gradient(135deg, var(--surface-2), rgba(251, 191, 36, 0.06));
+    .layer-node.l2 {
+      border-color: var(--cyan-dim);
+      background: linear-gradient(135deg, var(--surface-2), rgba(34, 211, 238, 0.07));
     }
-
-    .arch-node.codex {
+    .layer-node.l3 {
       border-color: var(--green-dim);
-      background: linear-gradient(135deg, var(--surface-2), rgba(74, 222, 128, 0.06));
+      background: linear-gradient(135deg, var(--surface-2), rgba(74, 222, 128, 0.07));
     }
 
-    .arch-node .node-icon {
-      font-size: 1.4rem;
-      margin-bottom: 0.3rem;
-    }
-
-    .arch-node .node-name {
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-
-    .arch-node .node-role {
-      font-size: 0.7rem;
+    .layer-tag {
+      flex-shrink: 0;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       color: var(--text-dim);
+      writing-mode: horizontal-tb;
+      width: 60px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+      padding-right: 1rem;
     }
+
+    .layer-icon { font-size: 1.6rem; flex-shrink: 0; }
+
+    .layer-body { flex: 1; min-width: 0; }
+    .layer-name { font-weight: 600; font-size: 0.9rem; }
+    .layer-name .sub { color: var(--text-dim); font-weight: 400; font-size: 0.75rem; }
+    .layer-role { font-size: 0.72rem; color: var(--text-dim); }
 
     .arch-arrow {
       color: var(--text-dim);
       font-size: 1.2rem;
       line-height: 1;
     }
-
-    .arch-row {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
     .arch-label {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: var(--text-dim);
       text-align: center;
       font-style: italic;
     }
 
-    /* File Tree */
-    .file-tree {
-      background: var(--surface);
+    /* Steps */
+    .steps { counter-reset: step; margin: 1rem 0; }
+    .step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      padding: 0.4rem 0;
+    }
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      flex-shrink: 0;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 1px solid var(--accent-dim);
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 0.15rem;
+    }
+    .step-text { font-size: 0.8rem; }
+    .step-text .t { color: var(--text); font-weight: 600; }
+    .step-text .d { color: var(--text-dim); font-size: 0.75rem; }
+
+    /* Decision Tree */
+    .decision {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .branch {
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 1.5rem 2rem;
-      font-size: 0.8rem;
-      line-height: 2;
+      padding: 1.4rem;
+      background: var(--surface);
+      min-width: 0;
     }
+    .branch.exec { border-color: var(--green-dim); background: linear-gradient(135deg, var(--surface), rgba(74,222,128,0.05)); }
+    .branch.analysis { border-color: var(--cyan-dim); background: linear-gradient(135deg, var(--surface), rgba(34,211,238,0.05)); }
+    .branch-kind {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      margin-bottom: 0.3rem;
+    }
+    .branch.exec .branch-kind { color: var(--green); }
+    .branch.analysis .branch-kind { color: var(--cyan); }
+    .branch-trigger { font-size: 0.78rem; color: var(--text); margin-bottom: 0.8rem; }
+    .branch-arrow { color: var(--text-dim); font-size: 0.9rem; margin: 0.4rem 0; }
+    .branch-route { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .branch-cost { font-size: 0.72rem; margin-top: 0.5rem; }
+    .branch.exec .branch-cost { color: var(--green); }
+    .branch.analysis .branch-cost { color: var(--cyan); }
+    .branch-cost .free { font-weight: 700; }
 
-    .file-tree .dir { color: var(--cyan); }
-    .file-tree .file { color: var(--text); }
-    .file-tree .comment { color: var(--text-dim); }
-    .file-tree .highlight { color: var(--green); font-weight: 600; }
+    .never-strip {
+      margin-top: 1rem;
+      border: 1px solid var(--red-dim);
+      border-radius: 12px;
+      padding: 1.2rem 1.4rem;
+      background: linear-gradient(135deg, var(--surface), rgba(248,113,113,0.05));
+    }
+    .never-strip .never-title { color: var(--red); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; }
+    .never-strip ul { list-style: none; }
+    .never-strip li { font-size: 0.78rem; color: var(--text-dim); padding: 0.2rem 0 0.2rem 1.4rem; position: relative; }
+    .never-strip li::before { content: '\2717'; position: absolute; left: 0; color: var(--red); font-weight: 700; }
+    .never-strip li code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 3px; color: var(--amber); }
 
     /* Cards Grid */
     .cards {
@@ -214,6 +286,7 @@
       gap: 1rem;
       margin: 1.5rem 0;
     }
+    .cards.stack { grid-template-columns: 1fr; }
 
     .card {
       background: var(--surface);
@@ -221,6 +294,7 @@
       border-radius: 12px;
       padding: 1.5rem;
       transition: border-color 0.2s, transform 0.2s;
+      min-width: 0;   /* let inner code-block's overflow-x scroll instead of stretching the grid track */
     }
 
     .card:hover {
@@ -244,45 +318,31 @@
       justify-content: center;
       font-size: 1.1rem;
       flex-shrink: 0;
-    }
-
-    .card-icon.chrome { background: rgba(239, 68, 68, 0.15); }
-    .card-icon.flux { background: rgba(251, 191, 36, 0.15); }
-    .card-icon.static { background: rgba(74, 222, 128, 0.15); }
-
-    .card-title {
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-
-    .card-subtitle {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-    }
-
-    .card-body {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-    }
-
-    .card-body ul {
-      list-style: none;
-      padding: 0;
-    }
-
-    .card-body li {
-      padding: 0.2rem 0;
-      position: relative;
-      padding-left: 1rem;
-    }
-
-    .card-body li::before {
-      content: '>';
-      position: absolute;
-      left: 0;
-      color: var(--accent);
       font-weight: 700;
     }
+
+    .card-icon.m1 { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+    .card-icon.m2 { background: rgba(34, 211, 238, 0.15); color: var(--cyan); }
+    .card-icon.m3 { background: rgba(124, 106, 239, 0.15); color: var(--accent); }
+
+    .card-title { font-weight: 600; font-size: 0.92rem; }
+    .card-title code { background: var(--surface-2); padding: 0.05rem 0.35rem; border-radius: 4px; color: var(--cyan); font-size: 0.9em; }
+    .card-subtitle { font-size: 0.7rem; color: var(--text-dim); }
+
+    .card-body { font-size: 0.78rem; color: var(--text-dim); }
+    .card-body ul { list-style: none; padding: 0; }
+    .card-body li { padding: 0.2rem 0; position: relative; padding-left: 1rem; }
+    .card-body li::before { content: '>'; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+
+    .tag-row { margin: 0.4rem 0 0.2rem; }
+    .mini-tag {
+      display: inline-block; font-size: 0.62rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 0.12rem 0.45rem; border-radius: 3px; margin-right: 0.3rem;
+    }
+    .mini-tag.good { background: var(--green-dim); color: var(--green); }
+    .mini-tag.warn { background: var(--amber-dim); color: var(--amber); }
+    .mini-tag.info { background: var(--cyan-dim); color: var(--cyan); }
 
     /* Code Block */
     .code-block {
@@ -294,7 +354,10 @@
       overflow-x: auto;
       margin: 1rem 0;
       position: relative;
+      white-space: pre;
     }
+
+    .card .code-block { background: var(--bg); margin: 0.8rem 0 0; }
 
     .code-block .label {
       position: absolute;
@@ -310,13 +373,21 @@
     .code-block .flag { color: var(--amber); }
     .code-block .str { color: var(--cyan); }
     .code-block .cmt { color: var(--text-dim); }
+    .code-block .fn { color: var(--pink); }
+    .code-block .th { color: var(--accent); }
 
-    /* Comparison Table */
+    /* Comparison / Trap Table */
+    .table-wrap {
+      overflow-x: auto;          /* table scrolls horizontally on narrow screens instead of breaking the page */
+      margin: 1rem 0;
+      border-radius: 8px;
+    }
+
     .comparison {
       width: 100%;
+      min-width: 560px;          /* keep 3 columns readable; .table-wrap scrolls when viewport is smaller */
       border-collapse: collapse;
       font-size: 0.78rem;
-      margin: 1rem 0;
     }
 
     .comparison th {
@@ -334,6 +405,7 @@
       padding: 0.7rem 1rem;
       border-bottom: 1px solid var(--border);
       color: var(--text-dim);
+      vertical-align: top;
     }
 
     .comparison tr:hover td {
@@ -341,13 +413,22 @@
       color: var(--text);
     }
 
+    .comparison td code,
+    .comparison th code {
+      background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 3px;
+      color: var(--cyan); font-size: 0.92em;
+    }
+    .comparison tr:hover td code { background: var(--bg); }
+
+    .t-trap { color: var(--text); font-weight: 600; }
+    .t-symptom { color: var(--amber); }
+    .t-fix { color: var(--green); }
+
     .check { color: var(--green); }
     .cross { color: var(--red); }
 
-    /* Trigger Table */
-    .triggers {
-      margin: 1.5rem 0;
-    }
+    /* Trigger / list items */
+    .triggers { margin: 1.5rem 0; }
 
     .trigger-item {
       display: flex;
@@ -360,25 +441,30 @@
       align-items: flex-start;
     }
 
-    .trigger-icon {
-      font-size: 1.2rem;
-      flex-shrink: 0;
-      margin-top: 0.1rem;
-    }
+    .trigger-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 0.1rem; }
+    .trigger-text { font-size: 0.8rem; }
+    .trigger-title { font-weight: 600; color: var(--text); margin-bottom: 0.2rem; }
+    .trigger-desc { color: var(--text-dim); font-size: 0.75rem; }
 
-    .trigger-text {
+    /* Note / callout */
+    .note {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 1.1rem 1.3rem;
       font-size: 0.8rem;
-    }
-
-    .trigger-title {
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 0.2rem;
-    }
-
-    .trigger-desc {
       color: var(--text-dim);
-      font-size: 0.75rem;
+      margin: 1rem 0;
+    }
+    .note.green { border-left-color: var(--green); }
+    .note.amber { border-left-color: var(--amber); }
+    .note strong { color: var(--text); }
+    .roles-line { margin-top: 0.6rem; }
+    .role-chip {
+      display: inline-block; font-size: 0.68rem; color: var(--cyan);
+      background: var(--surface-2); border: 1px solid var(--border);
+      padding: 0.1rem 0.5rem; border-radius: 4px; margin: 0.15rem 0.2rem 0.15rem 0;
     }
 
     /* Footer */
@@ -390,433 +476,502 @@
       border-top: 1px solid var(--border);
       margin-top: 3rem;
     }
-
-    .footer a {
-      color: var(--accent);
-      text-decoration: none;
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer .correction {
+      max-width: 680px; margin: 0 auto 1rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-left: 3px solid var(--amber); border-radius: 8px;
+      padding: 0.9rem 1.2rem; text-align: left; color: var(--text-dim);
+      font-size: 0.72rem;
     }
+    .footer .correction strong { color: var(--amber); }
 
     /* Responsive */
     @media (max-width: 768px) {
       .container { padding: 1rem; }
-      .header h1 { font-size: 1.5rem; }
-      .arch-row { flex-direction: column; align-items: center; }
+      .header h1 { font-size: 1.4rem; }
+      .decision { grid-template-columns: 1fr; }
       .cards { grid-template-columns: 1fr; }
+      .layer-node { flex-wrap: wrap; gap: 0.8rem; }
+      .layer-tag { border-right: none; border-bottom: 1px solid var(--border); width: 100%; text-align: left; padding: 0 0 0.4rem; }
     }
   </style>
 </head>
 <body>
   <div class="container">
 
-    <!-- Header -->
+    <!-- ================= HEADER ================= -->
     <div class="header">
-      <h1>Codex Agents</h1>
-      <p>Oracle Team Architecture for OpenAI Codex</p>
+      <h1>Codex Team Lifecycle</h1>
+      <p>How the Oracle fleet runs OpenAI Codex builders &mdash; install, decide, spawn, teardown</p>
       <div>
-        <span class="badge badge-pilot">pilot: pops-clinic</span>
-        <span class="badge badge-template">template ready</span>
-        <span class="badge badge-date">2026-06-15</span>
+        <span class="badge badge-template">omx v0.18.13</span>
+        <span class="badge badge-pilot">tested 2026-06-19</span>
+        <span class="badge badge-accent">fleet-ready</span>
       </div>
     </div>
 
-    <!-- Architecture -->
+    <!-- ================= ARCHITECTURE ================= -->
     <div class="arch-section">
-      <div class="section-title">Architecture</div>
+      <div class="section-title">Architecture &mdash; 3 Layers</div>
+      <p class="section-intro">
+        A Codex team is three stacked engines. The Oracle (Claude) thinks and decides; <strong style="color:var(--cyan)">omx</strong> orchestrates tmux + worktrees + state; the Codex CLI does the actual writing. Each layer has one job &mdash; keep them straight and nothing surprises you.
+      </p>
       <div class="arch-diagram">
         <div class="arch-flow">
 
-          <div class="arch-node leica">
-            <div class="node-icon">&#x1F431;</div>
-            <div class="node-name">Leica</div>
-            <div class="node-role">Father Oracle &mdash; routes between projects</div>
-          </div>
-
-          <div class="arch-arrow">&darr;</div>
-          <div class="arch-label">routes project work</div>
-
-          <div class="arch-row">
-            <div class="arch-node pm">
-              <div class="node-icon">&#x1F3E5;</div>
-              <div class="node-name">pops-clinic-oracle</div>
-              <div class="node-role">PM &mdash; plans, reviews, commits</div>
-            </div>
-            <div class="arch-node pm" style="opacity: 0.4;">
-              <div class="node-icon">&#x1F43E;</div>
-              <div class="node-name">pawrent-oracle</div>
-              <div class="node-role">PM &mdash; pending template</div>
-            </div>
-            <div class="arch-node pm" style="opacity: 0.4;">
-              <div class="node-icon">&#x1F4CB;</div>
-              <div class="node-name">vets-hub-oracle</div>
-              <div class="node-role">PM &mdash; pending template</div>
+          <div class="layer-node l1">
+            <div class="layer-tag">Layer 1</div>
+            <div class="layer-icon">&#x1F431;</div>
+            <div class="layer-body">
+              <div class="layer-name">Leica / PM Oracle <span class="sub">(Claude)</span></div>
+              <div class="layer-role">Plans the work &middot; reviews PRs &middot; commits &middot; holds memory (&psi;/ brain). The judgment layer.</div>
             </div>
           </div>
 
           <div class="arch-arrow">&darr;</div>
-          <div class="arch-label">spawns via maw team up &middot; codex reads AGENTS.md</div>
+          <div class="arch-label">orchestrates &mdash; spawns &amp; dispatches a team</div>
 
-          <div class="arch-row">
-            <div class="arch-node codex">
-              <div class="node-icon">&#x1F534;</div>
-              <div class="node-name">codex-chrome</div>
-              <div class="node-role">Frontend builder</div>
+          <div class="layer-node l2">
+            <div class="layer-tag">Layer 2</div>
+            <div class="layer-icon">&#x1F36F;</div>
+            <div class="layer-body">
+              <div class="layer-name">omx <span class="sub">(oh-my-codex)</span></div>
+              <div class="layer-role">Team orchestration &middot; tmux + worktree management &middot; live HUD &middot; session state. The coordination layer.</div>
             </div>
-            <div class="arch-node codex">
-              <div class="node-icon">&#x26A1;</div>
-              <div class="node-name">codex-flux</div>
-              <div class="node-role">Backend / API builder</div>
-            </div>
-            <div class="arch-node codex">
-              <div class="node-icon">&#x1F6E1;</div>
-              <div class="node-name">codex-static</div>
-              <div class="node-role">Testing / QA builder</div>
+          </div>
+
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-label">drives one Codex process per member</div>
+
+          <div class="layer-node l3">
+            <div class="layer-tag">Layer 3</div>
+            <div class="layer-icon">&#x1F916;</div>
+            <div class="layer-body">
+              <div class="layer-name">Codex CLI <span class="sub">(OpenAI &middot; gpt-5.5)</span></div>
+              <div class="layer-role">The execution engine &mdash; reads AGENTS.md, writes code, runs tests, opens PRs. Free on ChatGPT Pro.</div>
             </div>
           </div>
 
         </div>
       </div>
-    </div>
-
-    <!-- File Structure -->
-    <div class="arch-section">
-      <div class="section-title">File Structure (per project)</div>
-      <div class="file-tree">
-        <span class="dir">project-root/</span><br>
-        <span class="highlight">&ensp;&ensp;AGENTS.md</span> <span class="comment">&larr; project context (Codex reads auto)</span><br>
-        <span class="dir">&ensp;&ensp;agents/</span><br>
-        <span class="highlight">&ensp;&ensp;&ensp;&ensp;chrome.md</span> <span class="comment">&larr; frontend role: components, SWR, forms</span><br>
-        <span class="highlight">&ensp;&ensp;&ensp;&ensp;flux.md</span> <span class="comment">&larr; backend role: GraphQL, auth, data</span><br>
-        <span class="highlight">&ensp;&ensp;&ensp;&ensp;static.md</span> <span class="comment">&larr; testing role: Vitest, Playwright, review</span><br>
-        <span class="dir">&ensp;&ensp;.maw/teams/</span><br>
-        <span class="highlight">&ensp;&ensp;&ensp;&ensp;codex-squad.yaml</span> <span class="comment">&larr; charter for maw team up</span><br>
-        <span class="dir">&ensp;&ensp;.claude/agents/</span> <span class="comment">&larr; Claude subagents (existing, separate)</span><br>
-        <span class="dir">&ensp;&ensp;src/</span> <span class="comment">&larr; actual code</span>
+      <div class="note">
+        <strong>Read it top-down:</strong> you talk to Layer 1. Layer 1 calls Layer 2 to spin up workers. Layer 2 launches Layer 3 processes that touch the filesystem. You can skip Layer 2 entirely (<code>codex exec</code> direct) when you only need one worker &mdash; see <em>3 Ways to Run Codex</em>.
       </div>
     </div>
 
-    <!-- Role Cards -->
+    <!-- ================= INSTALLATION ================= -->
     <div class="arch-section">
-      <div class="section-title">Role Agents</div>
-      <div class="cards">
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-icon chrome">&#x1F534;</div>
-            <div>
-              <div class="card-title">Chrome</div>
-              <div class="card-subtitle">agents/chrome.md</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <ul>
-              <li>React components, JSX, styling</li>
-              <li>SWR tuple-key data binding</li>
-              <li>react-hook-form + Zod patterns</li>
-              <li>Dynamic imports for bundle size</li>
-              <li>Tailwind conventions &amp; design tokens</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-icon flux">&#x26A1;</div>
-            <div>
-              <div class="card-title">Flux</div>
-              <div class="card-subtitle">agents/flux.md</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <ul>
-              <li>GraphQL operations (single-file)</li>
-              <li>Three-token auth + refresh dance</li>
-              <li>RBAC: FE prototype vs backend design</li>
-              <li>graphql-request v7 client</li>
-              <li>Cache invalidation patterns</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-icon static">&#x1F6E1;</div>
-            <div>
-              <div class="card-title">Static</div>
-              <div class="card-subtitle">agents/static.md</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <ul>
-              <li>Vitest unit tests + V8 coverage</li>
-              <li>Playwright E2E (Chromium only)</li>
-              <li>Auth state: minted JWT in global-setup</li>
-              <li>Code review checklist</li>
-              <li>Lighthouse budget enforcement</li>
-            </ul>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Oracle vs Codex -->
-    <div class="arch-section">
-      <div class="section-title">Oracle (Claude) vs Codex &mdash; Capability Map</div>
-      <table class="comparison">
-        <thead>
-          <tr>
-            <th>Capability</th>
-            <th>Oracle (Claude)</th>
-            <th>Codex</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Memory / context across sessions</td>
-            <td><span class="check">&#x2713;</span> &psi;/ brain</td>
-            <td><span class="cross">&#x2717;</span> stateless</td>
-          </tr>
-          <tr>
-            <td>Resume / continue</td>
-            <td><span class="check">&#x2713;</span> --resume</td>
-            <td><span class="cross">&#x2717;</span> fresh every time</td>
-          </tr>
-          <tr>
-            <td>Discord bot</td>
-            <td><span class="check">&#x2713;</span> MCP plugin</td>
-            <td><span class="cross">&#x2717;</span> not supported</td>
-          </tr>
-          <tr>
-            <td>Project context</td>
-            <td><span class="check">&#x2713;</span> CLAUDE.md + skills</td>
-            <td><span class="check">&#x2713;</span> AGENTS.md</td>
-          </tr>
-          <tr>
-            <td>Fire-and-forget execution</td>
-            <td>&#x2248; possible but heavy</td>
-            <td><span class="check">&#x2713;</span> codex exec</td>
-          </tr>
-          <tr>
-            <td>Sandbox isolation</td>
-            <td><span class="cross">&#x2717;</span> full access</td>
-            <td><span class="check">&#x2713;</span> workspace-write</td>
-          </tr>
-          <tr>
-            <td>Skill system</td>
-            <td><span class="check">&#x2713;</span> arra-oracle install</td>
-            <td><span class="cross">&#x2717;</span> AGENTS.md only</td>
-          </tr>
-          <tr>
-            <td>Cost</td>
-            <td>API tokens</td>
-            <td>ChatGPT Pro subscription</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Lifecycle (from Nat's proven recipe) -->
-    <div class="arch-section">
-      <div class="section-title">Team Lifecycle (/codex-team)</div>
-      <p style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem;">
-        Proven recipe from Nat's arra-oracle-v3 &mdash; claude lead + omx codex builders with branch isolation.
-        Source: <a href="https://gist.github.com/nazt/319bce17aa49ca6e9ac9529414e903ee" style="color: var(--cyan); text-decoration: none;">gist/nazt/319bce17</a>
+      <div class="section-title">Installation</div>
+      <p class="section-intro">
+        omx wraps the Codex CLI. Prerequisite: the <code>codex</code> binary (OpenAI) + a ChatGPT Pro login &mdash; <code>omx doctor</code> verifies both. Four commands, one-time:
       </p>
 
       <div class="code-block">
-        <span class="label">up &mdash; spawn</span>
-<span class="cmt"># 1. Preflight check</span>
-<span class="cmd">maw team preflight</span> <span class="str">&psi;/teams/[project]-team.yaml</span>
+<span class="cmt"># 1 &mdash; install omx globally (via bun)</span>
+<span class="cmd">bun</span> install <span class="flag">-g</span> oh-my-codex
 
-<span class="cmt"># 2. Spawn (creates tmux windows + worktrees)</span>
-<span class="cmd">maw team up</span> [project]-team
+<span class="cmt"># 2 &mdash; one-time user-scoped config (~/.codex, engine defaults)</span>
+<span class="cmd">omx</span> setup <span class="flag">--scope</span> user
 
-<span class="cmt"># 3. Verify</span>
-<span class="cmd">for</span> N <span class="cmd">in</span> 1 2 3; <span class="cmd">do</span>
-  <span class="cmd">maw peek</span> [session]:codex-$N 2>&1 | tail -5
-<span class="cmd">done</span>
+<span class="cmt"># 3 &mdash; health check &mdash; expect 16/16 OK (codex, auth, tmux, git, worktree...)</span>
+<span class="cmd">omx</span> doctor
+
+<span class="cmt"># 4 &mdash; smoke test the execution path end-to-end</span>
+<span class="cmd">omx</span> exec <span class="flag">--skip-git-repo-check</span> <span class="flag">-C</span> . <span class="str">"Reply with exactly OMX-EXEC-OK"</span>
       </div>
 
-      <div class="code-block">
-        <span class="label">dispatch &mdash; assign task</span>
-<span class="cmt"># Use maw hey (NOT tmux send-keys)</span>
-<span class="cmd">maw hey</span> codex-1 <span class="str">"You are Chrome. Read agents/chrome.md. Task: build AppointmentPicker"</span>
-      </div>
-
-      <div class="code-block">
-        <span class="label">status &mdash; check all</span>
-<span class="cmd">for</span> N <span class="cmd">in</span> 1 2 3; <span class="cmd">do</span>
-  echo <span class="str">"=== codex-$N ==="</span>
-  <span class="cmd">maw peek</span> [session]:codex-$N 2>&1 | tail -10
-<span class="cmd">done</span>
-
-<span class="cmt"># Check open PRs</span>
-<span class="cmd">gh pr list</span> <span class="flag">--base</span> alpha <span class="flag">--state</span> open
-      </div>
-
-      <div class="code-block">
-        <span class="label">down &mdash; teardown</span>
-<span class="cmt"># Auto-saves WIP, kills windows, removes worktrees, keeps branches</span>
-<span class="cmd">maw team down</span> [project]-team
-      </div>
-
-      <div class="code-block">
-        <span class="label">restart / relaunch</span>
-<span class="cmt"># Full restart</span>
-<span class="cmd">maw team down</span> [project]-team && sleep 3 && <span class="cmd">maw team up</span> [project]-team
-
-<span class="cmt"># Single dead member only</span>
-<span class="cmd">maw team up</span> [project]-team <span class="flag">--only</span> codex-3
-      </div>
-
-      <div class="code-block">
-        <span class="label">single agent (no team)</span>
-<span class="cmt"># Quick fire-and-forget</span>
-<span class="cmd">codex exec</span> <span class="flag">-s</span> workspace-write <span class="str">"Read AGENTS.md. Task: refactor component X"</span>
+      <div class="note green">
+        <strong>Done when:</strong> <code>omx doctor</code> prints <span class="check">16/16</span> and the smoke test echoes <code>OMX-EXEC-OK</code>. If doctor flags <code>codex</code> missing, install the Codex CLI first and re-run. <span style="color:var(--text-dim)">&mdash; ติดตั้งครั้งเดียว ใช้ได้ทั้ง fleet</span>
       </div>
     </div>
 
-    <!-- Charter -->
+    <!-- ================= DECISION TREE ================= -->
     <div class="arch-section">
-      <div class="section-title">Charter (branch-isolated, in &psi;/teams/)</div>
+      <div class="section-title">Decision Tree &mdash; Codex or Claude?</div>
+      <p class="section-intro">
+        The whole system rests on one split: <strong>execution is free, judgment costs tokens.</strong> Route every task by what it actually needs.
+      </p>
+
+      <div class="decision">
+        <div class="branch exec">
+          <div class="branch-kind">&#x1F528; Execution</div>
+          <div class="branch-trigger">write &middot; build &middot; refactor &middot; scaffold &middot; port &middot; run tests</div>
+          <div class="branch-arrow">&darr; route to</div>
+          <div class="branch-route">codex exec &nbsp;/&nbsp; omx team</div>
+          <div class="branch-cost"><span class="free">FREE</span> &mdash; runs on ChatGPT Pro subscription</div>
+        </div>
+
+        <div class="branch analysis">
+          <div class="branch-kind">&#x1F9E0; Analysis / Judgment</div>
+          <div class="branch-trigger">review &middot; architecture &middot; research &middot; trade-offs &middot; /rrr &middot; decisions</div>
+          <div class="branch-arrow">&darr; route to</div>
+          <div class="branch-route">Claude subagent (Agent tool)</div>
+          <div class="branch-cost">API tokens &mdash; pay for the thinking that matters</div>
+        </div>
+      </div>
+
+      <div class="never-strip">
+        <div class="never-title">&#x26D4; Never</div>
+        <ul>
+          <li>Spawn a Claude Agent tool literally named <code>"codex"</code> &mdash; Claude cannot run the Codex CLI; you just get a confused Claude.</li>
+          <li>Put <code>engine: omx</code> in a charter <strong>without installing omx first</strong> &mdash; the member launches into an empty tmux window and silently does nothing.</li>
+          <li>Send analysis/judgment work to Codex &mdash; it executes well but does not hold context or weigh trade-offs like the Oracle does.</li>
+        </ul>
+      </div>
+
+      <div class="self-discipline" style="margin-top:1.5rem; padding:1.2rem 1.5rem; background:linear-gradient(135deg, var(--surface-2), rgba(244,114,182,0.06)); border:1px solid var(--pink); border-radius:10px;">
+        <div style="font-weight:700; color:var(--pink); margin-bottom:0.5rem; font-size:0.85rem;">&#x1F6A8; Self-Discipline Rule &mdash; the Oracle follows this too</div>
+        <p style="font-size:0.78rem; color:var(--text); margin-bottom:0.6rem;">
+          This decision tree is not just for humans choosing tools. <strong>When Leica or any Oracle spawns subagents, it must follow the same rule.</strong>
+        </p>
+        <ul style="font-size:0.75rem; color:var(--text-dim); list-style:none; padding:0;">
+          <li style="margin-bottom:0.3rem;">&#x2705; Writing code, HTML, docs, configs &rarr; <code>codex exec</code> or <code>omx team</code> (free)</li>
+          <li style="margin-bottom:0.3rem;">&#x2705; Code review, architecture, research, synthesis &rarr; Claude subagent (correct spend)</li>
+          <li style="margin-bottom:0.3rem;">&#x274C; Spawning a Claude Agent to write an HTML file = execution work routed to paid API = violation</li>
+        </ul>
+        <p style="font-size:0.7rem; color:var(--text-dim); font-style:italic; margin-top:0.5rem;">
+          This rule was added because Leica broke it &mdash; used a Claude subagent to write this very document instead of <code>omx team 1:writer</code>. Un caught the violation. Learn from my mistake.
+        </p>
+      </div>
+    </div>
+
+    <!-- ================= 3 WAYS TO RUN ================= -->
+    <div class="arch-section">
+      <div class="section-title">3 Ways to Run Codex</div>
+      <p class="section-intro">
+        Same engine, three levels of orchestration. Pick the lightest one that does the job &mdash; lowest tier that works.
+      </p>
+
+      <div class="cards stack">
+
+        <!-- Method 1 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon m1">1</div>
+            <div>
+              <div class="card-title"><code>codex exec</code> direct</div>
+              <div class="card-subtitle">simplest &middot; fire-and-forget &middot; no state</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="tag-row">
+              <span class="mini-tag good">no setup</span>
+              <span class="mini-tag info">1 worker</span>
+              <span class="mini-tag warn">no HUD</span>
+            </div>
+            <p>One process, one task, then it exits. No tmux, no worktree, no team state. Use it for a quick refactor, a single component, a one-shot script. When you need parallelism or visibility, move up to Method 2.</p>
+            <div class="code-block">
+<span class="cmd">codex</span> exec <span class="flag">-s</span> workspace-write <span class="str">"Read AGENTS.md. Task: refactor AppointmentPicker to use SWR tuple keys."</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Method 2 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon m2">2</div>
+            <div>
+              <div class="card-title"><code>omx team</code> native</div>
+              <div class="card-subtitle">omx manages tmux &middot; worktrees &middot; HUD</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="tag-row">
+              <span class="mini-tag good">parallel</span>
+              <span class="mini-tag info">live HUD</span>
+              <span class="mini-tag warn">needs clean git</span>
+            </div>
+            <p>omx spins up N workers in their own tmux windows + worktrees, shows a live HUD, and tears down cleanly. The sweet spot for parallel execution when you don't need full Oracle/branch integration.</p>
+            <div class="code-block">
+<span class="cmd">omx</span> team <span class="str">3:executor</span> <span class="str">"implement the forum API endpoints"</span>   <span class="cmt"># spawn 3 executors</span>
+<span class="cmd">omx</span> team status <span class="str">&lt;team-name&gt;</span>                            <span class="cmt"># check progress</span>
+<span class="cmd">omx</span> team shutdown <span class="str">&lt;team-name&gt;</span>                          <span class="cmt"># clean teardown</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Method 3 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon m3">3</div>
+            <div>
+              <div class="card-title"><code>maw team up</code> + charter</div>
+              <div class="card-subtitle">full Oracle integration &middot; branch isolation</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="tag-row">
+              <span class="mini-tag good">branch-isolated</span>
+              <span class="mini-tag info">brain-committed</span>
+              <span class="mini-tag warn">most setup</span>
+            </div>
+            <p>A YAML charter in <code>&psi;/teams/</code> defines a Claude lead + omx builders, each pinned to its own branch. maw drives omx underneath. This is the Oracle-grade form &mdash; reproducible, reviewable, committed to the brain.</p>
+            <div class="code-block">
+<span class="cmd">maw</span> team preflight <span class="str">&psi;/teams/project-team.yaml</span>   <span class="cmt"># validate &mdash; takes a PATH</span>
+<span class="cmd">maw</span> team up <span class="str">project-team</span>                       <span class="cmt"># spawn &mdash; takes a NAME</span>
+<span class="cmd">maw</span> hey <span class="str">&lt;session&gt;:&lt;member&gt;</span> <span class="str">"TASK: ..."</span>          <span class="cmt"># dispatch</span>
+<span class="cmd">maw</span> team down <span class="str">project-team</span>                     <span class="cmt"># teardown &mdash; takes a NAME</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= LIFECYCLE: OMX NATIVE ================= -->
+    <div class="arch-section">
+      <div class="section-title">Team Lifecycle &mdash; omx native</div>
+      <p class="section-intro">
+        The fast path. omx owns the whole lifecycle; you only need four verbs. One hard precondition: <strong style="color:var(--amber)">git status must be clean</strong> before spawning &mdash; omx refuses to create worktrees over uncommitted changes.
+      </p>
 
       <div class="code-block">
-        <span class="label">&psi;/teams/[project]-team.yaml</span>
-<span class="fn">name</span>: pops-vet-team
-<span class="fn">description</span>: <span class="str">Claude lead + Codex builders with branch isolation</span>
+        <span class="label">spawn &mdash; เปิดทีม</span>
+<span class="cmt"># Requires a CLEAN git status. Commit or stash first.</span>
+<span class="cmd">omx</span> team <span class="str">N:role</span> <span class="str">"task description"</span>
+<span class="cmt"># e.g. 3 executors on one task:</span>
+<span class="cmd">omx</span> team <span class="str">3:executor</span> <span class="str">"build the notifications service"</span>
+      </div>
+
+      <div class="code-block">
+        <span class="label">status &mdash; เช็คสถานะ</span>
+<span class="cmd">omx</span> team status <span class="str">&lt;team-name&gt;</span>
+<span class="cmt"># shows each member's state, branch, and last activity</span>
+      </div>
+
+      <div class="code-block">
+        <span class="label">peek &mdash; ส่องหน้าจอ</span>
+<span class="cmt"># Drop into a member's raw tmux pane output (last 20 lines)</span>
+<span class="cmd">tmux</span> capture-pane <span class="flag">-p</span> <span class="flag">-t</span> <span class="str">%&lt;pane&gt;</span> <span class="flag">-S</span> <span class="flag">-20</span>
+      </div>
+
+      <div class="code-block">
+        <span class="label">shutdown &mdash; ปิดและเก็บกวาด</span>
+<span class="cmd">omx</span> team shutdown <span class="str">&lt;team-name&gt;</span>
+<span class="cmt"># kills windows, removes worktrees, leaves branches intact</span>
+      </div>
+
+      <div class="note">
+        <strong>Available roles</strong> &mdash; each ships a tuned system prompt:
+        <div class="roles-line">
+          <span class="role-chip">executor</span>
+          <span class="role-chip">debugger</span>
+          <span class="role-chip">architect</span>
+          <span class="role-chip">critic</span>
+          <span class="role-chip">explorer</span>
+          <span class="role-chip">researcher</span>
+          <span class="role-chip">writer</span>
+          <span class="role-chip">&hellip; + more</span>
+        </div>
+        <span style="font-size:0.74rem">For pure file work, <code>executor</code> is the workhorse. Reserve <code>architect</code> / <code>critic</code> / <code>researcher</code> for tasks that lean toward judgment &mdash; or send those to a Claude subagent instead (see Decision Tree).</span>
+      </div>
+    </div>
+
+    <!-- ================= LIFECYCLE: MAW CHARTER ================= -->
+    <div class="arch-section">
+      <div class="section-title">Team Lifecycle &mdash; maw charter</div>
+      <p class="section-intro">
+        The Oracle-integrated path: a YAML charter in <code>&psi;/teams/</code> (structure from Nat's recipe) gives you a Claude lead + branch-isolated omx builders, committed to the brain so the team is reproducible. Five steps.
+      </p>
+
+      <!-- 5-step lifecycle -->
+      <div class="steps">
+        <div class="step"><div class="step-text"><span class="t">CHARTER</span> &mdash; <span class="d">write <code>&psi;/teams/&lt;name&gt;.yaml</code> with <code>project:</code>, <code>defaults:</code>, <code>members:</code>. Verify every task against real code (<code>ls</code>/<code>grep</code>) before you write it down.</span></div></div>
+        <div class="step"><div class="step-text"><span class="t">PREFLIGHT</span> &mdash; <span class="d"><code>maw team preflight &psi;/teams/&lt;name&gt;.yaml</code> &mdash; validates the charter. Takes a <strong>PATH</strong>.</span></div></div>
+        <div class="step"><div class="step-text"><span class="t">SPAWN</span> &mdash; <span class="d"><code>maw team up &lt;name&gt;</code> &mdash; creates tmux windows + worktrees per member. Takes a <strong>NAME</strong>. Verify each member launched.</span></div></div>
+        <div class="step"><div class="step-text"><span class="t">DISPATCH</span> &mdash; <span class="d"><code>maw hey &lt;session&gt;:&lt;member&gt; "TASK: ..."</code> &mdash; assign work. Use Task + Done + Safety format (below).</span></div></div>
+        <div class="step"><div class="step-text"><span class="t">TEARDOWN</span> &mdash; <span class="d"><code>maw team down &lt;name&gt;</code> &mdash; auto-saves WIP, kills windows, removes worktrees, keeps branches. Takes a <strong>NAME</strong>.</span></div></div>
+      </div>
+
+      <div class="note amber">
+        &#x26A0; <strong>PATH vs NAME</strong> &mdash; <code>preflight</code> takes the full <strong>path</strong> to the YAML; <code>up</code> / <code>down</code> take the bare <strong>name</strong>. Mixing them up is the most common first-run error.
+      </div>
+
+      <!-- Charter YAML -->
+      <div class="code-block">
+        <span class="label">&psi;/teams/project-team.yaml</span>
+<span class="fn">project</span>: <span class="str">pops-vet</span>
+<span class="fn">description</span>: <span class="str">Claude lead + omx Codex builders, branch-isolated</span>
+
+<span class="fn">defaults</span>:
+  <span class="fn">engine</span>: <span class="str">omx</span>            <span class="cmt"># omx MUST be installed (see Installation)</span>
+  <span class="fn">base</span>: <span class="str">alpha</span>           <span class="cmt"># every PR targets alpha &mdash; never main</span>
+  <span class="fn">worktree</span>: <span class="str">true</span>
 
 <span class="fn">members</span>:
-  - <span class="fn">role</span>: lead
-    <span class="fn">name</span>: pops-clinic-oracle
-    <span class="fn">engine</span>: <span class="str">claude</span>
-    <span class="fn">worktree</span>: <span class="str">false</span>          <span class="cmt"># lead stays on main tree</span>
+  - <span class="fn">role</span>: <span class="str">lead</span>
+    <span class="fn">name</span>: <span class="str">pops-clinic-oracle</span>
+    <span class="fn">engine</span>: <span class="str">claude</span>        <span class="cmt"># the lead is Claude &mdash; plans, reviews, commits</span>
+    <span class="fn">worktree</span>: <span class="str">false</span>       <span class="cmt"># lead stays on the main tree</span>
 
-  - <span class="fn">role</span>: codex-chrome
-    <span class="fn">name</span>: codex-1
-    <span class="fn">engine</span>: <span class="str">omx</span>             <span class="cmt"># NOT "codex" &mdash; omx is the engine name</span>
+  - <span class="fn">role</span>: <span class="str">executor</span>
+    <span class="fn">name</span>: <span class="str">codex-1</span>
+    <span class="fn">engine</span>: <span class="str">omx</span>
     <span class="fn">branch</span>: <span class="str">agents/pops-codex-1</span>
     <span class="fn">prompt</span>: |
       You are Chrome (frontend). Read agents/chrome.md.
       Work ONLY on branch agents/pops-codex-1.
-      When done: create PR to alpha, print DONE.
+      When done: open a PR to alpha, then print CODEX_DONE.
 
-  - <span class="fn">role</span>: codex-flux
-    <span class="fn">name</span>: codex-2
+  - <span class="fn">role</span>: <span class="str">executor</span>
+    <span class="fn">name</span>: <span class="str">codex-2</span>
     <span class="fn">engine</span>: <span class="str">omx</span>
     <span class="fn">branch</span>: <span class="str">agents/pops-codex-2</span>
     <span class="fn">prompt</span>: |
       You are Flux (backend). Read agents/flux.md.
       Work ONLY on branch agents/pops-codex-2.
-      When done: create PR to alpha, print DONE.
-
-  - <span class="fn">role</span>: codex-static
-    <span class="fn">name</span>: codex-3
-    <span class="fn">engine</span>: <span class="str">omx</span>
-    <span class="fn">branch</span>: <span class="str">agents/pops-codex-3</span>
-    <span class="fn">prompt</span>: |
-      You are Static (testing). Read agents/static.md.
-      Work ONLY on branch agents/pops-codex-3.
-      When done: create PR to alpha, print DONE.
+      When done: open a PR to alpha, then print CODEX_DONE.
       </div>
-    </div>
 
-    <!-- Key Rules -->
-    <div class="arch-section">
-      <div class="section-title">Key Rules (from Nat's 7 rules)</div>
-      <div class="triggers">
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F4C4;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Charter is source of truth</div>
-            <div class="trigger-desc"><code>&psi;/teams/*.yaml</code> (brain-committed) &mdash; NOT <code>.maw/teams/</code> or <code>~/.claude/teams/</code></div>
-          </div>
-        </div>
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F4E8;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Dispatch via maw hey only</div>
-            <div class="trigger-desc">Never <code>maw team send</code> or <code>SendMessage</code> for omx coders &mdash; silent no-op on omx</div>
-          </div>
-        </div>
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F50D;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Confirm before relaunch</div>
-            <div class="trigger-desc"><code>maw peek</code> to verify dead &mdash; "may not have submitted" is a false negative</div>
-          </div>
-        </div>
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F6AB;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Never push to main / never auto-merge</div>
-            <div class="trigger-desc">All work targets <code>alpha</code>. Oracle reviews PRs &mdash; human approves merges</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- When to Promote -->
-    <div class="arch-section">
-      <div class="section-title">When to Promote to Codex Oracle</div>
-      <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 1rem;">
-        AGENTS.md is sufficient now. Promote to a full Codex Oracle only when these triggers appear:
-      </p>
-
-      <div class="triggers">
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F504;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Repeated mistakes</div>
-            <div class="trigger-desc">Codex makes the same error across sessions &mdash; needs retrospective memory</div>
-          </div>
-        </div>
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F517;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Codex-to-Codex coordination</div>
-            <div class="trigger-desc">Multiple Codex agents need to integrate work &mdash; needs a coordinator with state</div>
-          </div>
-        </div>
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F4CB;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Standing orders that change</div>
-            <div class="trigger-desc">Dynamic rules that evolve faster than AGENTS.md updates &mdash; needs living memory</div>
-          </div>
-        </div>
-        <div class="trigger-item">
-          <div class="trigger-icon">&#x1F319;</div>
-          <div class="trigger-text">
-            <div class="trigger-title">Autonomous routines</div>
-            <div class="trigger-desc">Nightly builds, auto-fix, batch migration &mdash; Codex needs to self-manage</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Deploy to Other Projects -->
-    <div class="arch-section">
-      <div class="section-title">Deploy to Other Projects</div>
+      <!-- Dispatch format -->
       <div class="code-block">
-        <span class="label">template</span>
-<span class="cmt"># Template location</span>
-<span class="cmd">ls</span> ~/ghq/.../leica-oracle/&psi;/lab/codex-agents-template/
+        <span class="label">dispatch &mdash; Task + Done + Safety</span>
+<span class="cmd">maw</span> hey <span class="str">pops-vet:codex-1</span> <span class="str">"TASK: Build the AppointmentPicker component.
+DONE: PR opened to alpha, vitest green, print CODEX_DONE_\$?.
+SAFETY: only touch src/components/appointment/**, never main, never force-push."</span>
+      </div>
 
-<span class="cmt"># Copy to a new project</span>
-<span class="cmd">cp</span> <span class="flag">-r</span> .../codex-agents-template/agents ./agents
-<span class="cmd">cp</span> .../codex-agents-template/AGENTS.template.md ./AGENTS.md
-<span class="cmd">cp</span> <span class="flag">-r</span> .../codex-agents-template/maw-teams ./.maw/teams
-
-<span class="cmt"># Fill project-specific sections</span>
-<span class="cmt"># PM Oracle knows the project &mdash; it generates filled versions</span>
+      <div class="note">
+        <strong>Engine config matters.</strong> So Codex doesn't stop to ask approval at every step, the omx engine resumes with <code>omx --yolo --direct resume --last</code>. Missing those flags is the classic "agent asks permission forever" trap (see below).
       </div>
     </div>
 
-    <!-- Footer -->
+    <!-- ================= TRAP TABLE ================= -->
+    <div class="arch-section">
+      <div class="section-title">Trap Table &mdash; Blood Lessons</div>
+      <p class="section-intro">
+        Consolidated from Nat's 8 hard-won lessons plus our own fleet runs. Every row cost someone a debugging session &mdash; read them before your first spawn.
+      </p>
+      <div class="table-wrap">
+      <table class="comparison">
+        <thead>
+          <tr>
+            <th style="width:24%">Trap</th>
+            <th style="width:38%">Symptom</th>
+            <th style="width:38%">Fix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="t-trap">Dirty git status</td>
+            <td class="t-symptom"><code>omx team</code> refuses to spawn</td>
+            <td class="t-fix">Commit or stash before spawning</td>
+          </tr>
+          <tr>
+            <td class="t-trap">Charter from docs, not code</td>
+            <td class="t-symptom">Stale tasks block agents on work that's already done</td>
+            <td class="t-fix">Verify with <code>ls</code>/<code>grep</code> before writing the charter</td>
+          </tr>
+          <tr>
+            <td class="t-trap"><code>omx-resume</code> missing flags</td>
+            <td class="t-symptom">Agents ask approval at every step, never progress</td>
+            <td class="t-fix">Engine config: <code>omx --yolo --direct resume --last</code></td>
+          </tr>
+          <tr>
+            <td class="t-trap">Dead agent re-wake</td>
+            <td class="t-symptom">Replays stale commands from old context</td>
+            <td class="t-fix"><code>maw done</code> to clear state before re-dispatch</td>
+          </tr>
+          <tr>
+            <td class="t-trap"><code>bun test</code> ghost files</td>
+            <td class="t-symptom">False failures from leftover worktree test files</td>
+            <td class="t-fix">Always scope: <code>bun test tests/http/&lt;cluster&gt;/</code></td>
+          </tr>
+          <tr>
+            <td class="t-trap">Symlink materialization</td>
+            <td class="t-symptom"><code>.claude/skills/</code> noise pollutes the PR diff</td>
+            <td class="t-fix">Review the diff; repackage onto a clean branch if needed</td>
+          </tr>
+          <tr>
+            <td class="t-trap">Branch diverge</td>
+            <td class="t-symptom">Rebase would need a force-push (banned by Rule 1)</td>
+            <td class="t-fix">Repackage: clean branch + cherry-pick + new PR</td>
+          </tr>
+          <tr>
+            <td class="t-trap">Silent launch failure</td>
+            <td class="t-symptom">tmux window exists but the pane is empty</td>
+            <td class="t-fix"><code>maw peek</code> / <code>omx team status</code> after <em>every</em> spawn</td>
+          </tr>
+          <tr>
+            <td class="t-trap">Staging area dirty</td>
+            <td class="t-symptom"><code>git checkout -b</code> aborts mid-spawn</td>
+            <td class="t-fix"><code>git status</code> before any branch operation</td>
+          </tr>
+          <tr>
+            <td class="t-trap"><code>workspace-write</code> can't commit</td>
+            <td class="t-symptom"><code>.git/index.lock</code> blocked by the sandbox</td>
+            <td class="t-fix">Oracle lead commits &mdash; fits the review flow anyway</td>
+          </tr>
+          <tr>
+            <td class="t-trap">zsh <code>=</code> expansion</td>
+            <td class="t-symptom">Sentinel <code>===</code> triggers a shell path lookup</td>
+            <td class="t-fix">Use <code>printf 'CODEX_DONE_%s' $?</code> instead</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <!-- ================= QUICK REFERENCE ================= -->
+    <div class="arch-section">
+      <div class="section-title">Quick Reference</div>
+      <p class="section-intro">Copy-paste cheat sheet &mdash; the whole system in one screen.</p>
+
+      <div class="code-block">
+<span class="cmt"># ===== omx Native =====</span>
+<span class="cmd">omx</span> doctor                                    <span class="cmt"># health check (expect 16/16)</span>
+<span class="cmd">omx</span> team <span class="str">3:executor</span> <span class="str">"task"</span>                    <span class="cmt"># spawn team (needs clean git)</span>
+<span class="cmd">omx</span> team status <span class="str">&lt;name&gt;</span>                       <span class="cmt"># check progress</span>
+<span class="cmd">omx</span> team shutdown <span class="str">&lt;name&gt;</span>                     <span class="cmt"># clean teardown</span>
+
+<span class="cmt"># ===== codex exec Direct =====</span>
+<span class="cmd">codex</span> exec <span class="flag">-s</span> workspace-write <span class="str">"task"</span>          <span class="cmt"># fire-and-forget, one worker</span>
+
+<span class="cmt"># ===== maw Charter =====</span>
+<span class="cmd">maw</span> team preflight <span class="str">&psi;/teams/my-team.yaml</span>      <span class="cmt"># validate (PATH)</span>
+<span class="cmd">maw</span> team up <span class="str">my-team</span>                          <span class="cmt"># spawn (NAME)</span>
+<span class="cmd">maw</span> hey <span class="str">&lt;session&gt;:&lt;member&gt;</span> <span class="str">"TASK: ..."</span>       <span class="cmt"># dispatch</span>
+<span class="cmd">maw</span> peek <span class="str">&lt;session&gt;:&lt;member&gt;</span>                   <span class="cmt"># monitor</span>
+<span class="cmd">maw</span> team down <span class="str">my-team</span>                        <span class="cmt"># teardown (NAME)</span>
+
+<span class="cmt"># ===== Recovery =====</span>
+<span class="cmd">maw</span> done <span class="str">&lt;session&gt;:&lt;member&gt;</span>                   <span class="cmt"># clear dead state</span>
+<span class="cmd">maw</span> team up <span class="str">my-team</span> <span class="flag">--only</span> <span class="str">codex-N</span>           <span class="cmt"># relaunch one member</span>
+<span class="cmd">git</span> worktree prune                            <span class="cmt"># clean orphaned worktrees</span>
+
+<span class="cmt"># ===== PR Review =====</span>
+<span class="cmd">gh</span> pr list <span class="flag">--base</span> alpha <span class="flag">--state</span> open          <span class="cmt"># list open PRs</span>
+<span class="cmd">gh</span> pr view <span class="str">1234</span> <span class="flag">--json</span> mergeable             <span class="cmt"># check one PR</span>
+      </div>
+    </div>
+
+    <!-- ================= SCALING ================= -->
+    <div class="arch-section">
+      <div class="section-title">Scaling Notes</div>
+      <div class="trigger-item">
+        <div class="trigger-icon">&#x1F4D0;</div>
+        <div class="trigger-text">
+          <div class="trigger-title">Sweet spot: 3&ndash;4 coders per lead</div>
+          <div class="trigger-desc">One Oracle lead can plan, dispatch, and review 3&ndash;4 Codex builders without dropping context. Beyond that, review becomes the bottleneck &mdash; the lead spends more time reading diffs than thinking.</div>
+        </div>
+      </div>
+      <div class="trigger-item">
+        <div class="trigger-icon">&#x1F465;</div>
+        <div class="trigger-text">
+          <div class="trigger-title">At 7+ workers, add a lead &mdash; not more coders</div>
+          <div class="trigger-desc">Scale horizontally: a second lead with its own 3&ndash;4 coders beats one lead drowning in seven PRs. Split by domain (frontend team / backend team) so file ownership stays clean and no two coders touch the same file.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= FOOTER ================= -->
     <div class="footer">
-      Built by <a href="#">Leica</a> &mdash; Father Oracle<br>
-      Pilot: pops-clinic &middot; Template: ready for all PM Oracles<br>
-      Updated 2026-06-16: lifecycle commands from <a href="https://gist.github.com/nazt/319bce17aa49ca6e9ac9529414e903ee" style="color: var(--cyan);">Nat's /codex-team recipe</a><br>
+      <div class="correction">
+        <strong>&#x270E; Correction (2026-06-19):</strong> Earlier docs blamed "engine:omx bugs" for retiring omx. That was wrong &mdash; <strong>omx was never actually installed</strong>. We installed it for the first time today (v0.18.13), ran <code>omx setup --scope user</code>, passed <code>omx doctor</code> 16/16, and verified a live team: <code>omx team 1:executor "test"</code> &rarr; completed &rarr; clean shutdown. The system works; the old failure was a missing install, not a broken tool.
+      </div>
+      Built by <a href="#">Leica</a> &mdash; Father Oracle &middot; lead orchestrator<br>
+      omx v0.18.13 &middot; codex-cli 0.140.0 &middot; tested &amp; fleet-ready 2026-06-19<br>
       <br>
       <em>"The lens that sees clearly keeps the human human."</em>
     </div>

@@ -177,15 +177,44 @@ set -g pane-border-style "fg=colour240"
 ```
 งานที่ต้องทำ
   │
-  ├─ ต้องการ context/memory/resume? → Claude (Oracle)
-  ├─ ต้องการ Discord bot? → Claude (Oracle) 
-  ├─ fire-and-forget execution? → Codex exec
-  ├─ A/B test engines? → maw swarm (quick, no coordination)
-  ├─ ทีมจริงจัง + worktree? → maw team up (charter)
-  └─ install skills? → arra-oracle-skills-cli หรือ Leica ลงเอง
+  ├─ EXECUTION (write/build/refactor)?
+  │   ├─ 1 task, fire-and-forget → codex exec -s workspace-write "task"
+  │   ├─ 2-3 tasks, parallel → codex exec in tmux split panes
+  │   └─ team (3+ coders, worktree, HUD) → omx team N:role "task"
+  │
+  ├─ ANALYSIS/JUDGMENT (review/arch/research/rrr)?
+  │   └─ Claude subagent (Agent tool) — needs ψ/ brain, MCP, skills
+  │
+  └─ NEVER:
+      ├─ Agent tool เรียกว่า "codex" (มัน Claude, กิน Claude tokens)
+      ├─ codex exec ทำงาน judgment (ไม่มี Oracle context)
+      └─ engine: omx โดยไม่ install omx ก่อน (binary ต้องมี!)
 ```
+
+## 11. omx (oh-my-codex) — CORRECTION 2026-06-19
+
+**IMPORTANT**: omx was NEVER installed on leica node before 2026-06-19.
+The "engine:omx bugs" reported on Day 2-3 (Jun 16-17) were **missing binary symptoms**, not software defects.
+
+### What changed
+- Installed: `bun install -g oh-my-codex` → v0.18.13
+- Setup: `omx setup --scope user` → 37 prompts, 30 skills, 22 agents
+- Doctor: 16/16 passed
+- Tested: `omx team 1:executor "task"` → spawn, complete, shutdown — all clean
+
+### 3 ways to run Codex now
+
+| Method | Command | Use when |
+|--------|---------|----------|
+| codex exec direct | `codex exec -s workspace-write "task"` | 1-2 quick tasks, no coordination |
+| omx team native | `omx team 3:executor "task"` | Team coordination, HUD, worktree isolation |
+| maw team + charter | `maw team up my-team` (ψ/teams/*.yaml) | Full Oracle integration, branch isolation, PM lead |
+
+### omx requires clean git status
+`omx team` refuses to spawn if working tree is dirty. Commit or stash first.
 
 ---
 
 *จาก Leica — Father Oracle | Live tested 2026-06-11 with Un*
+*Updated 2026-06-19: omx installed + tested, decision tree corrected*
 *ส่งต่อให้ทุก oracle ในครอบครัว*
