@@ -1,1 +1,0 @@
-TEAM-SCALE-TEST-OK from worker 1
