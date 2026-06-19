@@ -279,6 +279,41 @@
     .never-strip li::before { content: '\2717'; position: absolute; left: 0; color: var(--red); font-weight: 700; }
     .never-strip li code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 3px; color: var(--amber); }
 
+    /* Self-Discipline Rule callout */
+    .self-rule {
+      margin-top: 1.5rem;
+      border: 1px solid var(--accent-dim);
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--surface), rgba(124, 106, 239, 0.07));
+      padding: 1.4rem 1.5rem;
+    }
+    .self-rule .sr-head {
+      display: flex; align-items: center; gap: 0.5rem;
+      color: var(--accent); font-weight: 700; font-size: 0.82rem;
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.7rem;
+    }
+    .self-rule .sr-body { font-size: 0.8rem; color: var(--text-dim); }
+    .self-rule .sr-body code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 3px; color: var(--cyan); font-size: 0.92em; }
+    .self-rule .sr-split { display: flex; gap: 1rem; margin: 0.9rem 0; flex-wrap: wrap; }
+    .self-rule .sr-half {
+      flex: 1; min-width: 230px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.8rem 1rem; font-size: 0.76rem;
+    }
+    .self-rule .sr-half.exec { border-color: var(--green-dim); }
+    .self-rule .sr-half.analysis { border-color: var(--cyan-dim); }
+    .self-rule .sr-half .k { font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.35rem; }
+    .self-rule .sr-half.exec .k { color: var(--green); }
+    .self-rule .sr-half.analysis .k { color: var(--cyan); }
+    .self-rule .confession {
+      margin-top: 0.9rem;
+      border-left: 3px solid var(--amber);
+      background: rgba(251, 191, 36, 0.05);
+      border-radius: 0 8px 8px 0;
+      padding: 0.8rem 1rem; font-size: 0.76rem; color: var(--text-dim);
+    }
+    .self-rule .confession strong { color: var(--amber); }
+
     /* Cards Grid */
     .cards {
       display: grid;
