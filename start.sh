@@ -14,17 +14,17 @@ TOKEN_CMD="export CLAUDE_CODE_OAUTH_TOKEN='$CLAUDE_CODE_OAUTH_TOKEN' CLAUDE_TOKE
 tmux new-session -d -s 01-leica -n leica-oracle -c ~/ghq/github.com/switchaphon/leica-oracle
 tmux new-window  -t 01-leica   -n leica-discord -c ~/ghq/github.com/switchaphon/leica-oracle
 
-# Pops Clinic
-tmux new-session -d -s 05-pops-clinic -n pops-clinic-oracle -c ~/ghq/github.com/switchaphon/pops-clinic-oracle
+# Pops Vet
+tmux new-session -d -s 05-pops-vet -n pops-vet-oracle -c ~/ghq/github.com/switchaphon/pops-vet-oracle
 
 # Per-oracle Discord state dirs (each oracle has its own bot token in .discord-state/.env)
 LEICA_DISCORD="export DISCORD_STATE_DIR=~/ghq/github.com/switchaphon/leica-oracle/.discord-state"
-POPS_DISCORD="export DISCORD_STATE_DIR=~/ghq/github.com/switchaphon/pops-clinic-oracle/.discord-state"
+POPS_DISCORD="export DISCORD_STATE_DIR=~/ghq/github.com/switchaphon/pops-vet-oracle/.discord-state"
 
 # Launch Claude Code with shared token + per-oracle Discord identity
 tmux send-keys -t 01-leica:leica-oracle              "$TOKEN_CMD && $LEICA_DISCORD && claude" Enter
 tmux send-keys -t 01-leica:leica-discord              "$TOKEN_CMD && $LEICA_DISCORD && claude --dangerously-skip-permissions" Enter
-tmux send-keys -t 05-pops-clinic:pops-clinic-oracle    "$TOKEN_CMD && $POPS_DISCORD && claude" Enter
+tmux send-keys -t 05-pops-vet:pops-vet-oracle    "$TOKEN_CMD && $POPS_DISCORD && claude" Enter
 
 # Attach
 tmux attach -t 01-leica
