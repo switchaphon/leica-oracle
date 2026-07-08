@@ -22,3 +22,10 @@ workshop-02-voice-bot
 # Audio artifacts (voice bot workshop)
 *.mp3
 *.aiff
+
+# Astro build artifacts
+dist/
+.astro/
+
+# Blog working files
+BLOG-AGENTS.md
