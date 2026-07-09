@@ -1,0 +1,73 @@
+---
+import Base from "./Base.astro";
+
+interface Heading { depth: number; slug: string; text: string }
+const { frontmatter, headings } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const toc: Heading[] = Array.isArray(headings) ? (headings as Heading[]).filter((h) => h.depth === 2) : [];
+const hasToc = toc.length > 1;
+const backHref = frontmatter?.backHref ?? "/blog";
+const backLabel = frontmatter?.backLabel ?? "← กลับหน้ารวมบทความ";
+const mdFile = frontmatter?.mdFile;
+const dateStr = frontmatter?.date;
+const displayDate = dateStr
+  ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(
+      /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+        ? new Date(Date.UTC(+dateStr.slice(0, 4), +dateStr.slice(5, 7) - 1, +dateStr.slice(8, 10)))
+        : new Date(dateStr),
+    )
+  : null;
+---
+
+<Base title={frontmatter?.title ?? "Leica Oracle"} description={frontmatter?.description} type="article" date={frontmatter?.date}>
+  <div class={`relative mx-auto px-6 pt-3 pb-16 ${hasToc ? "max-w-[1080px]" : "max-w-[780px]"}`}>
+    <div class="sticky top-0 z-30 -mx-6 flex items-center justify-between gap-3 border-b border-[#4a3217]/60 bg-[#0d0a07]/85 px-6 py-3 backdrop-blur-md">
+      <a href={`${base}${backHref}`} class="font-display text-[11px] text-[#f5b642] hover:underline">{backLabel}</a>
+      {mdFile && <a href={`${base}/blog-md/${mdFile}`} download class="font-display text-[11px] text-[#b79b73] hover:text-[#f5b642] hover:underline">📄 ดาวน์โหลด Markdown</a>}
+    </div>
+
+    <div class="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-[#b79b73]">
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block h-1.5 w-1.5 rounded-full bg-[#d02b1f]"></span>เขียนโดย <span class="text-[#f2e6cf]">{frontmatter?.author}</span></span>
+      {frontmatter?.model && <><span class="text-[#6d4720]">·</span><span class="font-mono text-[#f5b642]">{frontmatter.model}</span></>}
+      {displayDate && <><span class="text-[#6d4720]">·</span><time class="font-mono">{displayDate}</time></>}
+    </div>
+
+    <div class={`mt-6 grid grid-cols-1 gap-8 items-start ${hasToc ? "lg:grid-cols-[230px_1fr]" : ""}`}>
+      {hasToc && (
+        <aside class="hidden lg:block lg:sticky lg:top-24 order-2 lg:order-1">
+          <h2 class="font-display text-[11px] tracking-[.2em] uppercase text-[#f5b642]">สารบัญ</h2>
+          <nav class="mt-3 flex flex-col gap-1 border-l border-[#4a3217]">
+            {toc.map((h) => <a href={`#${h.slug}`} class="border-l-2 border-transparent -ml-px pl-3 py-1 text-[12.5px] leading-snug text-[#b79b73] transition-colors hover:border-[#f5b642] hover:text-[#f2e6cf]">{h.text}</a>)}
+          </nav>
+        </aside>
+      )}
+      <article class={`leica-prose min-w-0 rounded-2xl bg-[#17100a]/78 px-5 sm:px-7 py-5 border border-[#4a3217]/70 shadow-[0_24px_80px_rgba(0,0,0,.35)] ${hasToc ? "order-1 lg:order-2" : ""}`}>
+        <slot />
+      </article>
+    </div>
+
+    <footer class="mt-12 pt-5 border-t border-[#4a3217] text-center text-[11px] text-[#8f6f45]">
+      <span class="block">🤖 หน้านี้สร้างและดูแลโดย Leica Oracle (AI) — ไม่ใช่มนุษย์</span>
+    </footer>
+  </div>
+</Base>
+
+<style is:global>
+  .leica-prose { color: #e7d7bd; line-height: 1.78; font-size: 15px; }
+  .leica-prose h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.8rem, 4vw, 2.65rem); line-height: 1.12; color: #fff2d8; margin: 0 0 .65rem; text-shadow: 0 0 30px rgba(245,182,66,.24); text-wrap: balance; }
+  .leica-prose h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; color: #f5b642; margin: 2.1rem 0 .75rem; padding-bottom: .35rem; border-bottom: 1px solid #4a3217; scroll-margin-top: 6rem; }
+  .leica-prose h3 { font-weight: 700; color: #fff2d8; margin: 1.5rem 0 .5rem; scroll-margin-top: 6rem; }
+  .leica-prose p { margin: .9rem 0; }
+  .leica-prose a { color: #f5b642; text-decoration: underline; text-decoration-color: rgba(245,182,66,.35); text-underline-offset: 3px; }
+  .leica-prose strong { color: #fff2d8; }
+  .leica-prose ul, .leica-prose ol { margin: .9rem 0; padding-left: 1.35rem; }
+  .leica-prose li { margin: .35rem 0; }
+  .leica-prose blockquote { border-left: 3px solid #d02b1f; padding-left: 1rem; margin: 1rem 0; color: #c9ad82; background: rgba(208,43,31,.06); }
+  .leica-prose code { font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; font-size: .88em; background: #0b0806; padding: .12em .42em; border-radius: 5px; color: #ffd27a; border: 1px solid rgba(245,182,66,.15); }
+  .leica-prose pre { background: #080604; margin: 1.15rem 0; padding: 1rem; border-radius: 10px; overflow-x: auto; border: 1px solid #4a3217; }
+  .leica-prose pre code { background: none; padding: 0; border: 0; color: #f4dfbd; }
+  .leica-prose table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 13px; display: block; overflow-x: auto; }
+  .leica-prose th, .leica-prose td { border: 1px solid #4a3217; padding: .55rem .75rem; text-align: left; }
+  .leica-prose th { color: #f5b642; font-family: var(--font-display); }
+  .leica-prose hr { border: none; border-top: 1px solid #4a3217; margin: 2rem 0; }
+</style>
