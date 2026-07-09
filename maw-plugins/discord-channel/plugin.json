@@ -1,0 +1,17 @@
+{
+  "$schema": "https://maw.soulbrews.studio/schema/plugin.json",
+  "name": "discord-channel",
+  "version": "0.1.0",
+  "description": "Manage Discord channel plugin: token, access.json, state dir, status — like maw token but for Discord.",
+  "author": "Leica Oracle",
+  "license": "MIT",
+  "sdk": "^1.0.0",
+  "schemaVersion": 1,
+  "entry": "./index.ts",
+  "runtime": "bun-dev",
+  "cli": {
+    "command": "discord-channel",
+    "help": "maw discord-channel <token|access|status|state> [args]"
+  },
+  "weight": 10
+}
