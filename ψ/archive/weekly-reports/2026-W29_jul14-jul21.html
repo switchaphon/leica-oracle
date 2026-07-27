@@ -1,0 +1,692 @@
+<title>Weekly Report W29 — 14–21 Jul 2026</title>
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-alt: #f5f3ef;
+    --text: #2c3e50;
+    --heading: #1a1a2e;
+    --accent: #b56a1e;
+    --accent-bg: #fdf5eb;
+    --blue: #3a7bd5;
+    --blue-bg: #eef4fc;
+    --green: #2d8a56;
+    --green-bg: #edf7f0;
+    --red: #c0392b;
+    --border: #e2e0dc;
+    --muted: #7a8a96;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+    --serif: Georgia, "Noto Serif Thai", serif;
+    --sans: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface-alt: #1e2a3a;
+      --text: #c5cdd8;
+      --heading: #e8ecf1;
+      --accent: #d4a547;
+      --accent-bg: #2a2218;
+      --blue: #4a9eff;
+      --blue-bg: #162030;
+      --green: #4eca7a;
+      --green-bg: #142a1e;
+      --red: #e74c3c;
+      --border: #2a3a4a;
+      --muted: #5a6a7a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1419;
+    --surface: #1a2332;
+    --surface-alt: #1e2a3a;
+    --text: #c5cdd8;
+    --heading: #e8ecf1;
+    --accent: #d4a547;
+    --accent-bg: #2a2218;
+    --blue: #4a9eff;
+    --blue-bg: #162030;
+    --green: #4eca7a;
+    --green-bg: #142a1e;
+    --red: #e74c3c;
+    --border: #2a3a4a;
+    --muted: #5a6a7a;
+  }
+  :root[data-theme="light"] {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-alt: #f5f3ef;
+    --text: #2c3e50;
+    --heading: #1a1a2e;
+    --accent: #b56a1e;
+    --accent-bg: #fdf5eb;
+    --blue: #3a7bd5;
+    --blue-bg: #eef4fc;
+    --green: #2d8a56;
+    --green-bg: #edf7f0;
+    --red: #c0392b;
+    --border: #e2e0dc;
+    --muted: #7a8a96;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--sans);
+    font-size: 15px;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 4rem;
+  }
+
+  /* Header */
+  .report-header {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .report-header .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.35rem;
+  }
+  .report-header h1 {
+    font-family: var(--serif);
+    font-size: 2rem;
+    color: var(--heading);
+    font-weight: 700;
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+  .report-header .meta {
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+  }
+
+  /* Stat grid */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  .stat .label {
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+  .stat .value {
+    font-family: var(--mono);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--heading);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .detail {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+  .stat.accent { border-left: 3px solid var(--accent); }
+  .stat.blue { border-left: 3px solid var(--blue); }
+  .stat.green { border-left: 3px solid var(--green); }
+
+  /* Section */
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.45rem;
+    color: var(--heading);
+    margin: 2.5rem 0 1.15rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: 1.1rem;
+    color: var(--heading);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .day {
+    position: relative;
+    margin-bottom: 1.75rem;
+  }
+  .day::before {
+    content: "";
+    position: absolute;
+    left: calc(-2rem + 0.3rem);
+    top: 0.45rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+  }
+  .day.milestone::before {
+    width: 12px;
+    height: 12px;
+    left: calc(-2rem + 0.2rem);
+    top: 0.35rem;
+    box-shadow: 0 0 0 3px var(--accent-bg);
+  }
+  .day-date {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .day-hours {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-left: 0.5rem;
+  }
+  .day-body {
+    margin-top: 0.4rem;
+  }
+  .project-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-weight: 600;
+    margin-right: 0.25rem;
+    vertical-align: middle;
+  }
+  .tag-pet { background: var(--blue-bg); color: var(--blue); }
+  .tag-vet { background: var(--green-bg); color: var(--green); }
+  .tag-leica { background: var(--accent-bg); color: var(--accent); }
+
+  .day-items {
+    list-style: none;
+    margin-top: 0.35rem;
+  }
+  .day-items li {
+    font-size: 1rem;
+    padding: 0.25rem 0;
+    line-height: 1.6;
+  }
+  .day-items li::before {
+    content: "–";
+    color: var(--muted);
+    margin-right: 0.4rem;
+  }
+  .outcome {
+    font-weight: 600;
+    color: var(--heading);
+  }
+  .milestone-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    margin-left: 0.5rem;
+  }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+  th {
+    text-align: left;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.6rem 0.75rem;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  tr:last-child td { border-bottom: none; }
+  .num { font-family: var(--mono); text-align: right; }
+  .total-row td {
+    font-weight: 700;
+    color: var(--heading);
+    border-top: 2px solid var(--border);
+    border-bottom: none;
+  }
+
+  /* Learnings */
+  .learning-grid {
+    display: grid;
+    gap: 0.6rem;
+    margin: 1rem 0;
+  }
+  .learning {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.85rem 1.15rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .learning strong {
+    color: var(--heading);
+  }
+
+  /* Artifacts list */
+  .artifact-list {
+    list-style: none;
+    margin: 0.75rem 0;
+  }
+  .artifact-list li {
+    font-size: 0.95rem;
+    padding: 0.35rem 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .artifact-type {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: var(--surface-alt);
+    color: var(--muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Footer */
+  .report-footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Intensity bar */
+  .intensity {
+    display: inline-block;
+    height: 4px;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+  }
+  .i-low { width: 30px; background: var(--green); }
+  .i-med { width: 45px; background: var(--blue); }
+  .i-high { width: 60px; background: var(--accent); }
+  .i-marathon { width: 80px; background: var(--red); }
+
+  @media (max-width: 600px) {
+    body { padding: 1.25rem 1rem 3rem; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat .value { font-size: 1.5rem; }
+    .report-header h1 { font-size: 1.6rem; }
+  }
+</style>
+
+<header class="report-header">
+  <div class="eyebrow">Leica Oracle — Weekly Report</div>
+  <h1>W29: Production Infrastructure Week</h1>
+  <div class="meta">14–21 July 2026 &middot; Witchaphon Saeng-aram &middot; compiled by Leica</div>
+</header>
+
+<div class="stats">
+  <div class="stat accent">
+    <div class="label">Hours worked</div>
+    <div class="value">~57h</div>
+    <div class="detail">across 7 days</div>
+  </div>
+  <div class="stat blue">
+    <div class="label">Sessions</div>
+    <div class="value">27</div>
+    <div class="detail">15 pet · 8 vet · 4 leica</div>
+  </div>
+  <div class="stat green">
+    <div class="label">Commits</div>
+    <div class="value">25</div>
+    <div class="detail">17 pet · 5 vet · 3 leica</div>
+  </div>
+  <div class="stat accent">
+    <div class="label">Tokens</div>
+    <div class="value">1.12B</div>
+    <div class="detail">5,014 API calls</div>
+  </div>
+  <div class="stat blue">
+    <div class="label">Est. cost (API)</div>
+    <div class="value">$3,570</div>
+    <div class="detail">actual: flat-rate Max sub</div>
+  </div>
+  <div class="stat green">
+    <div class="label">Docs produced</div>
+    <div class="value">14</div>
+    <div class="detail">6 RB · 3 ADR · 2 PRD · ref-arch · 2 retro</div>
+  </div>
+</div>
+
+<h2>Day-by-Day Timeline</h2>
+
+<div class="timeline">
+
+  <div class="day">
+    <div>
+      <span class="day-date">Mon 14 Jul</span>
+      <span class="day-hours">~7h</span>
+      <span class="intensity i-med"></span>
+    </div>
+    <div class="day-body">
+      <div>
+        <span class="project-tag tag-pet">pops-pet</span>
+        <span class="project-tag tag-vet">pops-vet</span>
+      </div>
+      <ul class="day-items">
+        <li>Vault migration: 152 files from legacy Leica vault → per-repo ψ/ brains</li>
+        <li>Species/breeds <span class="outcome">taxonomy design</span> via <code>/grill-with-docs</code> — reconciliation plan across 3 data sources</li>
+        <li>MinIO console deployed on dev cluster (IngressRoute exposed)</li>
+        <li><span class="project-tag tag-vet" style="font-size:0.7rem">vet</span> WP-E PRD finalized — AI doc-extraction consumer wiring spec hardened against actual deploy repo</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day">
+    <div>
+      <span class="day-date">Tue 15 Jul</span>
+      <span class="day-hours">~8h</span>
+      <span class="intensity i-high"></span>
+    </div>
+    <div class="day-body">
+      <span class="project-tag tag-pet">pops-pet</span>
+      <ul class="day-items">
+        <li><span class="outcome">Pawtune backbone shipped</span> — full lifecycle: grill → agent-team COMMAND (Fable plan + Opus impl) → 1,466 tests → deployed <code>v0.4.1-30</code> → verified live (cross-DB read, character ingest, <code>line_click_at</code> timestamp proof)</li>
+        <li>Req 7 Part A: <code>mc mirror</code> 179 MiB character images → dev MinIO, verified HTTP 200 + rendering</li>
+        <li>Discovered Natthanaporn's parallel <code>fg</code> implementation (architectural collision, not file-level)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day">
+    <div>
+      <span class="day-date">Wed 16 Jul</span>
+      <span class="day-hours">~6h</span>
+      <span class="intensity i-high"></span>
+    </div>
+    <div class="day-body">
+      <span class="project-tag tag-pet">pops-pet</span>
+      <ul class="day-items">
+        <li>Pawtune ingress rebrand: <code>pawrent-fg</code> → <code>pawtune</code> hostnames, dual-host IngressRoute (zero-downtime), better-auth trusted-origins fix</li>
+        <li><span class="outcome">CI/CD lanes redesign</span> — shared <code>ci-templates</code> repo, 3-lane pipeline (validate→build→deploy), build-once-promote via dotenv artifacts. Shipped <code>v0.4.1-31</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day">
+    <div>
+      <span class="day-date">Thu 17 Jul</span>
+      <span class="day-hours">~5h</span>
+      <span class="intensity i-med"></span>
+    </div>
+    <div class="day-body">
+      <span class="project-tag tag-pet">pops-pet</span>
+      <ul class="day-items">
+        <li>fg (pawtune) CI/CD fixes — root cause: inherited group Infisical identity → 403 → empty → JSONDecodeError</li>
+        <li><span class="outcome">Per-platform Infisical identity pattern</span> established. <code>APP_SERVICE</code> forwarding bug fixed. <code>v0.1.0-2</code> validated green</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day">
+    <div>
+      <span class="day-date">Fri 18 Jul</span>
+      <span class="day-hours">~6h</span>
+      <span class="intensity i-high"></span>
+    </div>
+    <div class="day-body">
+      <span class="project-tag tag-pet">pops-pet</span>
+      <ul class="day-items">
+        <li><span class="outcome">Prod K8s cluster design</span> via <code>/grill-with-docs</code> — CONTEXT.md + 3 ADRs (kubeadm over k3s, single CP on SSD, local-fast + CNPG replica)</li>
+        <li>Runbook 01 EXECUTED: 3 VMs provisioned on Proxmox (Ubuntu 26.04), <code>fio</code> acceptance PASSED (5.5ms p99 vs 10ms bar)</li>
+        <li>5 Proxmox footguns hit + fixed live (PATH, DNS, gateway, cloud-init, <code>qm</code> scoping)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day milestone">
+    <div>
+      <span class="day-date">Sat 19 Jul</span>
+      <span class="day-hours">~10h</span>
+      <span class="intensity i-marathon"></span>
+      <span class="milestone-badge">Deploy Night</span>
+    </div>
+    <div class="day-body">
+      <span class="project-tag tag-pet">pops-pet</span>
+      <ul class="day-items">
+        <li>RB02 executed: 3 nodes Ready, Calico v3.29.3, K8s v1.35.6, local-path SC, metrics-server, etcd snapshot timer</li>
+        <li>RB03 written: Traefik Helm + CF origin TLS wildcard <code>*.pops.pet</code></li>
+        <li>ADR 0004 (shell runner per cluster) + ADR 0005 (rebuild-at-promote for baked <code>NEXT_PUBLIC_*</code>)</li>
+        <li>Infisical prod secrets populated — 5 grilled decisions</li>
+        <li><span class="outcome">DEPLOY NIGHT 22:10–00:40</span> — RB04 phases P0–P7 executed. Both apps LIVE:</li>
+        <li>pawrent <code>v0.4.1-42-prod</code> + pawtune <code>v0.1.0-4-prod</code> — HTTP/2 200 through Cloudflare</li>
+        <li>CF 522 incident: missing FortiGate VIP → fixed ~00:35</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day milestone">
+    <div>
+      <span class="day-date">Sun 20 Jul</span>
+      <span class="day-hours">~15h</span>
+      <span class="intensity i-marathon"></span>
+    </div>
+    <div class="day-body">
+      <div>
+        <span class="project-tag tag-pet">pops-pet</span>
+        <span class="project-tag tag-vet">pops-vet</span>
+      </div>
+      <ul class="day-items">
+        <li><code>pawtune_reader</code> DDL on prod postgres — role created, grants verified</li>
+        <li><span class="outcome">Character images fixed on prod</span> — 4-layer fix: mc mirror (156 objs), SQL URL rewrite, dev timestamped key copy, anonymous download policy. Game actually works now.</li>
+        <li>+35 pawtune unit tests (branch <code>test/pawtune-coverage</code>, unpushed)</li>
+        <li><span class="outcome">RB05 backup plane EXECUTED</span>: pop-nfs mount, etcd + 2 pg dumps + 2 MinIO tars → off-node. Cron 02:00 ICT. Restore drill PASSED</li>
+        <li>Pawrent-side data gap closed: mc mirror fg→pawrent 156 objs/179 MiB, 3-way md5 verified</li>
+        <li>RB05 templatized as master for pops-vet. ADR 0006 Infisical relocation authored + runbook</li>
+        <li><span class="project-tag tag-vet" style="font-size:0.7rem">vet</span> Received cluster template; replied with Infisical audit (CI-only consumer, zero CRDs, zero in-cluster refs)</li>
+        <li><span class="outcome">Last hard go-live blocker CLEARED</span> → go-live 2026-07-22</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day">
+    <div>
+      <span class="day-date">Mon 21 Jul</span>
+      <span class="day-hours">~0.5h</span>
+      <span class="intensity i-low"></span>
+    </div>
+    <div class="day-body">
+      <span class="project-tag tag-leica">leica</span>
+      <ul class="day-items">
+        <li>Housekeeping: committed 89 oracle memory files, merged font branch (IBM Plex Sans Thai)</li>
+        <li>Weekly report compilation (this document)</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<h2>Token & Cost Breakdown</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Project</th>
+      <th class="num">Sessions</th>
+      <th class="num">API Calls</th>
+      <th class="num">Tokens</th>
+      <th class="num">Est. Cost</th>
+      <th class="num">Share</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="project-tag tag-pet">pops-pet</span></td>
+      <td class="num">15</td>
+      <td class="num">3,386</td>
+      <td class="num">864.6M</td>
+      <td class="num">$2,769</td>
+      <td class="num">77%</td>
+    </tr>
+    <tr>
+      <td><span class="project-tag tag-vet">pops-vet</span></td>
+      <td class="num">8</td>
+      <td class="num">1,335</td>
+      <td class="num">225.9M</td>
+      <td class="num">$715</td>
+      <td class="num">20%</td>
+    </tr>
+    <tr>
+      <td><span class="project-tag tag-leica">leica</span></td>
+      <td class="num">4</td>
+      <td class="num">293</td>
+      <td class="num">29.4M</td>
+      <td class="num">$87</td>
+      <td class="num">3%</td>
+    </tr>
+    <tr class="total-row">
+      <td>Total</td>
+      <td class="num">27</td>
+      <td class="num">5,014</td>
+      <td class="num">1.12B</td>
+      <td class="num">$3,570</td>
+      <td class="num">100%</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p style="font-size:0.85rem;color:var(--muted);margin-top:0.4rem;">Cost estimated at Opus API rates ($15/$75/M input/output). Actual billing: Claude Max flat-rate subscription. Models used: Opus 4.8 (primary), Fable 5 (planning), Haiku (search subagents).</p>
+
+<h2>Infrastructure Artifacts Produced</h2>
+
+<ul class="artifact-list">
+  <li><span class="artifact-type">RUNBOOK</span> RB01 — VM Provisioning (3× Proxmox, Ubuntu 26.04, fio gate)</li>
+  <li><span class="artifact-type">RUNBOOK</span> RB02 — kubeadm Bootstrap (3 nodes, Calico, K8s 1.35.6)</li>
+  <li><span class="artifact-type">RUNBOOK</span> RB03 — Traefik + Cloudflare Origin TLS</li>
+  <li><span class="artifact-type">RUNBOOK</span> RB04 — Prod Runner + First Deploy (deploy-night)</li>
+  <li><span class="artifact-type">RUNBOOK</span> RB05 — Backup Plane (etcd + pg + MinIO → NFS)</li>
+  <li><span class="artifact-type">RUNBOOK</span> RB06 — Infisical Relocation (pending execution)</li>
+  <li><span class="artifact-type">ADR</span> 0004 — GitLab Shell Runner per Cluster</li>
+  <li><span class="artifact-type">ADR</span> 0005 — Rebuild-at-Promote for Baked NEXT_PUBLIC_*</li>
+  <li><span class="artifact-type">ADR</span> 0006 — Infisical Relocation to Build-Server</li>
+  <li><span class="artifact-type">PRD</span> WP-E Consumer Wiring (pops-vet AI doc-extraction)</li>
+  <li><span class="artifact-type">PRD</span> Unified Order — สั่งรายการรวม (shipped, 45 Playwright tests)</li>
+  <li><span class="artifact-type">REF-ARCH</span> POPS Prod Cluster Reference Architecture</li>
+  <li><span class="artifact-type">SCRIPT</span> pops-pet-backup.sh (host cron, 7-day retention)</li>
+  <li><span class="artifact-type">PLAN</span> Ubuntu 26.04 Prod Provisioning Plan</li>
+</ul>
+
+<h2>Key Learnings</h2>
+
+<div class="learning-grid">
+  <div class="learning"><strong>Build-once-promote</strong> — CI/CD redesign: shared ci-templates repo, 3-lane pipeline, dotenv artifacts for cross-stage image reuse. Except Next.js NEXT_PUBLIC_* which requires rebuild-at-promote (ADR 0005).</div>
+  <div class="learning"><strong>Per-platform Infisical identity</strong> — group-level Infisical identity gets inherited silently; each app needs its own identity to avoid 403→empty→JSONDecodeError cascade.</div>
+  <div class="learning"><strong>Verify the real path, not proxy signals</strong> — deploy-night documented 6 "liars" (green CI ≠ working app, curl ≠ browser, DNS cache ≠ live resolution). Always verify the actual user path end-to-end.</div>
+  <div class="learning"><strong>Prod K8s topology: evidence over convention</strong> — SSD node as control plane (fio-gated), asymmetric hardware is fine when you measure. Self-caught flannel→Calico CNI mistake via /rrr --deep BEFORE execution.</div>
+  <div class="learning"><strong>Backup plane: verify artifacts, not just status</strong> — restore drill passed (64/256 rows, 156 images). Script re-discovers PV paths each run (distroless pods → no tar inside container).</div>
+  <div class="learning"><strong>Species/breeds master reconciliation</strong> — composite identity across 3 DBs, cultural nuance in Thai animal naming, reconciliation plan as prerequisite for data integrity.</div>
+  <div class="learning"><strong>Verify reality over memory</strong> — Oracle invented env vars and confident-wrong calls about filesystem paths. Pattern: read the artifact before answering.</div>
+</div>
+
+<h2>Inter-Oracle Communication</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>From</th>
+      <th>To</th>
+      <th>Subject</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="white-space:nowrap">Jul 20</td>
+      <td><span class="project-tag tag-pet">pet</span></td>
+      <td><span class="project-tag tag-vet">vet</span></td>
+      <td>Prod cluster master template (RB01–05 reusable)</td>
+    </tr>
+    <tr>
+      <td style="white-space:nowrap">Jul 20</td>
+      <td><span class="project-tag tag-leica">leica</span></td>
+      <td><span class="project-tag tag-vet">vet</span></td>
+      <td>pops-pet briefing + shared Infisical heads-up</td>
+    </tr>
+    <tr>
+      <td style="white-space:nowrap">Jul 20</td>
+      <td><span class="project-tag tag-pet">pet</span></td>
+      <td><span class="project-tag tag-vet">vet</span></td>
+      <td>ADR 0006 Infisical relocation notice</td>
+    </tr>
+    <tr>
+      <td style="white-space:nowrap">Jul 20</td>
+      <td><span class="project-tag tag-vet">vet</span></td>
+      <td><span class="project-tag tag-pet">pet</span></td>
+      <td>Infisical audit response: CI-only consumer, 2 items escalated to Un</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Week Summary</h2>
+
+<p style="font-size:1rem;line-height:1.7;">
+This was <strong>production infrastructure week</strong>. Starting from a green dev cluster, you designed, provisioned, and deployed a full prod K8s cluster for pops-pet — 6 runbooks authored and executed, 3 architecture decisions recorded, both apps live through Cloudflare with TLS. The deploy-night marathon (Sat 22:10 → Sun 00:40) put pawrent and pawtune into production for the first time. Sunday was spent hardening: backup plane, data-gap closure, character-image fix, and cross-oracle coordination to prepare pops-vet for the same treatment. The last hard go-live blocker cleared Sunday evening — <strong>go-live is 2026-07-22 (tomorrow)</strong>.
+</p>
+<p style="font-size:1rem;line-height:1.7;margin-top:0.75rem;">
+On the vet side, the Unified Order feature (built previous week) has a SHIP verdict with 45 Playwright tests. WP-E consumer-wiring PRD is ready but not yet implemented. pops-vet cluster bring-up is sequenced after Infisical relocation (post pet go-live).
+</p>
+
+<footer class="report-footer">
+  <span>Compiled by Leica — Father Oracle</span>
+  <span>Week 29 of 2026 · generated 2026-07-21</span>
+</footer>

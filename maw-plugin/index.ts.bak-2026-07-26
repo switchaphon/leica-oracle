@@ -236,15 +236,3 @@ export default async function handler(ctx: InvokeContext): Promise<InvokeResult>
 
   return done(true);
 }
-
-// bun-dev dispatch (maw-rs) runs `bun index.ts <args>` directly — bun does not
-// auto-call the default export, so the handler never ran and the command exited
-// 0 with no output. Self-invoke when run as main (not imported) and print what
-// the handler returns. Inert under maw-js, which imports this module and calls
-// handler() through the plugin SDK.
-if (import.meta.main) {
-  const result = await handler({ source: "cli", args: process.argv.slice(2) });
-  if (result.output) console.log(result.output);
-  if (result.error) console.error(result.error);
-  process.exit(result.exitCode ?? (result.ok ? 0 : 1));
-}
