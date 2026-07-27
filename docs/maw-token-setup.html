@@ -640,6 +640,10 @@
 <div class="step" data-n="5">
   <h3>Install maw globally</h3>
 <pre>
+<span class="c"># maw-rs (Rust — recommended, current)</span>
+<span class="g">curl -fsSL https://github.com/Soul-Brews-Studio/maw-rs/releases/latest/download/maw-rs-macos-arm64 -o ~/.local/bin/maw && chmod +x ~/.local/bin/maw</span>
+
+<span class="c"># OR maw-js (TypeScript — legacy, still works)</span>
 <span class="g">bun add -g maw-js@github:Soul-Brews-Studio/maw-js</span>
 </pre>
 </div>
@@ -1169,6 +1173,66 @@
   <strong>Done!</strong> If all 10 checks pass, you can switch between Claude accounts with <code>maw token use &lt;name&gt;</code>.
 </div>
 
+<!-- ==================== PER-ORACLE TOKEN SWITCHING ==================== -->
+
+<h2 class="section-title">Per-oracle token switching (independent sessions)</h2>
+<p class="section-intro">
+  Each oracle repo can use a different token. When <code>maw wake</code> opens a session, it <code>cd</code>s into that repo &rarr; direnv loads that repo's <code>.envrc</code> &rarr; each session gets its own token automatically.
+</p>
+
+<div class="concept">
+  <h4>Setup: assign tokens to oracles (one-time)</h4>
+<pre style="border:none; background:none; padding:0.4rem 0; margin:0;">
+<span class="g">cd ~/ghq/.../leica-oracle</span>        && <span class="g">maw token use un</span>
+<span class="g">cd ~/ghq/.../pops-vet-oracle</span>     && <span class="g">maw token use tul</span>
+<span class="g">cd ~/ghq/.../pops-pet-oracle</span>     && <span class="g">maw token use trio</span>
+<span class="g">cd ~/ghq/.../rpro-ent-oracle</span>     && <span class="g">maw token use kla</span>
+<span class="g">cd ~/ghq/.../ratchada-oracle</span>     && <span class="g">maw token use por</span>
+</pre>
+</div>
+
+<div class="concept">
+  <h4>How it works</h4>
+<pre style="border:none; background:none; padding:0.4rem 0; margin:0; line-height:2.2;">
+<span class="g">maw wake pops-vet-oracle</span>
+    <span class="d">&darr;</span>
+tmux creates session, <span class="b">cd</span> into <span class="b">pops-vet-oracle/</span>
+    <span class="d">&darr;</span>
+direnv loads <span class="b">.envrc</span> &rarr; <span class="g">CLAUDE_CODE_OAUTH_TOKEN</span> = token-tul
+    <span class="d">&darr;</span>
+Claude starts &rarr; authenticated as <span class="y">tul</span>
+    <span class="d">(leica session still uses token-un &mdash; independent)</span>
+</pre>
+</div>
+
+<div class="step" data-n="!">
+  <h3>Change token mid-work</h3>
+  <p>If you want to switch an oracle to a different token later:</p>
+<pre>
+<span class="g">cd ~/ghq/.../pops-vet-oracle</span>
+<span class="g">maw token use por</span>              <span class="c"># rewrites .envrc</span>
+<span class="c"># exit current Claude session</span>
+<span class="c"># maw wake pops-vet-oracle    # new session uses por</span>
+</pre>
+  <p>Running sessions are not affected &mdash; they keep the token they started with.</p>
+</div>
+
+<div class="concept">
+  <h4>Why per-oracle tokens?</h4>
+  <dl class="concept-grid">
+    <dt>Rate limit isolation</dt>
+    <dd>Each token has its own 5h/7d limits. Spread oracles across tokens to avoid collisions.</dd>
+    <dt>Account separation</dt>
+    <dd>Work account vs personal account vs team account &mdash; each oracle uses the right one.</dd>
+    <dt>RunCat Neo monitoring</dt>
+    <dd>With per-token JSON files, you can see all token usage at a glance in the menu bar.</dd>
+  </dl>
+</div>
+
+<div class="note">
+  <strong>Token validity:</strong> Tokens from <code>claude setup-token</code> are valid for <strong>1 year</strong>. No need to refresh unless expired. When a token expires, re-run step 6 for that account.
+</div>
+
 <!-- ==================== LIMITATIONS ==================== -->
 
 <div class="limits">
@@ -1204,7 +1268,7 @@
 </div>
 
 <footer>
-  maw token setup guide &mdash; 2026-06-08
+  maw token setup guide &mdash; 2026-06-08 &middot; updated 2026-07-27 (maw-rs + per-oracle switching)
 </footer>
 
 </body>
