@@ -387,16 +387,21 @@
       <h1>POPS Vet — Agent Team Structure</h1>
       <p>.claude/agents/ cleanup plan — before &amp; after</p>
       <div>
-        <span class="badge badge-before">before: 27 agents</span>
+        <span class="badge badge-before">before: 26 agents</span>
         <span class="badge badge-after">after: 10 agents</span>
-        <span class="badge badge-pending">status: pending</span>
+        <span class="badge badge-pending">status: verified ready &mdash; NOT executed</span>
       </div>
+      <p style="margin-top:0.8rem;font-size:0.7rem;color:var(--text-dim);">
+        Re-validated against disk 2026-07-29 &middot; counts corrected from 27 &rarr; 26<br>
+        Un's decision 2026-07-29: <strong>keep as a document, do not run the merge.</strong>
+        The 26 agents stay in place; this page is the record of what the merge would be.
+      </p>
     </div>
 
     <!-- Stats -->
     <div class="stats">
       <div class="stat-card">
-        <div class="stat-value red">27</div>
+        <div class="stat-value red">26</div>
         <div class="stat-label">Current agents</div>
       </div>
       <div class="stat-card">
@@ -411,6 +416,51 @@
         <div class="stat-value cyan">2,779</div>
         <div class="stat-label">Total lines (before)</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-value amber">3</div>
+        <div class="stat-label">Locations &middot; 3 git repos</div>
+      </div>
+    </div>
+
+    <!-- Scope -->
+    <div class="section-title">Scope — Where These Agents Live</div>
+    <table class="merge-table">
+      <thead>
+        <tr>
+          <th>Location</th>
+          <th>Agents</th>
+          <th>Git remote</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="new-name"><code>~/_POPs_/___pops/app/vet</code></td>
+          <td>26</td>
+          <td class="role-desc"><code>git.pops.vet/pops/frontend/vet.git</code></td>
+        </tr>
+        <tr>
+          <td class="new-name"><code>~/_POPs_/pops-vet/clinic/frontend/app</code></td>
+          <td>26</td>
+          <td class="role-desc"><code>git.pops.vet/pops-vet/clinic/frontend/app.git</code></td>
+        </tr>
+        <tr>
+          <td class="new-name"><code>~/_POPs_/pops-vet/clinic/atlas</code></td>
+          <td>6</td>
+          <td class="role-desc">subset — see note below</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="panel" style="margin:1rem 0;">
+      <p style="font-size:0.78rem;color:var(--text-dim);line-height:1.8;">
+        The two 26-agent sets are <strong style="color:var(--text);">byte-identical</strong>
+        (<code>diff -rq</code> clean) but live in <strong style="color:var(--amber);">different git repos</strong>
+        &mdash; each needs its own snapshot, merge, and commit.<br>
+        <strong style="color:var(--text);">Atlas</strong> carries a 6-agent subset
+        (<code>code-reviewer</code>, <code>senior-code-reviewer</code>, <code>docs-updater</code>,
+        <code>system-architect</code>, <code>staff-engineer</code>, <code>git-commit-helper</code>)
+        &mdash; all already covered by the merge map, mapping to
+        <code>reviewer.md</code>, <code>docs.md</code>, <code>architect.md</code>, and one deletion.
+      </p>
     </div>
 
     <!-- Before / After -->
@@ -419,7 +469,7 @@
 
       <!-- BEFORE -->
       <div class="panel">
-        <div class="panel-title"><span class="dot dot-red"></span> Current (27 agents)</div>
+        <div class="panel-title"><span class="dot dot-red"></span> Current (26 agents)</div>
         <ul class="agent-list">
           <li><span class="tag tag-dup">DUP</span><span class="agent-name">backend-engineer</span><span class="lines">100L</span></li>
           <li><span class="tag tag-dup">DUP</span><span class="agent-name">team-backend-engineer</span><span class="lines">111L</span></li>
@@ -447,8 +497,12 @@
           <li><span class="tag tag-unique">UNIQUE</span><span class="agent-name">docs-updater</span><span class="lines">127L</span></li>
           <li><span class="tag tag-unique">UNIQUE</span><span class="agent-name">frontend-test-writer</span><span class="lines">288L</span></li>
           <li><span class="tag tag-delete">DELETE</span><span class="agent-name">git-commit-helper</span><span class="lines">65L</span><span class="agent-desc">Claude does this natively</span></li>
-          <li><span class="tag tag-delete">DELETE</span><span class="agent-name">product-manager</span><span class="lines">63L</span><span class="agent-desc">PM Oracle IS the PM</span></li>
         </ul>
+        <p style="font-size:0.65rem;color:var(--text-dim);margin-top:0.8rem;padding-top:0.6rem;border-top:1px solid var(--border);">
+          14 DUP &middot; 7 OVERLAP &middot; 4 UNIQUE &middot; 1 DELETE = 26<br>
+          <code>product-manager</code> + <code>team-product-manager</code> are tagged DUP here and
+          also deleted &mdash; see the deletion table below.
+        </p>
       </div>
 
       <!-- AFTER -->
@@ -601,11 +655,20 @@
       <h3>&#x1F6E1; Nothing is Deleted — Safety Plan</h3>
       <ul>
         <li>Git tracks all history — every original .md is recoverable via <code>git log --all -- .claude/agents/</code></li>
-        <li>Step 1 of execution: <code>git add .claude/agents/ && git commit -m "snapshot: 27 agents before cleanup"</code></li>
-        <li>Only then proceed with merge — original content lives in git forever</li>
+        <li><s>Step 1: <code>git add .claude/agents/ && git commit -m "snapshot: 26 agents"</code></s>
+          <strong>— not needed.</strong> Verified 2026-07-29: all three working trees are clean and
+          all agents are already tracked (26 / 26 / 6 in <code>git ls-files</code>).
+          <strong>The current HEAD already IS the snapshot</strong>; that command would produce an empty commit.</li>
+        <li><s>Run the snapshot in BOTH repos</s> — <strong>there are THREE git repos, not two.</strong>
+          <code>clinic/atlas</code> has its own remote (<code>clinic/atlas.git</code>), so following the
+          original wording would have modified atlas with no snapshot of its own — the one place
+          "Nothing is Deleted" would have slipped.</li>
         <li>Merged agents take BEST content from each source — nothing valuable is dropped</li>
         <li>If any merged agent is wrong: <code>git show HEAD~1:.claude/agents/original-name.md</code> restores it</li>
-        <li>Backup branch: <code>git branch agents-backup-27</code> before any changes</li>
+        <li><s>Backup branch: <code>git branch agents-backup-26</code></s> <strong>— redundant on a feature branch.</strong>
+          If the work lands on <code>chore/agent-merge</code>, the pre-merge commit stays reachable from
+          <code>prototype</code>/<code>main</code> and can never be GC'd. Rollback is <code>git checkout prototype</code>.
+          A backup branch buys a memorable name, not safety.</li>
       </ul>
     </div>
 
@@ -628,7 +691,7 @@
         <tr>
           <td>product-manager</td>
           <td>63</td>
-          <td class="role-desc">pops-clinic-oracle IS the PM — duplicates Oracle's own role</td>
+          <td class="role-desc">pops-vet-oracle IS the PM — duplicates Oracle's own role</td>
         </tr>
         <tr>
           <td>team-product-manager</td>
@@ -642,20 +705,38 @@
     <div class="section-title">Execution Sequence</div>
     <div class="panel">
       <ol style="font-size: 0.8rem; color: var(--text-dim); padding-left: 1.5rem; line-height: 2.2;">
-        <li><strong style="color: var(--green);">Snapshot</strong> — commit current state + create backup branch</li>
+        <li><s><strong>Snapshot</strong> — commit current state + create backup branch</s>
+          <strong style="color: var(--green);">Branch</strong> — <code>git checkout -b chore/agent-merge</code> in each of the
+          <em>3</em> repos. No snapshot commit, no backup branch (see Safety Plan above for why both are redundant).</li>
         <li><strong style="color: var(--cyan);">Merge</strong> — create new 10 agents with best content from originals + project context</li>
-        <li><strong style="color: var(--amber);">Delete</strong> — remove all 27 originals</li>
+        <li><strong style="color: var(--amber);">Delete</strong> — remove all 26 originals</li>
         <li><strong style="color: var(--accent);">Update lead.md</strong> — new agent names for orchestration</li>
+        <li><strong style="color: var(--cyan);">Mirror to the 2nd repo</strong> — <code>pops-vet/clinic/frontend/app</code> gets the same 10</li>
+        <li><strong style="color: var(--amber);">Atlas</strong> — apply the 6-agent subset (reviewer, docs, architect + 1 deletion)</li>
         <li><strong style="color: var(--pink);">Test</strong> — open Claude session in vet project, verify routing works</li>
-        <li><strong style="color: var(--green);">Commit</strong> — final clean state</li>
+        <li><strong style="color: var(--green);">Commit</strong> — final clean state in every location</li>
       </ol>
     </div>
 
     <div class="footer">
       Built by Leica &mdash; Father Oracle<br>
-      Project: pops/vet &middot; Location: <code>~/_POPs_/pops/app/vet/.claude/agents/</code><br>
+      Project: pops-vet &middot; Locations:
+      <code>~/_POPs_/___pops/app/vet/.claude/agents/</code>,
+      <code>~/_POPs_/pops-vet/clinic/frontend/app/.claude/agents/</code>,
+      <code>~/_POPs_/pops-vet/clinic/atlas/.claude/agents/</code><br>
       <br>
-      <em>"Nothing is deleted — git remembers everything."</em>
+      <em>"Nothing is deleted — git remembers everything."</em><br>
+      <span style="font-size:0.65rem;">
+        Re-validated against disk 2026-07-29. Filenames match this merge map exactly (26/26/6, no extras,
+        no missing); the two 26-agent sets are byte-identical (<code>diff -rq</code> clean); all three
+        working trees are clean.<br>
+        Hosts &amp; branches: <code>vet</code> and <code>clinic/frontend/app</code> live on
+        <strong>git.pops.vet (self-hosted GitLab)</strong> and are checked out on <code>prototype</code>,
+        an <em>active</em> feature branch — <code>app/prototype</code> has commits from 2026-07-29.
+        <code>clinic/atlas</code> is on <code>main</code>. All three default to <code>main</code> upstream.
+        <code>gh</code> does not work on these; MRs need <code>glab</code> (not installed) or the web UI.<br>
+        <strong>Not executed.</strong> Un's call 2026-07-29 — the document is the deliverable.
+      </span>
     </div>
 
   </div>

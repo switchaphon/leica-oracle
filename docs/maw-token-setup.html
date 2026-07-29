@@ -676,6 +676,56 @@
   </div>
 </div>
 
+<!-- ==================== CRITICAL: OAUTHACCOUNT ==================== -->
+
+<h2 class="section-title" id="oauthaccount">Critical &mdash; Remove oauthAccount <span class="badge badge-once">once per machine</span></h2>
+<p class="section-intro">
+  <code>~/.claude.json</code> stores a field called <code>oauthAccount</code> (written by <code>/login</code> or <code>claude auth login</code>). This field <strong>overrides <code>CLAUDE_CODE_OAUTH_TOKEN</code></strong> &mdash; if it exists, every session uses the same account regardless of what <code>.envrc</code> says. You must remove it for multi-token to work.
+</p>
+
+<div class="warn">
+  <strong>This is the #1 reason multi-token silently fails.</strong> Tokens are correct, env vars are set, direnv is loaded &mdash; but every session authenticates as the same account because <code>oauthAccount</code> wins the credential race.
+</div>
+
+<div class="step" data-n="!">
+  <h3>Remove oauthAccount</h3>
+<pre>
+<span class="g">python3 -c "</span>
+<span class="g">import json</span>
+<span class="g">with open('$HOME/.claude.json') as f: d = json.load(f)</span>
+<span class="g">removed = d.pop('oauthAccount', None)</span>
+<span class="g">with open('$HOME/.claude.json','w') as f: json.dump(d, f, indent=2)</span>
+<span class="g">print('removed' if removed else 'already clean')</span>
+<span class="g">"</span>
+</pre>
+</div>
+
+<div class="warn">
+  <strong>Never run <code>/login</code> or <code>claude auth login</code> again.</strong> Both commands write <code>oauthAccount</code> back into <code>~/.claude.json</code>, which overrides all env-var-based tokens. Use <code>CLAUDE_CODE_OAUTH_TOKEN</code> from <code>.envrc</code> exclusively.
+</div>
+
+<div class="step" data-n="!">
+  <h3>Verify oauthAccount is gone <span class="badge badge-verify">verify</span></h3>
+<pre>
+<span class="g">python3 -c "import json; print('oauthAccount' in json.load(open('$HOME/.claude.json')))"</span>
+
+<span class="c"># Expected: False</span>
+<span class="c"># If True: run the removal command above again</span>
+</pre>
+</div>
+
+<div class="concept">
+  <h4>Claude Code credential precedence (actual, tested 2026-07-28)</h4>
+  <dl class="concept-grid">
+    <dt>1. <code>oauthAccount</code></dt>
+    <dd>In <code>~/.claude.json</code> &mdash; <strong>wins over everything</strong>. Written by <code>/login</code>. Must be removed.</dd>
+    <dt>2. <code>CLAUDE_CODE_OAUTH_TOKEN</code></dt>
+    <dd>Env var &mdash; <strong>this is what we use</strong>. Set by <code>.envrc</code> via direnv.</dd>
+    <dt>3. Keychain</dt>
+    <dd>macOS Keychain fallback &mdash; not relevant when env var is set.</dd>
+  </dl>
+</div>
+
 <!-- ==================== PART 6: TOKENS ==================== -->
 
 <h2 class="section-title" id="tokens">Step 6 &mdash; Generate &amp; save tokens <span class="badge badge-once">once per account</span></h2>
@@ -1253,6 +1303,8 @@ Claude starts &rarr; authenticated as <span class="y">tul</span>
 <div class="limits">
   <h2>Troubleshooting</h2>
   <ul>
+    <li><strong>All sessions use the same account</strong> &mdash; <code>oauthAccount</code> in <code>~/.claude.json</code> overrides <code>CLAUDE_CODE_OAUTH_TOKEN</code>. Run: <code>python3 -c "import json; f=open('$HOME/.claude.json'); d=json.load(f); f.close(); d.pop('oauthAccount',None); open('$HOME/.claude.json','w').write(json.dumps(d,indent=2))"</code>. <strong>Never run <code>/login</code> again</strong> &mdash; it writes <code>oauthAccount</code> back.</li>
+    <li><strong><code>claude -p</code> hangs with <code>CLAUDE_CODE_OAUTH_TOKEN</code></strong> &mdash; one-shot mode (<code>-p</code>) can hang when <code>oauthAccount</code> is missing. Use interactive <code>claude</code> instead, or restore <code>oauthAccount</code> for one-shot calls.</li>
     <li><strong><code>pass show</code> returns 0 bytes</strong> &mdash; the token was never saved. Run <code>pass insert claude/token-&lt;name&gt;</code> and paste the token.</li>
     <li><strong>direnv not loading .envrc</strong> &mdash; make sure <code>eval "$(direnv hook zsh)"</code> is in your <code>~/.zshrc</code> and you opened a <strong>new terminal</strong>. Then run <code>direnv allow</code> in the project directory.</li>
     <li><strong><code>CLAUDE_CODE_OAUTH_TOKEN</code> is empty</strong> &mdash; try <code>cd ~ && cd ~/my-project</code> to re-trigger direnv. If still empty, check <code>pass show claude/token-&lt;name&gt; | wc -c</code>.</li>
@@ -1268,7 +1320,7 @@ Claude starts &rarr; authenticated as <span class="y">tul</span>
 </div>
 
 <footer>
-  maw token setup guide &mdash; 2026-06-08 &middot; updated 2026-07-27 (maw-rs + per-oracle switching)
+  maw token setup guide &mdash; 2026-06-08 &middot; updated 2026-07-28 (oauthAccount trap, RunCat Neo multi-token, credential precedence)
 </footer>
 
 </body>
