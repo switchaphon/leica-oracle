@@ -186,11 +186,16 @@ every call and still returns `success: true`.
 
 ## Unresolved — do not build on these
 
-- **39 vs 45 dead symlinks.** Morning: "39 dead, the safe reversible first move." Afternoon:
-  45 symlinks, **0 dead**. Unknown whether repaired or mismeasured. The planned first step of the
-  skill cleanup no longer exists. The retracted figure is still live in
-  `skill_architecture_three_tiers` (loads every session) and was **sent to pops-vet** with no
-  correction in flight.
+- ~~39 vs 45 dead symlinks~~ — **RESOLVED 2026-07-29 16:05, and the resolution is its own lesson.**
+  There was no drift. **"Dead" was doing duty for two different meanings**: *never-called* and
+  *dangling*. Verified against `clean.json`: `96 never-called = 39 symlinks + 57 real dirs`, and
+  separately `45 symlinks total, 0 dangling` (three agreeing methods). Both numbers were always
+  correct. I read my own ambiguous word the wrong way, declared a contradiction, and **published
+  the false alarm into a committed document, a retrospective, and this file before measuring** —
+  then nearly sent a correction to another oracle whose information was already right.
+  **A retraction is a claim and needs the same evidence bar as the claim it retracts** — a higher
+  one, really, since retractions propagate into other people's brains. And never reuse "dead" for
+  both *unused* and *unresolvable*: say **never-called** or **dangling**.
 - **`CLAUDE_CONFIG_DIR`** — `~/.zshrc:141-142` already aliases `claude-kla`/`claude-por`, but
   neither directory was ever created. Designed and abandoned. It would make the shared-field bug
   structurally impossible; cost is fragmenting 120 skills + memory + MCP config across N dirs.

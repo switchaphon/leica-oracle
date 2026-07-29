@@ -167,14 +167,24 @@
 
   <!-- The drift -->
   <div class="warn">
-    <h3>⚠ A number in our own notes changed within the same day</h3>
-    The census written on the morning of 2026-07-29 reported <strong>39 dead symlinks</strong> and
-    proposed removing them as "the safe, reversible first move."<br><br>
-    Re-measured the same afternoon: <strong>45 symlinks, 0 dead</strong> — every one resolves.<br><br>
-    <strong>Unresolved:</strong> it is not yet known whether they were repaired in between or the
-    morning measurement was wrong. Either way the planned first step no longer exists, and
-    <strong>no cleanup should start from that number.</strong> This is exactly the class of error
-    pops-vet-oracle flagged: an existence check against the wrong place reads as fact.
+    <h3>⚠ One word meant two things, and it manufactured a fake contradiction</h3>
+    An earlier version of this page reported a "drift" — morning notes said
+    <strong>39 dead symlinks</strong>, an afternoon re-measure found <strong>45 symlinks, 0 dead</strong>
+    — and flagged it unresolved.<br><br>
+    <strong>There was no drift.</strong> Both numbers were always correct; they answer different
+    questions. <strong>"Dead" meant <em>never called</em>, not <em>dangling</em>.</strong>
+    Re-verified against <code>clean.json</code>:
+    <br><br>
+    <code>96 never-called = 39 symlinks + 57 real directories</code> &nbsp;·&nbsp;
+    <code>45 symlinks total, 0 dangling</code>
+    <br><br>
+    The 39 are real and the plan built on them stands — never-called skills that happen to be
+    symlinks, and therefore the safest first move because unlinking is reversible. The
+    "45 / 0 dangling" measurement answered a question nobody had asked, and was mistaken for a
+    refutation of the 39.<br><br>
+    <strong>The rule earned here:</strong> never reuse "dead" for both <em>unused</em> and
+    <em>unresolvable</em>. Say <strong>never-called</strong> or <strong>dangling</strong>. An
+    ambiguous word in your own notes will eventually be read by you, against you.
   </div>
 
   <!-- Usage -->
@@ -290,7 +300,7 @@
   <div class="section-title">Open decisions</div>
   <div class="panel">
     <ol style="padding-left:1.3rem; line-height:2;">
-      <li><strong style="color:var(--amber);">Resolve the symlink drift</strong> — 39 dead this morning, 0 this afternoon. Everything downstream rests on it.</li>
+      <li><s><strong>Resolve the symlink drift</strong></s> — <strong style="color:var(--green);">resolved 2026-07-29: there was no drift.</strong> "Dead" was being used for both <em>never-called</em> and <em>dangling</em>. 96 never-called = 39 symlinks + 57 real dirs; 45 symlinks total, 0 dangling. The 39 stand and remain the safe first move.</li>
       <li><strong style="color:var(--cyan);">Re-baseline the tiers against 120</strong> and classify everything added since 8 May. Proposal only, no file changes.</li>
       <li><strong style="color:var(--accent);">Decide Tier 5</strong> — a real tier, or <code>/find-skills</code> on demand.</li>
       <li><strong style="color:var(--green);">Then</strong> pilot Option A on one Oracle before all 18.</li>
