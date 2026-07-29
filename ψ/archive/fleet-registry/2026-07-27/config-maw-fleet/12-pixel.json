@@ -1,0 +1,14 @@
+{
+  "name": "12-pixel",
+  "windows": [
+    {
+      "name": "pixel-oracle",
+      "repo": "switchaphon/pixel-oracle"
+    }
+  ],
+  "sync_peers": [
+    "leica"
+  ],
+  "budded_from": "leica",
+  "budded_at": "2026-04-30T00:18:36.992Z"
+}

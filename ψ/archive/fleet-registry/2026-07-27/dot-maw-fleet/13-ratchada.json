@@ -1,0 +1,14 @@
+{
+  "name": "13-ratchada",
+  "windows": [
+    {
+      "name": "ratchada-oracle",
+      "repo": "switchaphon/ratchada-oracle"
+    }
+  ],
+  "sync_peers": [
+    "pops-vet"
+  ],
+  "budded_from": "pops-vet",
+  "budded_at": "2026-06-12T06:31:33.658Z"
+}

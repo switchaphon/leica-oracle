@@ -1,0 +1,18 @@
+{
+  "auto_registered": true,
+  "budded_at": "2026-04-29T23:43:23.350Z",
+  "budded_from": "leica",
+  "created_at": "2026-07-27T02:26:28.000Z",
+  "created_by": "maw wake",
+  "name": "11-chrome",
+  "sync_peers": [
+    "leica"
+  ],
+  "windows": [
+    {
+      "kind": "project",
+      "name": "chrome-nats-books-4-7",
+      "repo": "switchaphon/chrome-oracle"
+    }
+  ]
+}

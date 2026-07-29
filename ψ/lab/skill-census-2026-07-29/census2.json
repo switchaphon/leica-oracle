@@ -1,0 +1,827 @@
+{
+ "rows": [
+  {
+   "skill": "rrr",
+   "calls": 124,
+   "sessions": 78,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "recap",
+   "calls": 98,
+   "sessions": 69,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "forward",
+   "calls": 81,
+   "sessions": 36,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "trace",
+   "calls": 35,
+   "sessions": 2,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "where-we-are",
+   "calls": 35,
+   "sessions": 34,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "grill-with-docs",
+   "calls": 31,
+   "sessions": 14,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "dig",
+   "calls": 30,
+   "sessions": 10,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "who-are-you",
+   "calls": 30,
+   "sessions": 29,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "agent-team",
+   "calls": 18,
+   "sessions": 8,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "forward-lite",
+   "calls": 16,
+   "sessions": 2,
+   "last": "2026-07-21"
+  },
+  {
+   "skill": "codex-team",
+   "calls": 13,
+   "sessions": 2,
+   "last": "2026-07-06"
+  },
+  {
+   "skill": "learn",
+   "calls": 13,
+   "sessions": 5,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "handoff",
+   "calls": 12,
+   "sessions": 6,
+   "last": "2026-07-23"
+  },
+  {
+   "skill": "crew-up",
+   "calls": 11,
+   "sessions": 2,
+   "last": "2026-07-06"
+  },
+  {
+   "skill": "frontend-design",
+   "calls": 10,
+   "sessions": 2,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "team-agents",
+   "calls": 10,
+   "sessions": 3,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "test-driven-development",
+   "calls": 6,
+   "sessions": 3,
+   "last": "2026-07-25"
+  },
+  {
+   "skill": "grill-me",
+   "calls": 5,
+   "sessions": 2,
+   "last": "2026-07-06"
+  },
+  {
+   "skill": "go",
+   "calls": 4,
+   "sessions": 1,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "talk-to",
+   "calls": 4,
+   "sessions": 2,
+   "last": "2026-07-04"
+  },
+  {
+   "skill": "playwright-cli",
+   "calls": 2,
+   "sessions": 1,
+   "last": "2026-07-11"
+  },
+  {
+   "skill": "recap-lite",
+   "calls": 2,
+   "sessions": 1,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "to-prd",
+   "calls": 2,
+   "sessions": 1,
+   "last": "2026-07-27"
+  },
+  {
+   "skill": "worktree",
+   "calls": 2,
+   "sessions": 1,
+   "last": "2026-07-11"
+  },
+  {
+   "skill": "oracle-soul-sync-update",
+   "calls": 1,
+   "sessions": 1,
+   "last": "2026-07-28"
+  },
+  {
+   "skill": "about-oracle",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "agent-browser",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "api-design-principles",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "auto-retrospective",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "awaken",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "bampenpien",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "birth",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "bud",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "build-graph",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "caveman",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "code-review-excellence",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "contacts",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "context-driven-development",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "create-shortcut",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "debug-issue",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "debugging-strategies",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "deep-research",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "deployment-pipeline-design",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "design-system-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "diagnose",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "dream",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "e2e-testing-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "explore-codebase",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "feel",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "find-skills",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "fleet",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "fyi",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "gemini",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "harden",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "i-believed",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "improve-codebase-architecture",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "inbox",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "incubate",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "k8s-manifest-generator",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "machines",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "mailbox",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "merged",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "modern-javascript-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "morpheus",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "next-best-practices",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "nextjs-app-router-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "nodejs-backend-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-book-cover",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-booklet",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-cheatsheet",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-family-scan",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-prism",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-write-book",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-write-complete-book",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oracle-write-endgame",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "oraclenet",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "philosophy",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "physical",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "postgresql-table-design",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "project",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "prototype",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "react-native-architecture",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "react-native-design",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "react-state-management",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "refactor-safely",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "release",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "resonance",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "responsive-design",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "retrospective",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "review-changes",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "review-delta",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "review-pr",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "rrr-lite",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "schedule",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "shadcn",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "skill-creator",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "skills-list",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "speak",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "sql-optimization-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "standup",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "subagent-driven-development",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "supabase-postgres-best-practices",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "tailwind-design-system",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "tdd",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "to-issues",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "triage",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "vault",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "vercel-composition-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "vercel-react-best-practices",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "visual-design-foundations",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "warp",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "watch",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "web-component-design",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "web-design-guidelines",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "webapp-testing",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "work-with",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "workflow-patterns",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "wormhole",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  },
+  {
+   "skill": "xray",
+   "calls": 0,
+   "sessions": 0,
+   "last": "-"
+  }
+ ],
+ "unknown_top": [
+  [
+   "clear",
+   73
+  ],
+  [
+   "model",
+   54
+  ],
+  [
+   "artifact-design",
+   26
+  ],
+  [
+   "exit",
+   25
+  ],
+  [
+   "superpowers:brainstorming",
+   22
+  ],
+  [
+   "login",
+   16
+  ],
+  [
+   "handover",
+   16
+  ],
+  [
+   "superpowers:systematic-debugging",
+   10
+  ],
+  [
+   "remote-control",
+   7
+  ],
+  [
+   "effort",
+   7
+  ],
+  [
+   "config",
+   6
+  ],
+  [
+   "rename",
+   6
+  ],
+  [
+   "vercel-plugin:nextjs",
+   6
+  ],
+  [
+   "configure",
+   6
+  ],
+  [
+   "prototype-doc",
+   6
+  ],
+  [
+   "run",
+   4
+  ],
+  [
+   "superpowers:writing-plans",
+   4
+  ],
+  [
+   "vercel-plugin:next-cache-components",
+   4
+  ],
+  [
+   "access",
+   4
+  ],
+  [
+   "develop",
+   4
+  ],
+  [
+   "docs",
+   4
+  ],
+  [
+   "vercel-plugin:verification",
+   4
+  ],
+  [
+   "loop",
+   3
+  ],
+  [
+   "claude-in-chrome",
+   3
+  ],
+  [
+   "mcp",
+   3
+  ]
+ ],
+ "files_scanned": 331
+}

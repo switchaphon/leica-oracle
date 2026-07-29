@@ -1,0 +1,214 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Oracle Repos — gitleaks configuration
+#
+# Purpose: stop credentials from reaching git history, especially credentials
+#          embedded in *prose* inside .md files (handoffs, handovers, learnings).
+#          Path-based .gitignore cannot help there — the secret is in content.
+#
+# Origin:  2026-07-28 incident. A 32-hex root credential (Redis / InfluxDB /
+#          Postgres on host `rid`) was found in 9 files across rpro-ent-oracle
+#          and rpro-saas-oracle. Real observed shapes:
+#              - Auth: `root:<32hex>`
+#              - AUTH="root:<32hex>"
+#              - POSTGRESQL_POSTGRES_PASSWORD=<32hex>
+#
+# Design:  The 222 built-in gitleaks rules are inherited via [extend]. We add
+#          only the three narrow, high-signal rules the defaults provably MISS,
+#          rather than a broad kitchen-sink rule set that would generate noise
+#          and get switched off.
+#
+#          Verified gap: the built-in `generic-api-key` rule does NOT catch
+#          `AUTH="root:<32hex>"`. Its capture class is [\w.=-], which stops at
+#          the colon, so it only captures "root" (4 chars) and fails its own
+#          {10,150} length floor. The bare-prose form `root:<32hex>` has no
+#          keyword at all and is missed outright.
+#
+# Compatibility: gitleaks uses Go RE2. NO lookaheads/lookbehinds ((?=, (?!,
+#          (?<=, (?<!) and NO backreferences (\1) are used anywhere below.
+#          Tested against gitleaks v8.30.1 schema (config/config.go).
+# ─────────────────────────────────────────────────────────────────────────────
+
+title = "Oracle Repos — Secret Scanning"
+
+[extend]
+# Inherit all 222 built-in rules (AWS keys, GitHub PATs, private keys, JWTs,
+# Anthropic/OpenAI keys, generic-api-key with its tuned stopword list, ...).
+useDefault = true
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RULE 1 — Standalone 32-character hex value
+#
+# This is the rule that would have caught the 2026-07-28 leak.
+#
+# Note on git SHAs: this does NOT fire on 40-char SHA-1 or 64-char SHA-256.
+# For a 40-hex string the leading \b only holds at offset 0, and there the
+# trailing \b fails because char 32 is still a word char. Abbreviated SHAs
+# (7-12 chars) are too short. UUIDs *with* dashes have no 32-char run.
+# UUIDs with dashes stripped DO match — handled by the allowlist below.
+# ═════════════════════════════════════════════════════════════════════════════
+[[rules]]
+id = "oracle-hex32-standalone"
+description = "Standalone 32-char hex value — shape of the rid root credential (2026-07-28 incident)"
+regex = '''\b([0-9a-fA-F]{32})\b'''
+secretGroup = 1
+# Kills all-zeros, repeated-nibble and other low-variety dummies.
+# A real random 32-hex scores ~3.7-3.9; max possible is 4.0.
+entropy = 3.0
+tags = ["oracle", "credential", "hex32", "incident-2026-07-28"]
+# No `keywords` on purpose: a bare hex blob has no anchor word, so the rule
+# must run against all content. Slightly slower, but this is the whole point.
+
+  [[rules.allowlists]]
+  description = "High-entropy documentation placeholders that entropy alone cannot filter"
+  regexTarget = "secret"
+  regexes = [
+    # 0123456789abcdef repeated scores a perfect 4.0 entropy — must be listed.
+    '''(?i)^0123456789abcdef0123456789abcdef$''',
+    '''(?i)^(?:0{32}|1{32}|a{32}|f{32}|x{32}|e{32})$''',
+    '''(?i)^(?:deadbeef){4}$''',
+    '''(?i)^(?:cafebabe){4}$''',
+    '''(?i)^(?:abcdef){5}ab$''',
+  ]
+
+  [[rules.allowlists]]
+  description = "Safe 32-hex contexts — checksums, gist IDs, dashless UUIDs, redaction markers"
+  regexTarget = "line"
+  regexes = [
+    # Gist IDs are exactly 32 hex characters.
+    '''(?i)gist\.github(?:usercontent)?\.com''',
+    # Content hashes / integrity digests.
+    '''(?i)\b(?:md5|md5sum|checksum|etag|content-md5|digest|integrity|fingerprint)\b''',
+    # Dashless UUIDs / trace + span IDs.
+    '''(?i)\b(?:uuid|guid|trace[_-]?id|span[_-]?id|request[_-]?id|correlation[_-]?id)\b''',
+    # Already-redacted references (e.g. our own incident write-ups).
+    '''(?i)(?:REDACTED|<32HEX[^>]*>|\*{4,})''',
+    # Explicit opt-out marker. Deliberately NARROW: bare words like "example"
+    # or "sample" are NOT allowlisted here, because they are common in prose
+    # and would create a trivial bypass ("example config: root:<realhex>").
+    # If you hit a genuine false positive, record a .gitleaksignore fingerprint
+    # instead — that is auditable, this would be invisible.
+    '''(?i)\bnot[_ -]?a[_ -]?(?:real[_ -]?)?secret\b''',
+    '''(?i)\bgitleaks:\s*allow\b''',
+  ]
+
+  [[rules.allowlists]]
+  description = "Lockfiles, vendored trees and binaries are dense with content hashes"
+  paths = [
+    '''(?i)(?:^|/)(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|Cargo\.lock|go\.sum|poetry\.lock|uv\.lock|Gemfile\.lock|composer\.lock|Pipfile\.lock)$''',
+    '''(?i)(?:^|/)(?:node_modules|vendor|dist|build|target|\.next|\.venv|__pycache__)/''',
+    '''(?i)\.(?:png|jpe?g|gif|webp|avif|pdf|zip|tar|gz|bz2|woff2?|ttf|otf|eot|ico|mp4|mp3|wasm|min\.js|min\.css)$''',
+  ]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RULE 2 — Service connection URI with inline credentials
+#
+# Catches redis://user:pass@host, postgres://…, mongodb+srv://…, etc.
+# Very high signal, very low false-positive rate. This is the canonical shape
+# of the rid credential as it appears in connection strings.
+# ═════════════════════════════════════════════════════════════════════════════
+[[rules]]
+id = "oracle-service-uri-credentials"
+description = "Database/service connection URI carrying an inline password"
+regex = '''(?i)\b(?:redis|rediss|postgres|postgresql|mysql|mariadb|mongodb|mongodb\+srv|amqp|amqps|influxdb|influx|clickhouse|mssql|elasticsearch|ftp|ftps|smtp|smtps|ssh)://([A-Za-z0-9._%+-]{1,64}):([^\s:@/'"\x60\\]{6,128})@'''
+secretGroup = 2
+entropy = 2.5
+tags = ["oracle", "credential", "connection-string"]
+keywords = [
+  "redis://", "rediss://", "postgres", "postgresql://", "mysql://", "mariadb://",
+  "mongodb", "amqp", "influx", "clickhouse://", "mssql://", "elasticsearch://",
+  "ftp://", "smtp://", "ssh://",
+]
+
+  [[rules.allowlists]]
+  description = "Template / placeholder passwords in documented example URIs"
+  regexTarget = "secret"
+  regexes = [
+    '''(?i)^(?:pass|passwd|password|pwd|secret|changeme|change[_-]?me|your[_-]?pass(?:word)?|my[_-]?pass(?:word)?|placeholder|example|sample|dummy|test|redacted|admin|root|user|guest|xxx+|\*+|\.{3,}|-+|_+)$''',
+    # Shell / template interpolation — the real value lives elsewhere.
+    '''^\$\{[^}]*\}$''',
+    '''^\$[A-Za-z_][A-Za-z0-9_]*$''',
+    '''^\{\{[^}]*\}\}$''',
+    '''^<[^>]*>$''',
+    '''^%[svd]$''',
+  ]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RULE 3 — Service-account credential in `user:password` form
+#
+# This is the exact shape that slipped past the built-in generic-api-key rule:
+#     Auth: `root:<32hex>`
+#     AUTH="root:<32hex>"
+#
+# The secret class deliberately excludes / : @ and whitespace so that ordinary
+# YAML/Markdown such as `root: /var/www/html` or `postgres: enabled` cannot
+# match. URIs are Rule 2's job.
+# ═════════════════════════════════════════════════════════════════════════════
+[[rules]]
+id = "oracle-service-account-colon-pair"
+description = "Service-account credential written as user:password (e.g. root:<hex>) — 2026-07-28 leak shape"
+regex = '''(?i)\b(?:root|admin|administrator|superuser|sysadmin|postgres|influxdb|influx|redis|mysql|mariadb|mongodb|mongo|rabbitmq|grafana|elastic|clickhouse|telegraf)\s*:\s*([A-Za-z0-9][A-Za-z0-9!#$%^&*()_+=~.-]{15,127})'''
+secretGroup = 1
+entropy = 3.2
+tags = ["oracle", "credential", "incident-2026-07-28"]
+keywords = [
+  "root:", "admin:", "administrator:", "superuser:", "sysadmin:", "postgres:",
+  "influxdb:", "influx:", "redis:", "mysql:", "mariadb:", "mongodb:", "mongo:",
+  "rabbitmq:", "grafana:", "elastic:", "clickhouse:", "telegraf:",
+]
+
+  [[rules.allowlists]]
+  description = "Docker/compose image tags, k8s resource names and template refs"
+  regexTarget = "line"
+  regexes = [
+    # `image: postgres:16.2-alpine`, `redis:7-bookworm`
+    '''(?i)^\s*(?:-\s*)?(?:image|from)\s*[:=]''',
+    '''(?i)\bFROM\s+(?:docker\.io/)?(?:library/)?[a-z0-9./_-]+:''',
+    # Helm/k8s chart references and service DNS names.
+    '''(?i)\b(?:chart|repository|serviceName|hostname|host)\s*[:=]''',
+  ]
+
+  [[rules.allowlists]]
+  description = "Template interpolation and obvious placeholders"
+  regexTarget = "secret"
+  regexes = [
+    '''(?i)^(?:changeme|change[_-]?me|your[_-]?pass(?:word)?|placeholder|redacted|example|password123|notarealsecret)$''',
+    '''(?i)^(?:latest|stable|alpine|bookworm|bullseye|slim|nightly)[A-Za-z0-9._-]*$''',
+    '''^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$''',
+    '''^\{\{[^}]*\}\}$''',
+    # DNS / k8s service names and image tags: lowercase words joined by dots
+    # and hyphens, with at least one dot. e.g.
+    #   postgres: postgresql-primary.default.svc.cluster.local
+    # A random credential is one unbroken run with no separators, so this
+    # cannot mask the shapes we care about. A dot is REQUIRED, so hyphen-only
+    # passphrases (correct-horse-battery-staple) are still caught.
+    '''^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+$''',
+  ]
+
+  [[rules.allowlists]]
+  description = "Infrastructure vocabulary — a resource name, not a credential"
+  regexTarget = "secret"
+  stopwords = [
+    "postgres", "postgresql", "pgbouncer", "redis", "valkey", "influx",
+    "influxdb", "telegraf", "mongo", "mongodb", "mysql", "mariadb",
+    "rabbitmq", "clickhouse", "grafana", "prometheus", "elastic",
+    "service", "svc", "cluster", "namespace", "default", "primary",
+    "replica", "standby", "master", "headless", "internal", "localhost",
+    "alpine", "bookworm", "bullseye", "latest", "stable", "deployment",
+    "statefulset", "configmap", "ingress",
+  ]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# GLOBAL ALLOWLIST
+# ═════════════════════════════════════════════════════════════════════════════
+[[allowlists]]
+description = "Never scan the scanner's own config or its reports — they contain example patterns"
+paths = [
+  '''(?i)(?:^|/)\.gitleaks\.toml$''',
+  '''(?i)(?:^|/)\.gitleaksignore$''',
+  '''(?i)(?:^|/)gitleaks-(?:report|baseline)\.json$''',
+  '''(?i)(?:^|/)\.pre-commit-config\.yaml$''',
+]

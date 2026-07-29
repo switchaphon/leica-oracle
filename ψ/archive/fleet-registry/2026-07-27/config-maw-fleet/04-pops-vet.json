@@ -1,0 +1,39 @@
+{
+  "auto_registered": true,
+  "budded_at": "2026-04-28T16:06:57.780Z",
+  "budded_from": "leica",
+  "created_at": "2026-07-27T03:16:18.000Z",
+  "created_by": "maw wake",
+  "icon": "🏥",
+  "name": "04-pops-vet",
+  "project_path": "/Users/switchaphon/_POPs_/pops-vet",
+  "rename_history": [
+    {
+      "at": "2026-04-29T06:17:00.000Z",
+      "from": "vet-oracle"
+    },
+    {
+      "at": "2026-07-04T10:00:56Z",
+      "from": "pops-clinic"
+    }
+  ],
+  "renamed_at": "2026-07-04T10:00:56Z",
+  "renamed_from": "pops-clinic",
+  "short_name": "pops-vet",
+  "sync_peers": [
+    "leica",
+    "pops-vet",
+    "ratchada"
+  ],
+  "windows": [
+    {
+      "kind": "project",
+      "name": "pops-vet-nats-books-4-7",
+      "repo": "switchaphon/pops-vet-oracle"
+    },
+    {
+      "name": "pops-billing-flow",
+      "repo": ""
+    }
+  ]
+}

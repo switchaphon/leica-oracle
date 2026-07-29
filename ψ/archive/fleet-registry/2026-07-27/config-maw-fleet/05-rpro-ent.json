@@ -1,0 +1,49 @@
+{
+  "auto_registered": true,
+  "budded_at": "2026-05-02T10:30:00.000Z",
+  "budded_from": "leica",
+  "created_at": "2026-07-27T03:18:07.000Z",
+  "created_by": "maw wake",
+  "icon": "🌊",
+  "name": "05-rpro-ent",
+  "project_path": "/Users/switchaphon/_RPRO_/rpro-enterprise",
+  "short_name": "rpro",
+  "sync_peers": [
+    "leica",
+    "rpro-ent"
+  ],
+  "windows": [
+    {
+      "name": "rpro-ent-oracle",
+      "repo": "switchaphon/rpro-ent-oracle"
+    },
+    {
+      "name": "rpro-ent-codex-1",
+      "repo": "switchaphon/rpro-ent-oracle"
+    },
+    {
+      "name": "rpro-ent-codex-2",
+      "repo": "switchaphon/rpro-ent-oracle"
+    },
+    {
+      "kind": "project",
+      "name": "rpro-ent-maw-rs-migration",
+      "repo": "switchaphon/rpro-ent-oracle"
+    },
+    {
+      "kind": "project",
+      "name": "rpro-ent-nats-books",
+      "repo": "switchaphon/rpro-ent-oracle"
+    },
+    {
+      "kind": "project",
+      "name": "rpro-ent-nats-book3",
+      "repo": "switchaphon/rpro-ent-oracle"
+    },
+    {
+      "kind": "project",
+      "name": "rpro-ent-nats-books-4-7",
+      "repo": "switchaphon/rpro-ent-oracle"
+    }
+  ]
+}

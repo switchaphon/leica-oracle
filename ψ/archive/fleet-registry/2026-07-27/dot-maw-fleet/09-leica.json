@@ -1,0 +1,29 @@
+{
+  "auto_registered": true,
+  "created_at": "2026-06-11T08:48:40.885Z",
+  "created_by": "maw wake",
+  "name": "09-leica",
+  "windows": [
+    {
+      "name": "leica-lead",
+      "repo": "switchaphon/leica-oracle"
+    },
+    {
+      "name": "leica-codex-1",
+      "repo": "switchaphon/leica-oracle"
+    },
+    {
+      "name": "leica-codex-2",
+      "repo": "switchaphon/leica-oracle"
+    },
+    {
+      "name": "leica-oracle",
+      "repo": "switchaphon/leica-oracle"
+    },
+    {
+      "kind": "project",
+      "name": "leica",
+      "repo": "switchaphon/leica-oracle"
+    }
+  ]
+}

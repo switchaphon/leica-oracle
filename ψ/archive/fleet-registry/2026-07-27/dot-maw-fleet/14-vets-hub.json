@@ -1,0 +1,12 @@
+{
+  "name": "14-vets-hub",
+  "created_at": "2026-06-22T07:29:14.018Z",
+  "created_by": "maw wake",
+  "auto_registered": true,
+  "windows": [
+    {
+      "name": "vets-hub-oracle",
+      "repo": "github.com/switchaphon/vets-hub-oracle"
+    }
+  ]
+}
