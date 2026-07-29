@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oracle Skills — Usage Census &amp; Distribution Status</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface-2: #1a1a26;
+      --border: #2a2a3a;
+      --text: #e4e4ef;
+      --text-dim: #8888a0;
+      --accent: #7c6aef;
+      --green: #4ade80;
+      --green-dim: #166534;
+      --amber: #fbbf24;
+      --amber-dim: #92400e;
+      --red: #f87171;
+      --red-dim: #7f1d1d;
+      --cyan: #22d3ee;
+      --pink: #f472b6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .header { text-align: center; padding: 3rem 0 2rem; position: relative; }
+    .header::after {
+      content: ''; position: absolute; bottom: 0; left: 50%;
+      transform: translateX(-50%); width: 120px; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+    .header h1 {
+      font-size: 1.8rem; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 0.5rem;
+    }
+    .header p { color: var(--text-dim); font-size: 0.85rem; }
+
+    .badge {
+      display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px;
+      font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; margin: 0.5rem 0.2rem;
+    }
+    .badge-before { background: var(--red-dim); color: var(--red); }
+    .badge-after { background: var(--green-dim); color: var(--green); }
+    .badge-pending { background: var(--amber-dim); color: var(--amber); }
+
+    .section-title {
+      font-size: 1.05rem; font-weight: 600; color: var(--accent);
+      margin: 2.5rem 0 1rem; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .section-title::before {
+      content: ''; width: 3px; height: 1.1rem;
+      background: var(--accent); border-radius: 2px;
+    }
+
+    .stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem; margin: 1.5rem 0;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.1rem; text-align: center;
+    }
+    .stat-value { font-size: 1.7rem; font-weight: 700; line-height: 1.2; }
+    .stat-label { font-size: 0.68rem; color: var(--text-dim); margin-top: 0.35rem; }
+    .red { color: var(--red); } .green { color: var(--green); }
+    .amber { color: var(--amber); } .cyan { color: var(--cyan); }
+    .accent { color: var(--accent); }
+
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.2rem 1.4rem; margin: 1rem 0;
+      font-size: 0.8rem; color: var(--text-dim);
+    }
+    .panel strong { color: var(--text); }
+    .panel code, .t code {
+      background: var(--surface-2); color: var(--cyan);
+      padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.9em;
+    }
+
+    .warn {
+      background: var(--surface); border: 1px solid var(--amber);
+      border-left: 3px solid var(--amber); border-radius: 8px;
+      padding: 1.1rem 1.3rem; margin: 1.2rem 0; font-size: 0.8rem; color: var(--text-dim);
+    }
+    .warn h3 { color: var(--amber); font-size: 0.9rem; margin-bottom: 0.6rem; }
+    .warn strong { color: var(--text); }
+
+    .t { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.78rem; }
+    .t th {
+      background: var(--surface-2); color: var(--accent); text-align: left;
+      padding: 0.6rem 0.8rem; font-weight: 600; border-bottom: 1px solid var(--border);
+    }
+    .t td { padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+    .t td.k { color: var(--text); }
+    .t tr:hover td { background: var(--surface); }
+    .scroll { overflow-x: auto; }
+
+    ul { padding-left: 1.3rem; }
+    li { margin: 0.35rem 0; }
+
+    .footer {
+      text-align: center; color: var(--text-dim); font-size: 0.72rem;
+      margin: 3rem 0 1rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Oracle Skills — Usage Census &amp; Distribution Status</h1>
+    <p>What exists, what is actually called, and what was never rolled out</p>
+    <div>
+      <span class="badge badge-before">96 never called</span>
+      <span class="badge badge-after">24 called</span>
+      <span class="badge badge-pending">status: measured, not acted on</span>
+    </div>
+    <p style="margin-top:0.8rem;font-size:0.7rem;">
+      Measured 2026-07-29 against <strong>331 Claude Code session transcripts (663 MB)</strong>.
+      Not an estimate.<br>
+      Un's call 2026-07-29: <strong>document it, do not implement yet.</strong>
+    </p>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card"><div class="stat-value red">96</div><div class="stat-label">Never called (80%)</div></div>
+    <div class="stat-card"><div class="stat-value green">24</div><div class="stat-label">Ever called</div></div>
+    <div class="stat-card"><div class="stat-value cyan">124</div><div class="stat-label">Entries in ~/.claude/skills</div></div>
+    <div class="stat-card"><div class="stat-value amber">0 / 18</div><div class="stat-label">Oracles with .claude/commands/</div></div>
+    <div class="stat-card"><div class="stat-value accent">331</div><div class="stat-label">Sessions scanned</div></div>
+  </div>
+
+  <!-- Composition -->
+  <div class="section-title">What is actually on disk</div>
+  <div class="scroll">
+  <table class="t">
+    <thead><tr><th>Kind</th><th>Count</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Real directories</td><td>75</td><td>Own <code>SKILL.md</code>, removable by deleting the directory</td></tr>
+      <tr><td class="k">Symlinks</td><td>45</td><td>Point elsewhere — <code>find -type d</code> cannot see them at all</td></tr>
+      <tr><td class="k">Other entries</td><td>4</td><td>Loose files, not skills</td></tr>
+      <tr><td class="k"><strong>Total entries</strong></td><td><strong>124</strong></td><td>The usage census counted 120 skills (75 + 45)</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="panel">
+    Three tiers, three owners, three removal paths — see memory <code>skill_architecture_three_tiers</code>.
+    <strong>Always check <code>os.path.islink()</code> before <code>rm</code></strong>: a
+    <code>find -maxdepth 1 -type d</code> pass reports a clean 75 and every symlink is invisible to it.
+  </div>
+
+  <!-- The drift -->
+  <div class="warn">
+    <h3>⚠ A number in our own notes changed within the same day</h3>
+    The census written on the morning of 2026-07-29 reported <strong>39 dead symlinks</strong> and
+    proposed removing them as "the safe, reversible first move."<br><br>
+    Re-measured the same afternoon: <strong>45 symlinks, 0 dead</strong> — every one resolves.<br><br>
+    <strong>Unresolved:</strong> it is not yet known whether they were repaired in between or the
+    morning measurement was wrong. Either way the planned first step no longer exists, and
+    <strong>no cleanup should start from that number.</strong> This is exactly the class of error
+    pops-vet-oracle flagged: an existence check against the wrong place reads as fact.
+  </div>
+
+  <!-- Usage -->
+  <div class="section-title">Usage — measured, not guessed</div>
+  <div class="panel">
+    <strong>Method.</strong> Four <em>anchored</em> capture patterns, intersected with the real skill
+    list — never bare-name matching, which false-positives on skills named <code>go</code>,
+    <code>run</code>, <code>review</code>:
+    <ul>
+      <li><code>&lt;command-name&gt;/X&lt;/command-name&gt;</code></li>
+      <li><code>"skill":"X"</code></li>
+      <li><code>Launching skill: X</code></li>
+      <li><code>skills/X/SKILL.md</code></li>
+    </ul>
+    Confidence ≈85%. A skill invoked without leaving any of those four markers is undercounted.
+    Scanner lives at <code>ψ/lab/skill-census-2026-07-29/census2.py</code>, runs in ~2.8s,
+    re-runnable. Use <code>clean.json</code> — <code>census2.json</code> contains self-contamination.
+  </div>
+
+  <div class="panel">
+    <strong>Nothing is merely new.</strong> Of the 96 never-called skills, the most recently added
+    has been untouched since <strong>2026-06-19</strong>. Non-use is not a warm-up period.
+  </div>
+
+  <div class="warn">
+    <h3>⚠ Why "consolidate the similar ones" is dangerous without measurement</h3>
+    A proposed merge of <code>dig</code> into <code>trace</code> looked obvious on paper.
+    Measured: <code>dig</code> = <strong>10 calls / 9 sessions</strong>,
+    <code>trace</code> = <strong>2 calls / 1 session</strong>.
+    The merge would have deleted the skill used <strong>5× more</strong> and kept the quieter one.
+    Reverted. <strong>Measure before merging, every time.</strong>
+  </div>
+
+  <!-- Distribution -->
+  <div class="section-title">Distribution — Option A was never started</div>
+  <div class="panel">
+    The 2026-05-08 design (<code>ψ/memory/learnings/2026-05-08_skill-distribution-design.md</code>)
+    recommended <strong>Option A: per-repo <code>.claude/commands/</code></strong> so each Oracle
+    carries only its own tier instead of all global skills.
+    Checked 2026-07-29 across every Oracle repo:
+  </div>
+  <div class="scroll">
+  <table class="t">
+    <thead><tr><th>Oracle repos checked</th><th><code>.claude/commands/</code></th><th><code>.claude/skills/</code></th></tr></thead>
+    <tbody>
+      <tr><td class="k">leica-oracle</td><td>none</td><td>2</td></tr>
+      <tr><td class="k">kru32-oracle</td><td>none</td><td>1</td></tr>
+      <tr><td class="k">opensource-nat-brain-oracle</td><td>none</td><td>19</td></tr>
+      <tr><td class="k">pops-vet · pops-pet · pops-atlas</td><td>none</td><td>none</td></tr>
+      <tr><td class="k">chrome · codec · neon · pixel</td><td>none</td><td>none</td></tr>
+      <tr><td class="k">rpro-ent · rpro-ent-atlas · rpro-saas</td><td>none</td><td>none</td></tr>
+      <tr><td class="k">vets-hub · nodered-simulator · relay · ratchada · oracle-school-leica</td><td>none</td><td>none</td></tr>
+      <tr><td class="k"><strong>Total</strong></td><td><strong>0 of 18</strong></td><td>3 of 18</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="panel">
+    The four repos that <em>do</em> carry <code>commands/</code> (9 each) are
+    <code>arra-oracle-v3</code>, <code>arra-oracle-v3-alpha</code>, <code>_arra-oracle-v3</code> and
+    <code>oracle-v2</code> — system repos, not Oracles. <strong>Option A has 0% adoption after
+    82 days.</strong>
+  </div>
+
+  <!-- Cost -->
+  <div class="section-title">Why unused skills are not free</div>
+  <div class="panel">
+    A skill that is never invoked still ships its <strong>name and description into the system
+    prompt of every session</strong>. 96 skills nobody has called since 2026-06-19 are therefore
+    paid for on every session, of every Oracle, every day — 18 Oracles wide.
+    That recurring cost, not tidiness, is the argument for acting.
+  </div>
+
+  <!-- Blocker -->
+  <div class="section-title">What blocks implementation</div>
+  <div class="warn">
+    <h3>⚠ The 2026-05-08 design's arithmetic is stale</h3>
+    <table class="t">
+      <thead><tr><th>Premise in the design</th><th>Reality 2026-07-29</th></tr></thead>
+      <tbody>
+        <tr><td class="k">88 global skills</td><td><strong>120</strong> — the problem grew ~36%</td></tr>
+        <tr><td class="k">"69% of 88 never used"</td><td><strong>80% of 120</strong> — recompute</td></tr>
+        <tr><td class="k">Savings 62–90% per role</td><td>Recompute — same reason</td></tr>
+        <tr><td class="k"><code>.claude/commands/</code> empty everywhere</td><td>Still 0 — never started</td></tr>
+      </tbody>
+    </table>
+    The tier structure (Core 8 / Father +25 / PM +12 / specialists) is still sound. It is the
+    <strong>arithmetic</strong> that must be redone against 120, and every skill added since
+    8 May is currently unclassified. <strong>Implementing 8 May's numbers now would bake in a
+    stale premise.</strong> — raised by pops-vet-oracle, 2026-07-29.
+  </div>
+  <div class="panel">
+    Open design question also raised: whether Tier 5 (reference library) should be
+    <code>/find-skills</code> on demand rather than a tier at all — that alone may absorb most of
+    the growth from 88 → 120.
+  </div>
+
+  <!-- Traps -->
+  <div class="section-title">Counting traps hit while producing this</div>
+  <div class="panel">
+    Four count discrepancies during the census. <strong>None was a tool bug:</strong>
+    <ul>
+      <li><strong>120 vs 75 skills</strong> — symlinks. <code>find -type d</code> does not follow them, <code>os.path.isdir()</code> does. Both counts correct.</li>
+      <li><strong>26 vs 27 inbox files</strong> — measured an hour apart; a file was written in between.</li>
+      <li><strong>644 vs 26 agents</strong> — the 644 were agent <em>worktrees</em>, not agent definitions.</li>
+      <li><strong>188 vs 182 plugin skills</strong> — <code>glob('**')</code> skips dotted dirs. Here <code>rtk proxy</code> was right and the "native" check was wrong.</li>
+    </ul>
+    Before calling a count a bug, ask: different semantics? different time? different objects?
+    A positive control proves a tool <em>can</em> return hits — it never proves the count is
+    complete. Only agreement between two independent methods establishes a number.
+  </div>
+
+  <!-- Next -->
+  <div class="section-title">Open decisions</div>
+  <div class="panel">
+    <ol style="padding-left:1.3rem; line-height:2;">
+      <li><strong style="color:var(--amber);">Resolve the symlink drift</strong> — 39 dead this morning, 0 this afternoon. Everything downstream rests on it.</li>
+      <li><strong style="color:var(--cyan);">Re-baseline the tiers against 120</strong> and classify everything added since 8 May. Proposal only, no file changes.</li>
+      <li><strong style="color:var(--accent);">Decide Tier 5</strong> — a real tier, or <code>/find-skills</code> on demand.</li>
+      <li><strong style="color:var(--green);">Then</strong> pilot Option A on one Oracle before all 18.</li>
+    </ol>
+  </div>
+
+  <div class="footer">
+    Built by Leica — Father Oracle<br>
+    Sources: <code>ψ/lab/skill-census-2026-07-29/</code> ·
+    <code>ψ/memory/learnings/2026-05-08_skill-distribution-design.md</code> ·
+    memory <code>skill_usage_census</code>, <code>skill_architecture_three_tiers</code><br><br>
+    <em>"Patterns over intentions — measure what is called, not what was designed."</em><br>
+    <span style="font-size:0.65rem;">
+      Measured 2026-07-29 across 331 transcripts. <strong>Not implemented</strong> — this page is
+      the deliverable.
+    </span>
+  </div>
+
+</div>
+</body>
+</html>
