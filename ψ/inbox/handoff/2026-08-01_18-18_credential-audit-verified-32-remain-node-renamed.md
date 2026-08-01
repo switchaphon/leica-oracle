@@ -129,8 +129,13 @@ reverted on the next sync.
 - **gitleaks pre-commit hook exists only in `leica-oracle`.** It belongs in all 15. It earned
   its keep during this session — it blocked a retrospective that had a credential-shaped URI
   written into it, in a document about not doing that.
-- **`.env.example` files carry real values** in at least one repo. Two of the seven
-  in-git-history secrets were sitting in one.
+- ~~`.env.example` files carry real values in at least one repo.~~ **RETRACTED 2026-08-01.**
+  Checked by opening them. `pawrent/frontend/app/.env.example` is exemplary —
+  `your-messaging-api-channel-access-token`, `your-liff-id`, placeholders throughout.
+  `doc-extraction-service/.env.example` holds `pops_prod_xxx,pawrent_prod_yyy` and a local
+  sqlite path. The third file named in the original claim, `auth-service/.env.example`,
+  **does not exist** — its path was a string mentioned inside a transcript, which I wrote
+  down as a fact. No `.env.example` anywhere was ever found to hold a real value.
 - **The inflow has not stopped.** New secrets were entering `~/.claude` *during* the audit.
   Scrubbing is a one-time cleanup of a pipe that is still open.
 
