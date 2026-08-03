@@ -79,9 +79,28 @@ each in five seconds.
 
 ## 🔜 Next session
 
-**1. Triage the remaining ~29 before touching any of them.** They come from the same method
-that produced four false alarms. Open them and read what the values *say* — do not measure
-them. Expect the list to shrink a lot. ~10 minutes.
+**1. ✅ DONE 2026-08-03 08:45 — triage complete. 28 real, 6 placeholders removed.**
+
+The discriminator that works is **word decomposition**, not length or entropy: a placeholder
+decomposes into English words, a generated credential does not. These six were removed:
+
+```
+changeme-generate-with-openssl-rand-base64-32
+change-me-32-bytes-min-for-jose-hs256
+change-me-min-32-chars-same-value-across-services
+CHOOSE_A_STRONG_PW
+REPLACE_FROM_INFISICAL_CLINIC_DEV
+pops-vet-local-dev-secret
+```
+
+Two results that change the picture:
+- `change-me-32-bytes-min-for-jose-hs256` was one of the **six "confirmed dangerous"**
+  (flagged as in `pops-pet-oracle`'s HEAD). It is a placeholder → **that list is now 5**.
+- A **second `root:<32hex>`** turned up (`9e85c5b253`) that had never been counted.
+- `pawrent_minio_dev` is **weak but real** — in git HEAD, actually in use. Weak ≠ fake.
+  Still needs rotating.
+
+**Start at Step 2.**
 
 **2. Then rotate what survives.** Good news found late: many of them sit in **one k8s secret**
 — `pawrent-secrets` in ns `pawrent` is documented to hold `POSTGRES_PASSWORD`,
