@@ -1,0 +1,685 @@
+<title>Weekly Report W31 — 28 Jul – 4 Aug 2026</title>
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-alt: #f5f3ef;
+    --text: #2c3e50;
+    --heading: #1a1a2e;
+    --accent: #b56a1e;
+    --accent-bg: #fdf5eb;
+    --blue: #3a7bd5;
+    --blue-bg: #eef4fc;
+    --green: #2d8a56;
+    --green-bg: #edf7f0;
+    --violet: #6b4fa8;
+    --violet-bg: #f2eefa;
+    --teal: #1f7a80;
+    --teal-bg: #e8f5f5;
+    --red: #c0392b;
+    --red-bg: #fceeec;
+    --border: #e2e0dc;
+    --muted: #7a8a96;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+    --serif: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+    --sans: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1419; --surface: #1a2332; --surface-alt: #1e2a3a;
+      --text: #c5cdd8; --heading: #e8ecf1;
+      --accent: #d4a547; --accent-bg: #2a2218;
+      --blue: #4a9eff; --blue-bg: #162030;
+      --green: #4eca7a; --green-bg: #142a1e;
+      --violet: #a98fe0; --violet-bg: #221c30;
+      --teal: #4bb3ba; --teal-bg: #12262a;
+      --red: #e74c3c; --red-bg: #2b1714;
+      --border: #2a3a4a; --muted: #5a6a7a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1419; --surface: #1a2332; --surface-alt: #1e2a3a;
+    --text: #c5cdd8; --heading: #e8ecf1;
+    --accent: #d4a547; --accent-bg: #2a2218;
+    --blue: #4a9eff; --blue-bg: #162030;
+    --green: #4eca7a; --green-bg: #142a1e;
+    --violet: #a98fe0; --violet-bg: #221c30;
+    --teal: #4bb3ba; --teal-bg: #12262a;
+    --red: #e74c3c; --red-bg: #2b1714;
+    --border: #2a3a4a; --muted: #5a6a7a;
+  }
+  :root[data-theme="light"] {
+    --bg: #fafaf8; --surface: #ffffff; --surface-alt: #f5f3ef;
+    --text: #2c3e50; --heading: #1a1a2e;
+    --accent: #b56a1e; --accent-bg: #fdf5eb;
+    --blue: #3a7bd5; --blue-bg: #eef4fc;
+    --green: #2d8a56; --green-bg: #edf7f0;
+    --violet: #6b4fa8; --violet-bg: #f2eefa;
+    --teal: #1f7a80; --teal-bg: #e8f5f5;
+    --red: #c0392b; --red-bg: #fceeec;
+    --border: #e2e0dc; --muted: #7a8a96;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--sans);
+    font-size: 15px;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 4rem;
+  }
+
+  /* Header */
+  .report-header {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .report-header .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.35rem;
+  }
+  .report-header h1 {
+    font-family: var(--serif);
+    font-size: 1.85rem;
+    letter-spacing: -0.035em;
+    color: var(--heading);
+    font-weight: 700;
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+  .report-header .meta {
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+  }
+
+  /* Stat grid */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  .stat .label {
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+  .stat .value {
+    font-family: var(--mono);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--heading);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .detail {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+  .stat.accent { border-left: 3px solid var(--accent); }
+  .stat.blue { border-left: 3px solid var(--blue); }
+  .stat.green { border-left: 3px solid var(--green); }
+
+  /* Sections */
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.35rem;
+    letter-spacing: -0.025em;
+    color: var(--heading);
+    margin: 2.75rem 0 0.4rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-wrap: balance;
+  }
+  h2.minor {
+    font-size: 1.2rem;
+    color: var(--muted);
+    border-bottom-style: dashed;
+  }
+  .section-note {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 1.15rem;
+  }
+  .divider-note {
+    margin: 3.5rem 0 0;
+    padding: 0.85rem 1.15rem;
+    background: var(--surface-alt);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* Workstreams */
+  .streams { display: grid; gap: 0.85rem; margin-top: 0.5rem; }
+  .stream {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.05rem 1.25rem;
+  }
+  .stream-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .stream-head h3 {
+    font-family: var(--serif);
+    font-size: 1.12rem;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+    color: var(--heading);
+    line-height: 1.35;
+  }
+  .stream-effort {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-track {
+    height: 4px;
+    background: var(--surface-alt);
+    border-radius: 2px;
+    margin: 0.6rem 0 0.7rem;
+    overflow: hidden;
+  }
+  .bar-fill { height: 100%; border-radius: 2px; display: block; }
+  .f-vet { background: var(--green); }
+  .f-pet { background: var(--blue); }
+  .f-leica { background: var(--accent); }
+  .f-rpro { background: var(--teal); }
+  .f-hub { background: var(--violet); }
+  .stream-brief { font-size: 1rem; line-height: 1.65; }
+  .stream-next {
+    margin-top: 0.7rem;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--border);
+    font-size: 0.93rem;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .next-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 0.45rem;
+  }
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 0.12rem 0.45rem;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 0.4rem;
+  }
+  .p-shipped { background: var(--green-bg); color: var(--green); }
+  .p-open { background: var(--blue-bg); color: var(--blue); }
+  .p-blocked { background: var(--red-bg); color: var(--red); }
+
+  .project-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-weight: 600;
+    margin-right: 0.25rem;
+    vertical-align: middle;
+  }
+  .tag-pet { background: var(--blue-bg); color: var(--blue); }
+  .tag-vet { background: var(--green-bg); color: var(--green); }
+  .tag-leica { background: var(--accent-bg); color: var(--accent); }
+  .tag-hub { background: var(--violet-bg); color: var(--violet); }
+  .tag-rpro { background: var(--teal-bg); color: var(--teal); }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th {
+    text-align: left;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.6rem 0.75rem;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  tr:last-child td { border-bottom: none; }
+  .num { font-family: var(--mono); text-align: right; }
+  .total-row td {
+    font-weight: 700;
+    color: var(--heading);
+    border-top: 2px solid var(--border);
+    border-bottom: none;
+  }
+  td.day-topic { font-size: 0.92rem; }
+
+  /* Learnings */
+  .learning-grid { display: grid; gap: 0.55rem; margin: 1rem 0; }
+  .learning {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8rem 1.1rem;
+    font-size: 0.94rem;
+    line-height: 1.6;
+  }
+  .learning strong { color: var(--heading); display: block; }
+
+  /* Artifacts */
+  .artifact-list { list-style: none; margin: 0.75rem 0; }
+  .artifact-list li {
+    font-size: 0.95rem;
+    padding: 0.35rem 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .artifact-type {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: var(--surface-alt);
+    color: var(--muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .callout {
+    background: var(--accent-bg);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 1rem 1.25rem;
+    margin: 1.25rem 0 0;
+    font-size: 0.97rem;
+    line-height: 1.65;
+  }
+
+  .report-footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 1.25rem 1rem 3rem; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat .value { font-size: 1.5rem; }
+    .report-header h1 { font-size: 1.6rem; }
+    .stream-head h3 { font-size: 1.08rem; }
+  }
+</style>
+
+<header class="report-header">
+  <div class="eyebrow">Leica Oracle — Weekly Report</div>
+  <h1>W31: Where the week went</h1>
+  <div class="meta">28 July – 4 August 2026 &middot; Witchaphon Saeng-aram &middot; compiled by Leica</div>
+</header>
+
+<div class="stats">
+  <div class="stat accent">
+    <div class="label">Active hours</div>
+    <div class="value">~72h</div>
+    <div class="detail">7 working days · Sunday off</div>
+  </div>
+  <div class="stat blue">
+    <div class="label">Sessions</div>
+    <div class="value">92</div>
+    <div class="detail">12,613 API calls</div>
+  </div>
+  <div class="stat green">
+    <div class="label">Commits</div>
+    <div class="value">97</div>
+    <div class="detail">across 5 repos</div>
+  </div>
+  <div class="stat accent">
+    <div class="label">Tokens (yours)</div>
+    <div class="value">3.26B</div>
+    <div class="detail">97% of spend · you were driving</div>
+  </div>
+  <div class="stat blue">
+    <div class="label">Est. cost</div>
+    <div class="value">$7,603</div>
+    <div class="detail">list rates · billed flat-rate Max</div>
+  </div>
+  <div class="stat green">
+    <div class="label">Shipped</div>
+    <div class="value">4</div>
+    <div class="detail">of 7 workstreams · 2 open · 1 blocked</div>
+  </div>
+</div>
+
+<h2>The seven things you worked on</h2>
+<div class="section-note">
+  Ordered by effort. Bar = share of your token spend. Attribution maps each project-day to that
+  day's commits — accurate to the day, approximate within it.
+</div>
+
+<div class="streams">
+
+  <div class="stream">
+    <div class="stream-head">
+      <h3>Shipping the vet clinic UI<span class="pill p-shipped">shipped</span></h3>
+      <span class="stream-effort">~850M · 26%</span>
+    </div>
+    <div class="bar-track"><span class="bar-fill f-vet" style="width:100%"></span></div>
+    <p class="stream-brief">
+      <span class="project-tag tag-vet">pops-vet</span>
+      Owner grouping designed under grilling, shipped, then UI polish and dashboard containment —
+      three surfaces made consistent. Your single largest investment this week, and the one that
+      reached users.
+    </p>
+    <p class="stream-next"><span class="next-label">Next</span>
+      Filter-bar work is ticketed (POPS-278) and branched but not started.
+    </p>
+  </div>
+
+  <div class="stream">
+    <div class="stream-head">
+      <h3>Giving the dev cluster a backup<span class="pill p-open">open</span></h3>
+      <span class="stream-effort">~775M · 24%</span>
+    </div>
+    <div class="bar-track"><span class="bar-fill f-pet" style="width:91%"></span></div>
+    <p class="stream-brief">
+      <span class="project-tag tag-pet">pops-pet</span><span class="project-tag tag-hub">vets-hub</span>
+      The dev cluster now has a backup for the first time ever — one script, every namespace,
+      enumerate-always, with a committed regression suite. The verifier was built to be
+      <em>demonstrated</em> red before being trusted green.
+    </p>
+    <p class="stream-next"><span class="next-label">Next</span>
+      Verifier deadlocks against the real cluster (rev3) — reproducible there, invisible locally.
+      Fix, then run a restore drill on real data.
+    </p>
+  </div>
+
+  <div class="stream">
+    <div class="stream-head">
+      <h3>Credential audit and rotation<span class="pill p-blocked">blocked</span></h3>
+      <span class="stream-effort">~433M · 13%</span>
+    </div>
+    <div class="bar-track"><span class="bar-fill f-leica" style="width:51%"></span></div>
+    <p class="stream-brief">
+      <span class="project-tag tag-leica">leica</span>
+      Day four of a job estimated at one afternoon. The count moved 20 → 66 → 32 → 28 because the
+      measuring instrument kept being wrong, not because anything changed. Both credentials ever
+      proven live by their own issuer are now closed and verified; 28 remain unrotated.
+    </p>
+    <p class="stream-next"><span class="next-label">Next</span>
+      Unblock with one command — <code>ssh-add --apple-use-keychain ~/.ssh/id_rsa</code>. Then
+      rotate the 28 through the jump host, scrub the local history, file the upstream message-bus bug.
+    </p>
+  </div>
+
+  <div class="stream">
+    <div class="stream-head">
+      <h3>Pet-side infrastructure and app fixes<span class="pill p-shipped">shipped</span></h3>
+      <span class="stream-effort">~406M · 12%</span>
+    </div>
+    <div class="bar-track"><span class="bar-fill f-pet" style="width:48%"></span></div>
+    <p class="stream-brief">
+      <span class="project-tag tag-pet">pops-pet</span>
+      Dev node resized to 8 vCPU / 24 GB, dev clusters consolidated, photo crop-rotation bug fixed,
+      and six days of accumulated brain documents flushed to git.
+    </p>
+    <p class="stream-next"><span class="next-label">Next</span>
+      Secret-manager relocation is designed and the ADR revised — not executed.
+    </p>
+  </div>
+
+  <div class="stream">
+    <div class="stream-head">
+      <h3>Water-platform monitoring and incidents<span class="pill p-shipped">shipped</span></h3>
+      <span class="stream-effort">~335M · 10%</span>
+    </div>
+    <div class="bar-track"><span class="bar-fill f-rpro" style="width:39%"></span></div>
+    <p class="stream-brief">
+      <span class="project-tag tag-rpro">rpro-ent</span>
+      A data table had been frozen for eight days in silence — the cron feeding it had died and every
+      health check stayed green. You built, deployed and alerted a freshness check the same week, plus
+      two full incident write-ups.
+    </p>
+    <p class="stream-next"><span class="next-label">Next</span>
+      Midnight rsync experiment is running; result still pending.
+    </p>
+  </div>
+
+  <div class="stream">
+    <div class="stream-head">
+      <h3>Fixing your own tooling<span class="pill p-shipped">shipped</span></h3>
+      <span class="stream-effort">~303M · 9%</span>
+    </div>
+    <div class="bar-track"><span class="bar-fill f-leica" style="width:36%"></span></div>
+    <p class="stream-brief">
+      <span class="project-tag tag-leica">leica</span>
+      Multi-account tokens fixed at the root cause — one account was running tokenless because direnv
+      does not inherit. Plus a measured skill census (120 installed, 96 never invoked once) and a
+      months-old misreading corrected: a message prefix everyone read as the sender was the machine name.
+    </p>
+    <p class="stream-next"><span class="next-label">Next</span>
+      Skill distribution plan is written and still waiting on your review.
+    </p>
+  </div>
+
+  <div class="stream">
+    <div class="stream-head">
+      <h3>Clearing the vets-hub backlog<span class="pill p-shipped">shipped</span></h3>
+      <span class="stream-effort">~116M · 4%</span>
+    </div>
+    <div class="bar-track"><span class="bar-fill f-hub" style="width:14%"></span></div>
+    <p class="stream-brief">
+      <span class="project-tag tag-hub">vets-hub</span>
+      A 27-day backlog flushed in one sitting. UAT alias shipped; the retrospective named four latent
+      failures and two self-inflicted outages without softening either.
+    </p>
+  </div>
+
+</div>
+
+<h2>Where the hours went</h2>
+<div class="section-note">
+  Hours are clock-hour buckets containing at least one message — an activity measure, not a timesheet. GMT+7.
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Day</th>
+      <th>Window</th>
+      <th class="num">Hours</th>
+      <th class="num">Tokens</th>
+      <th>Mainly</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tue 28 Jul</td><td>09:22–22:44</td><td class="num">14</td><td class="num">483M</td>
+      <td class="day-topic">Cache-skew incident · frozen-table discovery · found a credential leak in our own history</td>
+    </tr>
+    <tr>
+      <td>Wed 29 Jul</td><td>06:10–22:34</td><td class="num">14</td><td class="num">655M</td>
+      <td class="day-topic">Multi-token root cause · skill census · owner-grouping design grilled to an ADR</td>
+    </tr>
+    <tr>
+      <td>Thu 30 Jul</td><td>06:01–22:32</td><td class="num">12</td><td class="num">255M</td>
+      <td class="day-topic">Freshness check deployed · owner grouping shipped · credential-count retro</td>
+    </tr>
+    <tr>
+      <td>Fri 31 Jul</td><td>08:49–22:14</td><td class="num">15</td><td class="num">644M</td>
+      <td class="day-topic">Node resize · 27-day backlog flush · secret-manager relocation design</td>
+    </tr>
+    <tr>
+      <td>Sat 1 Aug</td><td>17:19–19:36</td><td class="num">3</td><td class="num">480M</td>
+      <td class="day-topic">Backup plane agreed across three houses · message bus proven unreliable</td>
+    </tr>
+    <tr>
+      <td>Sun 2 Aug</td><td>—</td><td class="num">0</td><td class="num">0</td>
+      <td class="day-topic">Off. The only fully dark day.</td>
+    </tr>
+    <tr>
+      <td>Mon 3 Aug</td><td>08:03–21:55</td><td class="num">12</td><td class="num">724M</td>
+      <td class="day-topic">First dev backup ever · credential triage to 28 real · dashboard containment done</td>
+    </tr>
+    <tr>
+      <td>Tue 4 Aug</td><td>09:58–10:25</td><td class="num">0.5</td><td class="num">21M</td>
+      <td class="day-topic">Rotation access traced — an SSH jump host, never a VPN</td>
+    </tr>
+    <tr class="total-row">
+      <td>Total</td><td>7 days</td><td class="num">~72</td><td class="num">3.26B</td><td></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Cost by project</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Project</th>
+      <th class="num">Sessions</th>
+      <th class="num">Tokens</th>
+      <th class="num">Est. cost</th>
+      <th class="num">Share</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><span class="project-tag tag-vet">pops-vet</span></td><td class="num">13</td><td class="num">1.24B</td><td class="num">$2,638</td><td class="num">35%</td></tr>
+    <tr><td><span class="project-tag tag-pet">pops-pet</span></td><td class="num">9</td><td class="num">683M</td><td class="num">$1,561</td><td class="num">21%</td></tr>
+    <tr><td><span class="project-tag tag-leica">leica</span></td><td class="num">20</td><td class="num">564M</td><td class="num">$1,400</td><td class="num">18%</td></tr>
+    <tr><td><span class="project-tag tag-rpro">rpro-ent</span></td><td class="num">27</td><td class="num">395M</td><td class="num">$1,081</td><td class="num">14%</td></tr>
+    <tr><td><span class="project-tag tag-hub">vets-hub</span></td><td class="num">13</td><td class="num">375M</td><td class="num">$863</td><td class="num">11%</td></tr>
+    <tr><td>other</td><td class="num">10</td><td class="num">11M</td><td class="num">$61</td><td class="num">1%</td></tr>
+    <tr class="total-row"><td>Total</td><td class="num">92</td><td class="num">3.26B</td><td class="num">$7,603</td><td class="num">100%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>What you shipped</h2>
+
+<ul class="artifact-list">
+  <li><span class="artifact-type">SHIPPED</span> Clinic owner grouping, UI polish, dashboard containment — three surfaces made consistent</li>
+  <li><span class="artifact-type">SHIPPED</span> Data-freshness monitoring — built, deployed and alerting in production</li>
+  <li><span class="artifact-type">SHIPPED</span> Dev-cluster backup plane v1 + regression suite (first backup this cluster has ever had)</li>
+  <li><span class="artifact-type">SHIPPED</span> Dev node resized to 8 vCPU / 24 GB; dev clusters consolidated</li>
+  <li><span class="artifact-type">SHIPPED</span> Multi-account token separation, root-caused and acceptance-tested</li>
+  <li><span class="artifact-type">SHIPPED</span> Prose-aware secret scanning, fail-closed, active in all 16 oracle repos</li>
+  <li><span class="artifact-type">DESIGNED</span> Secret-manager relocation (ADR revised, not executed)</li>
+  <li><span class="artifact-type">DOCS</span> 2 incident write-ups · 6 runbooks · 46 learnings · 29 retrospectives · 24 handoffs</li>
+</ul>
+
+<h2>Lessons worth keeping</h2>
+
+<div class="learning-grid">
+  <div class="learning"><strong>Read the value; do not measure it.</strong>Length and entropy classified a self-describing placeholder as a live credential and triggered a three-month "public leak" alarm that was never real. Reading the string would have settled it in five seconds.</div>
+  <div class="learning"><strong>A positive result proves itself; only absence needs a control.</strong>"I found nothing" proves nothing until the test is shown capable of finding something.</div>
+  <div class="learning"><strong>Exit 0 is the actor's own testimony.</strong>A command reported delivery and wrote nothing — four times before anyone checked the far end instead of the return code.</div>
+  <div class="learning"><strong>Liveness is not freshness.</strong>A component that answers is not a component that works — one table sat frozen eight days while every health check stayed green.</div>
+  <div class="learning"><strong>The detector's blind spot becomes the cleanup's blind spot.</strong>A credential survived its own removal commit because the scanner verifying the cleanup could not see that pattern.</div>
+  <div class="learning"><strong>Recovery erases the evidence.</strong>A system that heals itself destroys the state you needed to explain the failure. Capture first, restore second.</div>
+  <div class="learning"><strong>Test on real data, not on the harness.</strong>Two tools passed every local test and failed immediately on the real cluster. Neither failure was reachable from the test rig.</div>
+</div>
+
+<div class="divider-note">
+  Everything below is context, not your work — kept for reference.
+</div>
+
+<h2 class="minor">Reference · Oracle-to-Oracle correspondence</h2>
+<div class="section-note">
+  147 messages filed between the Project Oracles this week, up from a handful the week before. The
+  jump is mechanical, not enthusiasm: the message bus was proven to report success while writing
+  nothing, so every exchange became a committed file. This traffic sat inside your sessions but was
+  Oracle-authored — it accounts for the volume, not the decisions.
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Oracle</th><th class="num">Messages</th><th>Thread</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><span class="project-tag tag-hub">vets-hub</span></td><td class="num">60</td><td class="day-topic">Verifier v5/v6 — peer-reviewed twice, three revisions</td></tr>
+    <tr><td><span class="project-tag tag-pet">pops-pet</span></td><td class="num">48</td><td class="day-topic">Backup spec, namespace enumeration, peer code review</td></tr>
+    <tr><td><span class="project-tag tag-vet">pops-vet</span></td><td class="num">35</td><td class="day-topic">Spec authority, known-answer tests, bus bug report</td></tr>
+    <tr><td><span class="project-tag tag-leica">leica</span></td><td class="num">4</td><td class="day-topic">Census distribution, escalation received</td></tr>
+    <tr class="total-row"><td>Total</td><td class="num">147</td><td></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 class="minor">Reference · Resource split</h2>
+<div class="section-note">
+  Delegated agent work was 3% of spend — $327 of $7,930. Effectively all of this week's cost was you
+  in the driver's seat, not agents running on their own.
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Driver</th><th class="num">Tokens</th><th class="num">Est. cost</th><th class="num">Share</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>You, in session</td><td class="num">3.26B</td><td class="num">$7,603</td><td class="num">97%</td></tr>
+    <tr><td>Delegated subagents</td><td class="num">106M</td><td class="num">$327</td><td class="num">3%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+  <strong>The pattern under the week.</strong> Five headline findings were retracted by the person who
+  found them, usually within hours: a public-repo leak that was a placeholder, a scanner blind to its
+  own target, an empty result reported as a finding, findings credited to the wrong Oracle, and a
+  route-table check used to test for something a route table cannot show. None were caught by a review
+  gate. That is why estimates keep slipping — the work is not producing answers, it is producing
+  answers that survive being checked.
+</div>
+
+<footer class="report-footer">
+  <span>Compiled by Leica — Father Oracle</span>
+  <span>Week 31 of 2026 · generated 2026-08-04</span>
+</footer>
