@@ -1,30 +1,46 @@
 #!/bin/bash
-# Oracle fleet startup — run after reboot
+# Oracle fleet startup — run after reboot.
 # Usage: ~/ghq/github.com/switchaphon/leica-oracle/start.sh
 #
-# Token switching: run `maw token use <name>` BEFORE this script.
-# All sessions will use the same token from leica-oracle/.envrc
+# Token handling changed 2026-08-05. This script no longer exports
+# CLAUDE_CODE_OAUTH_TOKEN into the panes it spawns. It used to read leica's
+# token and inject it into every pane including pops-vet's — the cross-account
+# bleed that was fixed on 2026-07-29. Each repo's own .envrc supplies its own
+# token via direnv:
+#
+#   leica, pops-pet, pops-vet, vets-hub  -> trio
+#   chrome, codec, neon, relay, rpro-ent -> un
+#   nodered-simulator                    -> tul
+#   rpro-saas                            -> kla
+#
+# Panes are opened with NO command, so tmux starts an interactive login shell
+# and the direnv hook in ~/.zshrc fires. The command is sent separately with
+# send-keys. Passing the command to `tmux new-window` would run it under
+# `sh -c`, where direnv never loads and no token would reach Claude.
+#
+# `maw token use <name>` still works as before — it edits the repo's .envrc,
+# which is exactly what direnv then reads. Nothing here bypasses it.
+set -e
 
-# Load token from .envrc (shared across all sessions)
-cd ~/ghq/github.com/switchaphon/leica-oracle
-eval "$(direnv export bash 2>/dev/null)"
-TOKEN_CMD="export CLAUDE_CODE_OAUTH_TOKEN='$CLAUDE_CODE_OAUTH_TOKEN' CLAUDE_TOKEN_NAME='$CLAUDE_TOKEN_NAME'"
+LEICA=~/ghq/github.com/switchaphon/leica-oracle
+POPSVET=~/ghq/github.com/switchaphon/pops-vet-oracle
+
+DISCORD_ARGS='--channels plugin:discord@claude-plugins-official'
 
 # Leica (main + discord window)
-tmux new-session -d -s 01-leica -n leica-oracle -c ~/ghq/github.com/switchaphon/leica-oracle
-tmux new-window  -t 01-leica   -n leica-discord -c ~/ghq/github.com/switchaphon/leica-oracle
+tmux new-session -d -s 01-leica    -n leica-oracle    -c "$LEICA"
+tmux new-window  -t 01-leica       -n leica-discord   -c "$LEICA"
 
 # Pops Vet
-tmux new-session -d -s 05-pops-vet -n pops-vet-oracle -c ~/ghq/github.com/switchaphon/pops-vet-oracle
+tmux new-session -d -s 05-pops-vet -n pops-vet-oracle -c "$POPSVET"
 
-# Per-oracle Discord state dirs (each oracle has its own bot token in .discord-state/.env)
-LEICA_DISCORD="export DISCORD_STATE_DIR=~/ghq/github.com/switchaphon/leica-oracle/.discord-state"
-POPS_DISCORD="export DISCORD_STATE_DIR=~/ghq/github.com/switchaphon/pops-vet-oracle/.discord-state"
-
-# Launch Claude Code with shared token + per-oracle Discord identity
-tmux send-keys -t 01-leica:leica-oracle              "$TOKEN_CMD && $LEICA_DISCORD && claude" Enter
-tmux send-keys -t 01-leica:leica-discord              "$TOKEN_CMD && $LEICA_DISCORD && claude --dangerously-skip-permissions" Enter
-tmux send-keys -t 05-pops-vet:pops-vet-oracle    "$TOKEN_CMD && $POPS_DISCORD && claude" Enter
+# DISCORD_STATE_DIR is set by each repo's .envrc, so it is not exported here.
+tmux send-keys -t 01-leica:leica-oracle \
+  'claude' Enter
+tmux send-keys -t 01-leica:leica-discord \
+  "claude $DISCORD_ARGS --dangerously-skip-permissions" Enter
+tmux send-keys -t 05-pops-vet:pops-vet-oracle \
+  'claude' Enter
 
 # Attach
 tmux attach -t 01-leica
