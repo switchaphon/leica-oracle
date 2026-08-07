@@ -14,7 +14,7 @@ import {
 } from "../src/astro";
 import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
 import {
-  kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity, nakshatraOf,
+  kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity, nakshatraOf, reukOf,
 } from "../src/siam";
 import { dwell, contactBaseRate, competingClaims, houseSweep, convergentYears } from "../src/weigh";
 import { computeChart } from "../src/index";
@@ -364,5 +364,49 @@ describe("สุริยยาตร์ vs modern ephemeris — the fork, measu
     const mine = dithi(lon(1), lon(2));
     expect(mine.phase).toBe("ขึ้น");
     expect(mine.kam).toBe(15);
+  });
+});
+
+describe("cross-validated against mawdo's reference chapters", () => {
+  // mawdo published nine chapters tracing their engine back to the original
+  // program. Their derivations are independent of mine — different source, different
+  // route — so agreement is worth more than my own tests agreeing with each other.
+  // This is the layer I twice named as my weakest, so it is the layer that most
+  // needed an outside check.
+
+  test("ฤกษ์ 27→9 folding is identical for all 27, formula traced to the original", () => {
+    const theirs = (n: number) => ((((n - 1) % 27) % 9 + 9) % 9) + 1;
+    for (let n = 1; n <= 27; n++) expect(reukOf(n)).toBe(theirs(n));
+  });
+
+  test("one ฤกษ์ spans 800 arcmin — 13°20' exactly", () => {
+    expect((360 / 27) * 60).toBeCloseTo(800, 9);
+  });
+
+  test("กาลโยค formulas match theirs symbolically, not just on one year", () => {
+    // theirs: ธงชัย = cs×10+3 · อธิบดี = cs mod 498 · อุบาทว์ = cs×10+2
+    const day = (r: number) => (r === 0 ? 7 : r) - 1;
+    for (let cs = 1300; cs <= 1400; cs++) {
+      const k = kalaYoka(cs + 638, 8, 1);
+      expect(k.chulasakarat).toBe(cs);
+      expect(k.thongchai).toBe(day((cs * 10 + 3) % 7));
+      expect(k.athibodi).toBe(day((cs % 498) % 7));
+      expect(k.ubat).toBe(day((cs * 10 + 2) % 7));
+    }
+  });
+
+  test("กาลกิณี is the graha one step BEFORE the birth-day graha on the wheel", () => {
+    // Their rule, stated differently from mine — I walk forward to the 8th position.
+    // The two phrasings must agree on every weekday, and they do.
+    for (let wd = 0; wd < 7; wd++) {
+      const i = THAKSA_WHEEL.indexOf([1, 2, 3, 4, 5, 6, 7][wd]);
+      expect(thaksa(wd).kalakini).toBe(THAKSA_WHEEL[(i - 1 + 8) % 8]);
+    }
+  });
+
+  test("Lahiri agrees with their recovered value to about an arcsecond", () => {
+    // Their reference epoch 2001-02-03 04:05 +07 gives 23.868723°.
+    const T = (julianDay(2001, 2, 2, 21 + 5 / 60) - 2451545.0) / 36525;
+    expect(Math.abs(lahiriAyanamsa(T) - 23.868723) * 3600).toBeLessThan(3);
   });
 });
