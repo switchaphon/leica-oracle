@@ -139,3 +139,58 @@ export function competingClaims(
 }
 
 export { GRAHAS };
+
+// ─── The significator problem ──────────────────────────────────────────────
+//
+// BLIND-02 scored E1 ✓ E2 ✗ E3 ✓. Jupiter's house at the moment of the event was
+// the right instrument all three times — the mechanism never failed. What failed
+// was naming which house the question belongs to:
+//
+//   enter master's 2018   พฤหัส ภพ ๙ ศุภะ    I named ๙   ✓
+//   finish master's 2020  พฤหัส ภพ ๑๑ ลาภะ   I named ๑๐  ✗
+//   start PhD 2024        พฤหัส ภพ ๔ พันธุ   I named ๔   ✓
+//
+// A conferred degree is a ลาภ — a thing attained — before it is a กัมมะ, which is
+// the occupation you go on to hold. ภพ ๑๑ was not merely mis-ranked in my criteria;
+// it was absent from them. The house holding the answer had been excluded before the
+// first calculation ran, and no amount of rigour about mechanism lifetimes can
+// recover a house that was never on the list.
+//
+// This is the same error as BLIND-01 wearing different clothes. There I built
+// competingClaims() precisely because looking only at the question's house misses
+// the cause — then wrote a five-house shortlist into my own criteria one case later.
+// Building the tool is not the same as internalising why it exists.
+
+/** Primary sense first. The primary sense is the one that decides; the rest are colour. */
+export const BHAVA_SENSE: { primary: string; also: string[] }[] = [
+  { primary: "ตัวตน ร่างกาย",   also: ["บุคลิก", "จุดตั้งต้นของทุกเรื่อง"] },
+  { primary: "ทรัพย์ที่ถือไว้",  also: ["เงินทอง", "คำพูด", "ครอบครัวใกล้ตัว"] },
+  { primary: "พี่น้อง เพื่อนร่วมทาง", also: ["เดินทางใกล้", "ทักษะ", "ความพยายามของตัวเอง"] },
+  { primary: "บ้าน ที่ตั้งหลัก",  also: ["พ่อแม่", "ที่ดิน", "การย้ายมาอยู่ที่ใหม่"] },
+  { primary: "สิ่งที่สร้างออกมา", also: ["บุตร", "ความรัก", "วิทยานิพนธ์", "ปัญญา"] },
+  { primary: "อุปสรรค ศัตรู",    also: ["โรค", "หนี้", "งานประจำที่ต้องทน"] },
+  { primary: "คู่ครอง",          also: ["หุ้นส่วน", "การสมาคม", "ฝ่ายตรงข้าม"] },
+  { primary: "การเปลี่ยนสภาพ",   also: ["ความตาย", "ความลับ", "ของที่ได้จากผู้อื่น"] },
+  { primary: "วิชาชั้นสูง ครูบาอาจารย์", also: ["บุญ", "เดินทางไกล", "ความเชื่อ"] },
+  { primary: "อาชีพ สถานะต่อสาธารณะ", also: ["ตำแหน่ง", "เกียรติยศ"] },
+  { primary: "ลาภ สิ่งที่ได้มาสมหวัง", also: ["มิตร", "ความสำเร็จตามที่ตั้งใจ", "วุฒิที่ได้รับ"] },
+  { primary: "การสูญเสีย รายจ่าย", also: ["ที่ลับ", "ต่างแดน", "การปลีกตัว"] },
+];
+
+/**
+ * Every one of the twelve, with the transiting graha in each — so a question is
+ * answered by ruling houses OUT on the record rather than by never listing them.
+ * The shortlist is where BLIND-02 was lost; this function has no shortlist.
+ */
+export function houseSweep(
+  transit: Chart,
+  natalLagnaRasi: number
+): { bhava: number; th: string; primary: string; grahas: number[] }[] {
+  return Array.from({ length: 12 }, (_, i) => {
+    const bhava = i + 1;
+    const grahas = transit.placements
+      .filter((p) => ((p.rasi - natalLagnaRasi + 12) % 12) + 1 === bhava)
+      .map((p) => p.graha.num);
+    return { bhava, th: BHAVA[i].th, primary: BHAVA_SENSE[i].primary, grahas };
+  });
+}

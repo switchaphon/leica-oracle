@@ -16,7 +16,7 @@ import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
 import {
   kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity,
 } from "../src/siam";
-import { dwell, contactBaseRate, competingClaims } from "../src/weigh";
+import { dwell, contactBaseRate, competingClaims, houseSweep } from "../src/weigh";
 import { computeChart } from "../src/index";
 
 /** Julian centuries TT from a UTC calendar moment. */
@@ -232,5 +232,38 @@ describe("weighing a mechanism — the checks the 6 Aug case forced", () => {
     // ภพ ๗ ปัตนิ — the spouse — is the house the real cause came from, and it is
     // occupied. Scanning only the question's house never surfaces it.
     expect(claims.some((c) => c.bhava === 7 && c.grahas.length > 0)).toBe(true);
+  });
+});
+
+describe("BLIND-02 post-mortem — the significator, not the mechanism, was wrong", () => {
+  const CM = { tz: 7, lat: 18.7883, lon: 98.9853 };
+  const natal = computeChart({
+    date: "1987-09-07", time: "18:33", tz: 7, lat: 14.6167, lon: 100.3333, sidereal: true,
+  });
+  const jupiterBhavaOn = (date: string) => {
+    const c = computeChart({ date, time: "12:00", sidereal: true, ...CM });
+    const j = c.placements.find((p) => p.graha.num === 5)!;
+    return ((j.rasi - natal.lagna.rasi + 12) % 12) + 1;
+  };
+
+  test("Jupiter's house at each real event — the instrument worked 3/3", () => {
+    expect(jupiterBhavaOn("2018-08-15")).toBe(9);   // entered master's — I named ๙  ✓
+    expect(jupiterBhavaOn("2020-08-15")).toBe(11);  // finished       — I named ๑๐ ✗
+    expect(jupiterBhavaOn("2024-08-15")).toBe(4);   // started PhD    — I named ๔  ✓
+  });
+
+  test("at graduation the house I chose was empty and the one I omitted was loaded", () => {
+    const ev = computeChart({ date: "2020-08-15", time: "12:00", sidereal: true, ...CM });
+    const sweep = houseSweep(ev, natal.lagna.rasi);
+    const slow = (b: number) => sweep[b - 1].grahas.filter((g) => [5, 7, 8, 9].includes(g));
+
+    expect(sweep[10].primary).toContain("ลาภ");  // ภพ ๑๑ is the house of attainment
+    expect(slow(11).sort()).toEqual([5, 9]);      // พฤหัส + เกตุ both sitting in it
+    expect(sweep[9].grahas).toHaveLength(0);      // ภพ ๑๐ — my pick — entirely empty
+  });
+
+  test("the sweep covers all twelve, because a shortlist is where the answer was lost", () => {
+    const ev = computeChart({ date: "2020-08-15", time: "12:00", sidereal: true, ...CM });
+    expect(houseSweep(ev, natal.lagna.rasi)).toHaveLength(12);
   });
 });
