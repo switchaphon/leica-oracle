@@ -164,3 +164,40 @@ export function dignity(grahaNum: number, lon: number, rasiLord: number[]): Dign
   if (rasiLord[rasi] === grahaNum) return { label: "เกษตร" };
   return { label: "—" };
 }
+
+// ─── มหาทักษา (ทศา) ────────────────────────────────────────────────────────
+// The Thai period system: eight grahas each ruling a stretch of life, running in the
+// ทักษา wheel order starting from the birth-day graha. Total 108 years.
+//
+// Declared limitation, and it is the point: these periods are 6–21 years long. By the
+// timescale rule they can frame a season of life but CANNOT select a year. Included
+// for completeness, not for deciding anything.
+
+export const THAKSA_DASHA_YEARS: Record<number, number> = {
+  1: 6,   // อาทิตย์
+  2: 15,  // จันทร์
+  3: 8,   // อังคาร
+  4: 17,  // พุธ
+  7: 10,  // เสาร์
+  5: 19,  // พฤหัสบดี
+  8: 12,  // ราหู
+  6: 21,  // ศุกร์
+};
+
+export type DashaSpan = { graha: number; fromAge: number; toAge: number; years: number };
+
+/** The full 108-year sequence from birth, in ทักษา wheel order. */
+export function thaksaDasha(birthWeekday: number): DashaSpan[] {
+  const start = THAKSA_WHEEL.indexOf(WEEKDAY_GRAHA_PUB[birthWeekday]);
+  const out: DashaSpan[] = [];
+  let age = 0;
+  for (let i = 0; i < 8; i++) {
+    const g = THAKSA_WHEEL[(start + i) % 8];
+    const years = THAKSA_DASHA_YEARS[g];
+    out.push({ graha: g, fromAge: age, toAge: age + years, years });
+    age += years;
+  }
+  return out;
+}
+
+export const WEEKDAY_GRAHA_PUB = [1, 2, 3, 4, 5, 6, 7];
