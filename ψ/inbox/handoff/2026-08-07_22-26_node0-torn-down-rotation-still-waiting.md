@@ -105,6 +105,22 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
         ⇒ Any Oracle asking "have we learned this before" gets a **false negative**, which reads as
         "this is new". **Operator action; not our repo.** Until fixed, read learnings from disk.
 
+        > ### ⚠️ Third correction — "search misses our learnings" is true, and it is OUR doing
+        >
+        > Measured: **184 of leica's 265 learnings exist only in the repo and are not in the vault
+        > at all**; 81 are in both. `oracle_learn` writes to the vault — files written by hand with
+        > the Write tool are **never submitted to the index**. Search was not failing to find
+        > indexed content; **70% of the content was never offered to it.**
+        >
+        > ⇒ **Fixing `vec0` will not make those 184 findable.** They need ingesting. Two separate
+        > actions, and only one of them is the operator's.
+        >
+        > Root cause is in **our own `/rrr` skill**: step 3 writes the lesson to
+        > `ψ/memory/learnings/`, step 4 syncs via `oracle_learn` — which writes its **own** file,
+        > in the **vault**, under a **different auto-generated name**. The ritual produces two
+        > divergent copies of one lesson and indexes only one. That is how the two sets drifted to
+        > 184, and it is ours to fix, not the Oracle server's.
+
         > ### ⛔ RETRACTED — "it returns a filename it never creates" was FALSE, and mine
         >
         > I claimed `oracle_learn` returns `file:` paths it never writes, and called it a second,
