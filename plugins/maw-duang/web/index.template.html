@@ -142,8 +142,14 @@
   .reading { background: var(--paper-2); border-left: 3px solid var(--celadon); border-radius: 2px;
              padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; font-size: 14px; }
   .reading .line { display: flex; gap: 10px; align-items: baseline; }
-  .reading .tag { font-family: ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: .1em;
-                  text-transform: uppercase; color: var(--ink-3); flex: 0 0 78px; padding-top: 3px; }
+  .reading .tag { font-family: ui-monospace, Menlo, monospace; font-size: 9px; letter-spacing: .08em;
+                  text-transform: uppercase; flex: 0 0 74px; padding: 2px 0 0; }
+  .reading .tag span { display: inline-block; padding: 1px 6px; border-radius: 2px; border: 1px solid currentColor; }
+  .tag-engine    { color: var(--celadon); }
+  .tag-structure { color: var(--ink-2); }
+  .tag-tradition { color: var(--gold); }
+  .tag-noarbiter { color: var(--chad); }
+  .reading .lbl { flex: 0 0 66px; font-size: 12px; color: var(--ink-3); }
   .caveat { margin-top: 10px; font-size: 12px; color: var(--ink-3); border-top: 1px dashed var(--rule); padding-top: 9px; }
   h2 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
        margin: 34px 0 10px; font-weight: 600; font-family: ui-monospace, Menlo, monospace; }
@@ -231,9 +237,13 @@
   <h2>ลักษณะนิสัยจากดวงกำเนิด</h2>
   <div class="reading" id="reading"></div>
   <p class="caveat">
-    <strong>เส้นแบ่งที่ต้องเห็น</strong> — ตำแหน่งดาวข้างบนคือ<strong>การคำนวณ</strong> สอบเทียบกับวิษุวัต อายัน
-    และตัวอย่างของ Meeus ได้ ผิดแล้วพิสูจน์ได้ · ส่วนคำอ่านนิสัยคือ<strong>ตารางกฎจากตำรา</strong>
-    ใช้ถูกหรือผิดตามตำราได้ แต่ยังไม่เคยถูกวัดกับความจริง — ผมแยกสองอย่างนี้ไว้ ไม่ให้คำอ่านไปยืมความน่าเชื่อถือของตัวเลข
+    <strong>ป้ายติดทีละบรรทัด ไม่ใช่คำเตือนท้ายหน้า</strong> —
+    <span class="tag-engine">engine</span> คำนวณได้ ตรวจกับของนอกได้ ·
+    <span class="tag-structure">structure</span> กฎภายในของระบบ ตรวจได้จากสูตร ·
+    <span class="tag-tradition">tradition</span> ตำราว่าไว้ รายงานได้ ไม่ใช่การวัด ·
+    <span class="tag-noarbiter">no-arbiter</span> ไม่มีทางตรวจ<br>
+    ติดทีละบรรทัดเพราะคำเตือนถูกอ่านครั้งเดียว แต่ประโยคถูกอ่านทีละประโยค — คัดลอกย่อหน้าไป คำเตือนไม่ไปด้วย แต่ป้ายไปด้วย
+    (วิธีนี้ผมเรียนมาจาก mawduang)
   </p>
 
   <h2>ตำแหน่งพระเคราะห์</h2>
@@ -457,23 +467,15 @@
   function drawReading(c) {
     var r = M.readNatal(c.placements, c.lagna.rasi);
     var box = $("reading"); box.textContent = "";
-    var nameOf = function (n) { return M.GRAHAS.filter(function (g) { return g.num === n; })[0].th; };
-    function line(tag, html) {
+    var cls = { engine: "tag-engine", structure: "tag-structure",
+                tradition: "tag-tradition", "no-arbiter": "tag-noarbiter" };
+    r.lines.forEach(function (l) {
       var d = document.createElement("div"); d.className = "line";
-      d.innerHTML = '<span class="tag">' + tag + "</span><span>" + html + "</span>";
+      d.innerHTML =
+        '<span class="tag ' + cls[l.tag] + '"><span>' + l.tag + "</span></span>" +
+        '<span class="lbl">' + l.label + "</span><span>" + l.text + "</span>";
       box.appendChild(d);
-    }
-    line("ลัคนา", "<strong>" + M.RASI[r.lagnaRasi] + "</strong> — " + r.lagnaText);
-    line("เจ้าเรือน", nameOf(r.lordNum) + " สถิตภพ " + r.lordBhava + " " +
-      M.BHAVA[r.lordBhava - 1].th + " — " + r.lordText);
-    line("ในลัคนา", r.inLagna.length
-      ? r.inLagna.map(nameOf).join(" · ") + " — ย้อมบุคลิกที่คนเห็นก่อนเสมอ"
-      : "ไม่มีดาวทับลัคนา — อ่านจากเจ้าเรือนเป็นหลัก");
-    r.stelliums.forEach(function (s) {
-      line("ดาวกระจุก", s.grahas.length + " ดวงในภพ " + s.bhava + " " + M.BHAVA[s.bhava - 1].th +
-        " (" + s.grahas.map(nameOf).join(" ") + ") — เรื่องนี้กินพื้นที่ชีวิตมากกว่าที่เจ้าตัวคิด");
     });
-    line("สมดุล", "ศุภเคราะห์ " + r.beneficCount + " : บาปเคราะห์ " + r.maleficCount);
   }
 
   var square = $("v-square"), ringBtn = $("v-ring");

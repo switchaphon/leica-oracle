@@ -45,6 +45,24 @@ export const LORD_IN_BHAVA: string[] = [
   "ลงที่ที่ลับและการปลีกตัว ทำงานได้ดีตอนไม่มีใครดู เสียพลังกับที่ที่ไม่มีใครเห็น",
 ];
 
+/**
+ * Provenance label carried by every line of a reading.
+ *
+ * Adopted from mawduang, whose reasoning beats mine: a caveat at the top of a page
+ * is read once, but sentences are read one at a time — and when someone copies a
+ * paragraph elsewhere, the caveat does not travel with it while the label does.
+ * My caveat sat in a single block under the reading, which meant it protected the
+ * page and not the excerpt.
+ */
+export type Provenance =
+  | "engine"     // computed, and checkable against something outside this code
+  | "structure"  // a fact about the system's own rules, verifiable from the formula
+  | "tradition"  // what the texts say — reportable, never a measurement
+  | "no-arbiter" // no way to check it at all
+;
+
+export type ReadingLine = { tag: Provenance; label: string; text: string };
+
 export type Reading = {
   lagnaRasi: number;
   lagnaText: string;
@@ -55,6 +73,7 @@ export type Reading = {
   beneficCount: number;
   maleficCount: number;
   inLagna: number[];
+  lines: ReadingLine[];
 };
 
 /**
@@ -77,7 +96,41 @@ export function readNatal(placements: Placement[], lagnaRasi: number): Reading {
     .map(([bhava, grahas]) => ({ bhava, grahas }))
     .sort((a, b) => b.grahas.length - a.grahas.length);
 
+  const nameOf = (n: number) => GRAHAS.find((g) => g.num === n)!.th;
+  const inLagna = byBhava.get(1) ?? [];
+  const lines: ReadingLine[] = [
+    // The rising sign is computed; what it means about a person is not.
+    { tag: "engine", label: "ลัคนา",
+      text: `${RASI[lagnaRasi]} — คำนวณจากเวลาและพิกัดเกิด` },
+    { tag: "tradition", label: "ลัคนา",
+      text: LAGNA_NATURE[lagnaRasi] },
+    { tag: "structure", label: "เจ้าเรือน",
+      text: `ราศี${RASI[lagnaRasi]} มี ${nameOf(lordNum)} เป็นเจ้าเรือน — กฎภายในของระบบ` },
+    { tag: "engine", label: "เจ้าเรือน",
+      text: `${nameOf(lordNum)} สถิตภพ ${lord.bhava} ${BHAVA[lord.bhava - 1].th}` },
+    { tag: "tradition", label: "เจ้าเรือน",
+      text: LORD_IN_BHAVA[lord.bhava - 1] },
+    inLagna.length
+      ? { tag: "engine" as Provenance, label: "ในลัคนา",
+          text: `${inLagna.map(nameOf).join(" · ")} ทับลัคนา` }
+      : { tag: "engine" as Provenance, label: "ในลัคนา",
+          text: "ไม่มีดาวทับลัคนา" },
+    ...stelliums.map((s) => ({
+      tag: "engine" as Provenance, label: "ดาวกระจุก",
+      text: `${s.grahas.length} ดวงในภพ ${s.bhava} ${BHAVA[s.bhava - 1].th} (${s.grahas.map(nameOf).join(" ")})`,
+    })),
+    ...stelliums.map(() => ({
+      tag: "tradition" as Provenance, label: "ดาวกระจุก",
+      text: "ตำราถือว่าเรื่องของภพนั้นกินพื้นที่ชีวิตมากกว่าปกติ",
+    })),
+    { tag: "structure", label: "สมดุล",
+      text: `ศุภเคราะห์ ${placements.filter((p) => p.graha.benefic).length} : บาปเคราะห์ ${placements.filter((p) => !p.graha.benefic).length} — นับตามการจัดประเภทของระบบ` },
+    { tag: "no-arbiter", label: "ข้อจำกัด",
+      text: "บรรทัดที่ติดป้าย tradition ไม่มีทางตรวจว่าตรงกับตัวเจ้าชะตาหรือไม่ ป้ายนี้ติดไว้ทุกบรรทัดเพราะคำเตือนท้ายหน้าไม่ติดไปกับข้อความที่ถูกคัดลอก" },
+  ];
+
   return {
+    lines,
     lagnaRasi,
     lagnaText: LAGNA_NATURE[lagnaRasi],
     lordNum,
@@ -90,28 +143,9 @@ export function readNatal(placements: Placement[], lagnaRasi: number): Reading {
   };
 }
 
-/** Plain-text rendering, one rule per line, each line traceable to its source. */
+/** Every line carries its own provenance tag, so an excerpt stays honest. */
 export function renderReading(r: Reading): string {
-  const L: string[] = [];
-  const nameOf = (n: number) => GRAHAS.find((g) => g.num === n)!.th;
-
-  L.push(`ลัคนา${RASI[r.lagnaRasi]} — ${r.lagnaText}`);
-  L.push(`เจ้าเรือนลัคนาคือ ${nameOf(r.lordNum)} สถิตภพ ${r.lordBhava} ${BHAVA[r.lordBhava - 1].th}`);
-  L.push(`   ${r.lordText}`);
-
-  if (r.inLagna.length) {
-    L.push(`ดาวในลัคนา: ${r.inLagna.map(nameOf).join(" ")} — ย้อมบุคลิกที่คนเห็นก่อนเสมอ`);
-  } else {
-    L.push("ไม่มีดาวในลัคนา — บุคลิกอ่านจากเจ้าเรือนเป็นหลัก ไม่ใช่จากดาวที่ทับตัว");
-  }
-
-  for (const s of r.stelliums) {
-    L.push(
-      `ดาวกระจุก ${s.grahas.length} ดวงในภพ ${s.bhava} ${BHAVA[s.bhava - 1].th} ` +
-        `(${s.grahas.map(nameOf).join(" ")}) — เรื่องนี้กินพื้นที่ชีวิตมากกว่าที่เจ้าตัวคิด`
-    );
-  }
-
-  L.push(`ศุภเคราะห์ ${r.beneficCount} : บาปเคราะห์ ${r.maleficCount}`);
-  return L.join("\n");
+  return r.lines
+    .map((l) => `[${l.tag.padEnd(10)}] ${l.label.padEnd(10)} ${l.text}`)
+    .join("\n");
 }
