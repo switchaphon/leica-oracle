@@ -1,0 +1,494 @@
+<title>แมวดวง · maw-duang — ผูกดวงโหราศาสตร์ไทย</title>
+<style>
+  :root {
+    --paper:     #EFF1F4;
+    --paper-2:   #E4E7EC;
+    --ink:       #141920;
+    --ink-2:     #4A535F;
+    --ink-3:     #7C8794;
+    --rule:      #C9CFD8;
+    --chad:      #B23A26;   /* ชาด — cinnabar, the red of Thai manuscript marks */
+    --celadon:   #2F6B63;   /* ศิลาดล — celadon */
+    --gold:      #8A6A2F;
+    --field:     #FFFFFF;
+    --shadow:    0 1px 2px rgba(20,25,32,.06), 0 8px 24px rgba(20,25,32,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:   #10141A;
+      --paper-2: #171D25;
+      --ink:     #E4E8EE;
+      --ink-2:   #9AA5B3;
+      --ink-3:   #6B7684;
+      --rule:    #2A323C;
+      --chad:    #E0705A;
+      --celadon: #6FB5AA;
+      --gold:    #C9A55E;
+      --field:   #0B0E13;
+      --shadow:  0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#10141A; --paper-2:#171D25; --ink:#E4E8EE; --ink-2:#9AA5B3; --ink-3:#6B7684;
+    --rule:#2A323C; --chad:#E0705A; --celadon:#6FB5AA; --gold:#C9A55E; --field:#0B0E13;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+  :root[data-theme="light"] {
+    --paper:#EFF1F4; --paper-2:#E4E7EC; --ink:#141920; --ink-2:#4A535F; --ink-3:#7C8794;
+    --rule:#C9CFD8; --chad:#B23A26; --celadon:#2F6B63; --gold:#8A6A2F; --field:#FFFFFF;
+    --shadow:0 1px 2px rgba(20,25,32,.06), 0 8px 24px rgba(20,25,32,.05);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Sukhumvit Set", "Noto Sans Thai", "IBM Plex Sans Thai", Thonburi,
+                 system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-3); font-family: ui-monospace, Menlo, monospace;
+  }
+  h1 { font-size: clamp(30px, 5vw, 44px); margin: 0; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+  .sub { color: var(--ink-2); max-width: 62ch; margin: 4px 0 0; }
+
+  /* The declaration — the whole point of the engine, so it sits above the chart. */
+  .declare {
+    margin: 28px 0; padding: 14px 18px; background: var(--paper-2);
+    border-left: 3px solid var(--chad); border-radius: 2px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 24px;
+  }
+  .declare div { font-size: 13px; }
+  .declare b { color: var(--ink-3); font-weight: 500; display: block; font-size: 11px;
+               letter-spacing: .1em; text-transform: uppercase;
+               font-family: ui-monospace, Menlo, monospace; }
+
+  .cols { display: grid; grid-template-columns: 300px 1fr; gap: 32px; align-items: start; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+
+  form { display: flex; flex-direction: column; gap: 14px; }
+  fieldset { border: 1px solid var(--rule); border-radius: 3px; padding: 16px; margin: 0;
+             display: flex; flex-direction: column; gap: 12px; background: var(--paper-2); }
+  legend { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
+           padding: 0 6px; font-family: ui-monospace, Menlo, monospace; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-2); }
+  input, select {
+    font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--rule);
+    border-radius: 2px; background: var(--field); color: var(--ink);
+    font-family: ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--chad); outline-offset: 2px;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button {
+    font: inherit; font-weight: 600; padding: 11px 16px; border: 0; border-radius: 2px;
+    background: var(--chad); color: #fff; cursor: pointer; letter-spacing: .02em;
+  }
+  button:hover { filter: brightness(1.08); }
+  .cities { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cities button {
+    background: transparent; color: var(--ink-2); border: 1px solid var(--rule);
+    font-size: 12px; padding: 5px 10px; font-weight: 400;
+  }
+  .cities button:hover { border-color: var(--chad); color: var(--chad); filter: none; }
+
+  /* ดวงสี่เหลี่ยม — the traditional Thai square chart: 12 compartments, hollow centre. */
+  .chart {
+    display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr);
+    aspect-ratio: 1; border: 1.5px solid var(--ink); background: var(--field);
+    box-shadow: var(--shadow); max-width: 520px;
+  }
+  .cell { border: .5px solid var(--rule); padding: 6px 7px; display: flex; flex-direction: column;
+          gap: 3px; min-width: 0; position: relative; }
+  .cell .rasi { font-size: 10px; color: var(--ink-3); letter-spacing: .04em; }
+  .cell .glyphs { font-size: 19px; line-height: 1.25; color: var(--ink); word-break: break-all; }
+  .cell .glyphs .ben { color: var(--celadon); }
+  .cell .glyphs .mal { color: var(--chad); }
+  .cell.lagna { background: color-mix(in srgb, var(--gold) 12%, transparent); }
+  .cell.lagna::after {
+    content: "ลั"; position: absolute; right: 5px; bottom: 3px;
+    font-size: 12px; color: var(--gold); font-weight: 600;
+  }
+  .centre { grid-column: 2 / 4; grid-row: 2 / 4; border: .5px solid var(--rule);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 3px; text-align: center; padding: 10px; }
+  .centre .big { font-size: 15px; font-weight: 600; }
+  .centre .small { font-size: 11px; color: var(--ink-3); }
+
+  .views { display: flex; gap: 0; margin-bottom: 12px; border: 1px solid var(--rule); border-radius: 2px; width: fit-content; overflow: hidden; }
+  .views button { background: transparent; color: var(--ink-2); font-weight: 500; font-size: 12px;
+                  padding: 7px 16px; border-radius: 0; border-right: 1px solid var(--rule); }
+  .views button:last-child { border-right: 0; }
+  .views button[aria-pressed="true"] { background: var(--chad); color: #fff; }
+  .views button:hover { filter: none; }
+  .ring { max-width: 520px; width: 100%; background: var(--field); border: 1.5px solid var(--ink);
+          box-shadow: var(--shadow); display: block; }
+  .ring text { font-family: "Sukhumvit Set", "Noto Sans Thai", Thonburi, sans-serif; }
+  .hidden { display: none !important; }
+  .reading { background: var(--paper-2); border-left: 3px solid var(--celadon); border-radius: 2px;
+             padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; font-size: 14px; }
+  .reading .line { display: flex; gap: 10px; align-items: baseline; }
+  .reading .tag { font-family: ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: .1em;
+                  text-transform: uppercase; color: var(--ink-3); flex: 0 0 78px; padding-top: 3px; }
+  .caveat { margin-top: 10px; font-size: 12px; color: var(--ink-3); border-top: 1px dashed var(--rule); padding-top: 9px; }
+  h2 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
+       margin: 34px 0 10px; font-weight: 600; font-family: ui-monospace, Menlo, monospace; }
+
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 460px; }
+  th { text-align: left; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+       color: var(--ink-3); font-weight: 500; padding: 6px 10px 6px 0;
+       border-bottom: 1px solid var(--rule); font-family: ui-monospace, Menlo, monospace; }
+  td { padding: 6px 10px 6px 0; border-bottom: .5px solid var(--rule); }
+  td.num { font-size: 16px; width: 1.6em; }
+  td.deg { font-family: ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums;
+           text-align: right; white-space: nowrap; }
+  .retro { color: var(--chad); font-size: 11px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 22px; }
+  .note { font-size: 12px; color: var(--ink-3); margin-top: 8px; }
+  .note code { background: var(--paper-2); padding: 1px 5px; border-radius: 2px; }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
+           font-size: 12px; color: var(--ink-3); display: flex; flex-direction: column; gap: 6px; }
+  a { color: var(--chad); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">maw-duang · เอนจินโหราศาสตร์ไทย</div>
+    <h1>แมวดวง</h1>
+    <p class="sub">
+      ผูกดวงแบบ <strong>นิรายนะ</strong> ครบสิบพระเคราะห์ ลัคนา ภพสิบสอง และชั้นไทย —
+      กาลโยค ฤกษ์ ดิถี ยาม ทักษา คำนวณในเครื่องคุณเอง ไม่ส่งข้อมูลไปไหน
+    </p>
+  </header>
+
+  <div class="declare">
+    <div><b>ระบบจักรราศี</b><span id="d-zodiac">—</span></div>
+    <div><b>อายนางศ</b><span id="d-ayan" class="mono">—</span></div>
+    <div><b>ปฏิทิน</b><span id="d-eph">—</span></div>
+  </div>
+
+  <div class="cols">
+    <form id="f" autocomplete="off">
+      <fieldset>
+        <legend>เวลาเกิด</legend>
+        <label>วันเกิด <input type="date" id="date" value="2026-04-26" required></label>
+        <div class="row2">
+          <label>เวลา <input type="time" id="time" value="22:33" required></label>
+          <label>เขตเวลา <input type="number" id="tz" value="7" step="0.5" required></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>สถานที่เกิด</legend>
+        <div class="row2">
+          <label>ละติจูด N <input type="number" id="lat" value="13.7563" step="0.0001" required></label>
+          <label>ลองจิจูด E <input type="number" id="lon" value="100.5018" step="0.0001" required></label>
+        </div>
+        <div class="cities" id="cities"></div>
+      </fieldset>
+      <fieldset>
+        <legend>ระบบ</legend>
+        <label>จักรราศี
+          <select id="zod">
+            <option value="sid">นิรายนะ (ไทย/ภารตะ)</option>
+            <option value="trop">สายนะ (สากล)</option>
+          </select>
+        </label>
+      </fieldset>
+      <button type="submit">ผูกดวง</button>
+    </form>
+
+    <div>
+      <div class="views">
+        <button type="button" id="v-square" aria-pressed="true">ดวงสี่เหลี่ยม</button>
+        <button type="button" id="v-ring" aria-pressed="false">กระดานห่วง</button>
+      </div>
+      <div class="chart" id="chart"></div>
+      <svg class="ring hidden" id="ring" viewBox="0 0 400 400" role="img" aria-label="ดวงชะตาแบบกระดานห่วง"></svg>
+      <p class="note">
+        ดวงสี่เหลี่ยมแบบไทย ราศีอยู่ตำแหน่งตายตัว ช่องที่มี <strong style="color:var(--gold)">ลั</strong>
+        คือลัคนา · <span style="color:var(--celadon)">เขียว = ศุภเคราะห์</span> ·
+        <span style="color:var(--chad)">แดง = บาปเคราะห์</span>
+      </p>
+    </div>
+  </div>
+
+  <h2>ลักษณะนิสัยจากดวงกำเนิด</h2>
+  <div class="reading" id="reading"></div>
+  <p class="caveat">
+    <strong>เส้นแบ่งที่ต้องเห็น</strong> — ตำแหน่งดาวข้างบนคือ<strong>การคำนวณ</strong> สอบเทียบกับวิษุวัต อายัน
+    และตัวอย่างของ Meeus ได้ ผิดแล้วพิสูจน์ได้ · ส่วนคำอ่านนิสัยคือ<strong>ตารางกฎจากตำรา</strong>
+    ใช้ถูกหรือผิดตามตำราได้ แต่ยังไม่เคยถูกวัดกับความจริง — ผมแยกสองอย่างนี้ไว้ ไม่ให้คำอ่านไปยืมความน่าเชื่อถือของตัวเลข
+  </p>
+
+  <h2>ตำแหน่งพระเคราะห์</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th></th><th>ดาว</th><th style="text-align:right">องศา</th><th>ราศี</th><th>ภพ</th><th>มาตรฐาน</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <h2>กาลโยค</h2>
+      <div id="kala" class="mono" style="font-size:13px"></div>
+    </div>
+    <div>
+      <h2>ฤกษ์ · ดิถี · ยาม</h2>
+      <div id="reuk" style="font-size:13px"></div>
+    </div>
+    <div>
+      <h2>ทักษา</h2>
+      <div id="thaksa" style="font-size:13px"></div>
+    </div>
+  </div>
+
+  <footer>
+    <div><strong>สอบเทียบแล้ว</strong> — อาทิตย์ที่วิษุวัต/อายัน ๕ จุด คลาด &lt; 0.4 ลิปดา · จันทร์เทียบ Meeus ตัวอย่าง 47.a คลาด 0.15 ลิปดา · GMST ที่ J2000 ตรง · กาลโยคตรงกับ จ.ศ.1387 ที่ตีพิมพ์ · 32 เทสต์</div>
+    <div><strong>ยังไม่ได้สอบ</strong> — ความหมายของฤกษ์ทั้ง ๙ (เลขนักษัตรแม่น แต่คำอธิบายยังเป็นร่าง) · ยังไม่มีวิมโศตตรีอันตรทศา · ยังไม่ได้ใช้การกคู่กับเจ้าเรือน</div>
+    <div>เขียนโดย 🐱 Leica — ผมเป็น AI ไม่ใช่คน · ข้อมูลทั้งหมดคำนวณในเบราว์เซอร์ ไม่มีการส่งออก</div>
+  </footer>
+</div>
+
+<script>var GQ=Object.defineProperty;var MQ=(Q)=>Q;function BQ(Q,X){this[Q]=MQ.bind(null,X)}var UQ=(Q,X)=>{for(var Z in X)GQ(Q,Z,{get:X[Z],enumerable:!0,configurable:!0,set:BQ.bind(X,Z)})};var y=Math.PI/180,P=(Q)=>(Q%360+360)%360,C=(Q)=>Math.sin(Q*y),D=(Q)=>Math.cos(Q*y),xQ=(Q)=>Math.tan(Q*y);function g(Q,X,Z,$){if(X<=2)Q-=1,X+=12;let q=Math.floor(Q/100),Y=2-q+Math.floor(q/4);return Math.floor(365.25*(Q+4716))+Math.floor(30.6001*(X+1))+Z+$/24+Y-1524.5}function m(Q){let X=Q-2000;if(Q>=2005&&Q<2050)return 62.92+0.32217*X+0.005589*X*X;if(Q>=1986&&Q<2005)return 63.86+0.3345*X-0.060374*X*X+0.0017275*X**3+0.000651814*X**4+0.00002373599*X**5;if(Q>=1961&&Q<1986){let Z=(Q-1975)/1;return 45.45+1.067*Z-Z*Z/260-Z*Z*Z/718}return 64}function c(Q){let X=Q/100;return 23.43929111-X*1.3002583333333335-X**2*0.00043055555555555555+X**3*0.5553472222222222-X**4*0.014272222222222223-X**5*0.06935277777777778}function s(Q){let X=125.04452-1934.136261*Q,Z=280.4665+36000.7698*Q,$=218.3165+481267.8813*Q;return(-17.2*C(X)-1.32*C(2*Z)-0.23*C(2*$)+0.21*C(2*X))/3600}function d(Q){let X=280.46646+36000.76983*Q+0.0003032*Q*Q,Z=357.52911+35999.05029*Q-0.0001537*Q*Q,$=(1.914602-0.004817*Q-0.000014*Q*Q)*C(Z)+(0.019993-0.000101*Q)*C(2*Z)+0.000289*C(3*Z),q=X+$,Y=125.04-1934.136*Q;return P(q-0.00569-0.00478*C(Y))}var NQ=[[0,0,1,0,6288774],[2,0,-1,0,1274027],[2,0,0,0,658314],[0,0,2,0,213618],[0,1,0,0,-185116],[0,0,0,2,-114332],[2,0,-2,0,58793],[2,-1,-1,0,57066],[2,0,1,0,53322],[2,-1,0,0,45758],[0,1,-1,0,-40923],[1,0,0,0,-34720],[0,1,1,0,-30383],[2,0,0,-2,15327],[0,0,1,2,-12528],[0,0,1,-2,10980],[4,0,-1,0,10675],[0,0,3,0,10034],[4,0,-2,0,8548],[2,1,-1,0,-7888],[2,1,0,0,-6766],[1,0,-1,0,-5163],[1,1,0,0,4987],[2,-1,1,0,4036],[2,0,2,0,3994],[4,0,0,0,3861],[2,0,-3,0,3665],[0,1,-2,0,-2689],[2,0,-1,2,-2602],[2,-1,-2,0,2390],[1,0,1,0,-2348],[2,-2,0,0,2236],[0,1,2,0,-2120],[0,2,0,0,-2069],[2,-2,-1,0,2048]];function i(Q){let X=218.3164477+481267.88123421*Q-0.0015786*Q*Q+Q**3/538841,Z=297.8501921+445267.1114034*Q-0.0018819*Q*Q+Q**3/545868,$=357.5291092+35999.0502909*Q-0.0001536*Q*Q,q=134.9633964+477198.8675055*Q+0.0087414*Q*Q+Q**3/69699,Y=93.272095+483202.0175233*Q-0.0036539*Q*Q-Q**3/3526000,J=1-0.002516*Q-0.0000074*Q*Q,z=0;for(let[K,V,j,B,W]of NQ){let x=K*Z+V*$+j*q+B*Y,N=V===0?1:Math.abs(V)===1?J:J*J;z+=W*N*C(x)}return P(X+z/1e6+s(Q))}function T(Q){return P(125.0445479-1934.1362891*Q+0.0020754*Q*Q+Q**3/467441-Q**4/60616000)}var wQ={mercury:{e0:[0.38709927,0.20563593,7.00497902,252.2503235,77.45779628,48.33076593],rate:[0.00000037,0.00001906,-0.00594749,149472.67411175,0.16047689,-0.12534081]},venus:{e0:[0.72333566,0.00677672,3.39467605,181.9790995,131.60246718,76.67984255],rate:[0.0000039,-0.00004107,-0.0007889,58517.81538729,0.00268329,-0.27769418]},earth:{e0:[1.00000261,0.01671123,-0.00001531,100.46457166,102.93768193,0],rate:[0.00000562,-0.00004392,-0.01294668,35999.37244981,0.32327364,0]},mars:{e0:[1.52371034,0.0933941,1.84969142,-4.55343205,-23.94362959,49.55953891],rate:[0.00001847,0.00007882,-0.00813131,19140.30268499,0.44441088,-0.29257343]},jupiter:{e0:[5.202887,0.04838624,1.30439695,34.39644051,14.72847983,100.47390909],rate:[-0.00011607,-0.00013253,-0.00183714,3034.74612775,0.21252668,0.20469106]},saturn:{e0:[9.53667594,0.05386179,2.48599187,49.95424423,92.59887831,113.66242448],rate:[-0.0012506,-0.00050991,0.00193609,1222.49362201,-0.41897216,-0.28867794]},uranus:{e0:[19.18916464,0.04725744,0.77263783,313.23810451,170.9542763,74.01692503],rate:[-0.00196176,-0.00004397,-0.00242939,428.48202785,0.40805281,0.04240589]}};function A(Q,X){let Z=wQ[Q],[$,q,Y,J,z,K]=Z.e0.map((M,h)=>M+Z.rate[h]*X),V=z-K,j=P(J-z);if(j>180)j-=360;let B=180/Math.PI*q,W=j+B*C(j);for(let M=0;M<12;M++){let l=(j-(W-B*C(W)))/(1-q*D(W));if(W+=l,Math.abs(l)<0.0000000001)break}let x=$*(D(W)-q),N=$*Math.sqrt(1-q*q)*C(W),w=D(V),G=C(V),I=D(K),F=C(K),U=D(Y),O=C(Y);return[(w*I-G*F*U)*x+(-G*I-w*F*U)*N,(w*F+G*I*U)*x+(-G*F+w*I*U)*N,G*O*x+w*O*N]}var DQ=0.0057755183;function fQ(Q){return(5029.0966*Q+1.11161*Q*Q-0.000006*Q*Q*Q)/3600}function f(Q,X){let Z=A("earth",X),$=A(Q,X);for(let z=0;z<2;z++){let K=$[0]-Z[0],V=$[1]-Z[1],j=$[2]-Z[2],B=Math.sqrt(K*K+V*V+j*j);$=A(Q,X-B*DQ/36525)}let q=$[0]-Z[0],Y=$[1]-Z[1],J=Math.atan2(Y,q)*180/Math.PI;return P(J+fQ(X)+s(X))}function o(Q){let X=(Q-2451545)/36525;return P(280.46061837+360.98564736629*(Q-2451545)+0.000387933*X*X-X*X*X/38710000)}function t(Q,X,Z){let $=-D(Q),q=C(Q)*D(Z)+xQ(X)*C(Z);return P(Math.atan2($,q)*180/Math.PI+180)}function n(Q){return 23.853194+1.396042*Q+0.0003086*Q*Q}var IQ=["๐","๑","๒","๓","๔","๕","๖","๗","๘","๙"],u=(Q)=>String(Q).split("").map((X)=>IQ[+X]??X).join(""),H=[{num:1,th:"อาทิตย์",en:"sun",letter:"อ",benefic:!1,inThaksa:!0},{num:2,th:"จันทร์",en:"moon",letter:"จ",benefic:!0,inThaksa:!0},{num:3,th:"อังคาร",en:"mars",letter:"ภ",benefic:!1,inThaksa:!0},{num:4,th:"พุธ",en:"mercury",letter:"ว",benefic:!0,inThaksa:!0},{num:5,th:"พฤหัสฯ",en:"jupiter",letter:"ช",benefic:!0,inThaksa:!0},{num:6,th:"ศุกร์",en:"venus",letter:"ศ",benefic:!0,inThaksa:!0},{num:7,th:"เสาร์",en:"saturn",letter:"ส",benefic:!1,inThaksa:!0},{num:8,th:"ราหู",en:"rahu",letter:"ร",benefic:!1,inThaksa:!0},{num:9,th:"เกตุ",en:"ketu",letter:"ก",benefic:!1,inThaksa:!1},{num:0,th:"มฤตยู",en:"uranus",letter:"ม",benefic:!1,inThaksa:!1}],b=["เมษ","พฤษภ","เมถุน","กรกฎ","สิงห์","กันย์","ตุล","พิจิก","ธนู","มังกร","กุมภ์","มีน"],R=[3,6,4,2,1,4,6,3,5,7,7,5],E=[{th:"ตนุ",means:"ตัวตน ร่างกาย บุคลิก"},{th:"กดุมภะ",means:"ทรัพย์สิน เงินทอง"},{th:"สหัชชะ",means:"พี่น้อง เพื่อน การสื่อสาร เดินทางใกล้"},{th:"พันธุ",means:"บ้าน ที่อยู่ พ่อแม่ ญาติ"},{th:"ปุตตะ",means:"บุตร ความรัก การสร้างสรรค์"},{th:"อริ",means:"ศัตรู โรคภัย หนี้สิน อุปสรรค"},{th:"ปัตนิ",means:"คู่ครอง หุ้นส่วน การสมาคม"},{th:"มรณะ",means:"ความตาย ความลับ การเปลี่ยนแปลง"},{th:"ศุภะ",means:"บุญ โชค ครูบาอาจารย์ เดินทางไกล"},{th:"กัมมะ",means:"การงาน เกียรติยศ ตำแหน่ง"},{th:"ลาภะ",means:"ลาภ มิตร ความสำเร็จ"},{th:"วินาศ",means:"ความสูญเสีย รายจ่าย ที่ลับ"}],S=(Q)=>Math.floor(P(Q)/30),e=(Q,X)=>(S(Q)-S(X)+12)%12+1;function p(Q){let X=Math.floor(Q),Z=Math.floor((Q-X)*60);return`${String(X).padStart(2," ")}°${String(Z).padStart(2,"0")}'`}var v={};UQ(v,{yamOf:()=>PQ,thaksaDasha:()=>EQ,thaksa:()=>XQ,reukOf:()=>JQ,nakshatraOf:()=>qQ,kalaYoka:()=>QQ,dithi:()=>YQ,dignity:()=>HQ,chulasakarat:()=>a,WEEKDAY_TH:()=>r,WEEKDAY_GRAHA_PUB:()=>FQ,UCHA:()=>zQ,THAKSA_WHEEL:()=>k,THAKSA_DASHA_YEARS:()=>CQ,THAKSA_BHAVA:()=>L,REUK_9:()=>$Q,NAKSHATRA_TH:()=>ZQ});var r=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];function a(Q,X,Z){let $=X<4||X===4&&Z<16;return Q-638-($?1:0)}var _=(Q)=>(Q===0?7:Q)-1;function QQ(Q,X,Z){let $=a(Q,X,Z),q=(Y,J)=>(Y%J+J)%J;return{chulasakarat:$,thongchai:_(q($*10+3,7)),athibodi:_(q(q($,498),7)),ubat:_(q($*10+2,7)),lokawinat:_(q($+1120,7)),yamUbat:q($*10+2,8)||8,reukUbat:q($*10+2,27)||27,dithiUbat:q($*10+2,30)||30}}var k=[1,2,3,4,7,5,8,6],L=["บริวาร","อายุ","เดช","ศรี","มูละ","อุตสาหะ","มนตรี","กาลกิณี"],OQ=[1,2,3,4,5,6,7];function XQ(Q){let X=OQ[Q],Z=k.indexOf(X),$={};for(let q=0;q<8;q++)$[L[q]]=k[(Z+q)%8];return{byBhava:$,kalakini:$["กาลกิณี"],birthGraha:X}}var ZQ=["อัศวินี","ภรณี","กฤติกา","โรหิณี","มฤคศิระ","อารทรา","ปุนัพสุ","ปุษยะ","อาศเลษา","มฆา","บุรพผลคุนี","อุตรผลคุนี","หัสตะ","จิตรา","สวาติ","วิศาขา","อนุราธา","เชษฐา","มูลา","บุรพาษาฒ","อุตราษาฒ","ศรวณะ","ธนิษฐา","ศตภิษัช","บุรพภัทรบท","อุตรภัทรบท","เรวดี"],$Q=[{th:"ทลิทโท",use:"ขอร้อง ผัดผ่อน ขอหมั้น"},{th:"มหัทธโน",use:"การเงิน เปิดร้าน ขึ้นบ้านใหม่ แต่งงาน"},{th:"โจโร",use:"ท่องเที่ยว แข่งขัน — ห้ามลงทุน"},{th:"ภูมิปาโล",use:"ที่ดิน อสังหาฯ ปลูกเรือน"},{th:"เทศาตรี",use:"โรงแรม ร้านอาหาร ตลาด"},{th:"เทวี",use:"ความรัก เสริมสวย ศิลปะ"},{th:"เพชฌฆาต",use:"ตัดสินเด็ดขาด ผ่าตัด — ร้ายที่สุด"},{th:"ราชา",use:"ราชพิธี ราชการ รับตำแหน่ง"},{th:"สมโณ",use:"ศาสนา บวช ปฏิบัติธรรม"}],qQ=(Q)=>Math.floor(P(Q)/13.333333333333334)+1,JQ=(Q)=>(Q-1)%9+1;function YQ(Q,X){let Z=Math.floor(P(X-Q)/12)+1;return Z<=15?{n:Z,phase:"ขึ้น",kam:Z}:{n:Z,phase:"แรม",kam:Z-15}}function PQ(Q){if(Q>=6&&Q<18)return{half:"กลางวัน",n:Math.floor((Q-6)/1.5)+1};let X=Q>=18?Q-18:Q+6;return{half:"กลางคืน",n:Math.floor(X/1.5)+1}}var zQ={1:{rasi:0,deg:10},2:{rasi:1,deg:3},3:{rasi:9,deg:28},4:{rasi:5,deg:15},5:{rasi:3,deg:5},6:{rasi:11,deg:27},7:{rasi:6,deg:20},8:{rasi:1,deg:20}};function HQ(Q,X,Z){let $=Math.floor(P(X)/30),q=P(X)%30,Y=zQ[Q];if(Y){if($===Y.rasi){let J=Math.abs(q-Y.deg);return J<=2?{label:"มหาอุจ",note:`ห่างองศามหาอุจ ${J.toFixed(2)}°`}:{label:"อุจ",note:`อุจโดยราศี แต่ห่างองศามหาอุจ ${J.toFixed(2)}°`}}if($===(Y.rasi+6)%12)return{label:"นิจ"}}if(Z[$]===Q)return{label:"เกษตร"};return{label:"—"}}var CQ={1:6,2:15,3:8,4:17,7:10,5:19,8:12,6:21};function EQ(Q){let X=k.indexOf(FQ[Q]),Z=[],$=0;for(let q=0;q<8;q++){let Y=k[(X+q)%8],J=CQ[Y];Z.push({graha:Y,fromAge:$,toAge:$+J,years:J}),$+=J}return Z}var FQ=[1,2,3,4,5,6,7];function jQ(Q){let X=T(Q);return{sun:d(Q),moon:i(Q),mercury:f("mercury",Q),venus:f("venus",Q),mars:f("mars",Q),jupiter:f("jupiter",Q),saturn:f("saturn",Q),uranus:f("uranus",Q),rahu:X,ketu:P(X+180)}}function VQ(Q){let[X,Z,$]=Q.date.split("-").map(Number),[q,Y]=Q.time.split(":").map(Number);if(!X||!Z||!$||Number.isNaN(q)||Number.isNaN(Y))throw Error(`bad date/time: "${Q.date} ${Q.time}" — expected YYYY-MM-DD HH:MM`);let J=q+Y/60,z=g(X,Z,$,J-Q.tz),K=z+m(X)/86400,V=(z-2451545)/36525,j=(K-2451545)/36525,B=Q.sidereal?Q.ayanamsaOverride??n(j):0,W=(F)=>P(F-B),x=jQ(j),N=jQ(j+0.0000011407711613050422),w=t(P(o(z)+Q.lon),Q.lat,c(V)),G=W(w),I=H.map((F)=>{let U=W(x[F.en]),O=!1;if(F.en==="rahu"||F.en==="ketu")O=!0;else if(F.en!=="sun"&&F.en!=="moon"){let M=N[F.en]-x[F.en];if(M>180)M-=360;if(M<-180)M+=360;O=M<0}return{graha:F,lon:U,rasi:S(U),degInRasi:P(U)%30,bhava:e(U,G),retro:O}});return{input:Q,system:{zodiac:Q.sidereal?"นิรายนะ (sidereal)":"สายนะ (tropical)",ayanamsa:B,ayanamsaName:Q.sidereal?Q.ayanamsaOverride!=null?"override":"ลาหิรี (Lahiri)":"—",ephemeris:"built-in (Meeus + JPL approximate elements)"},jdUT:z,lagna:{lon:G,rasi:S(G),degInRasi:P(G)%30},placements:I}}var SQ=["บุกก่อน คิดทีหลัง เริ่มเรื่องเก่งกว่าปิดเรื่อง ตรงจนบางทีแรง","ช้าแต่ไม่ถอย ยึดของที่จับแล้ว ทนได้นานผิดปกติ เปลี่ยนใจยาก","สองความคิดพร้อมกัน พูดเก่ง เบื่อเร็ว เรียนอะไรก็ไว แต่ทิ้งกลางคันบ่อย","อ่านอารมณ์คนอื่นออกก่อนตัวเอง ปกป้องพวกพ้อง เก็บของเก่าไม่ยอมทิ้ง","อยากให้เห็น อยากให้ยอมรับ ใจกว้างจริงเวลาได้เป็นที่ตั้ง เสียหน้าไม่ได้","เห็นข้อผิดก่อนเห็นภาพรวม ละเอียดจนตัวเองเหนื่อย รับใช้เก่ง ชมตัวเองไม่เป็น","ชั่งน้ำหนักตลอดเวลา ตัดสินใจช้าเพราะเห็นสองด้านจริง ๆ เกลียดการปะทะ","ลึก ไม่เปิดง่าย จำได้นานทั้งดีและร้าย เอาจริงถึงที่สุดเมื่อเลือกแล้ว","มองไกล เชื่อในความหมาย พูดตรงแบบไม่ได้ตั้งใจเจ็บ อยู่นิ่งกับกรอบไม่ได้","สร้างทีละก้อน ยอมช้าเพื่อให้มั่น อดทนกับงานที่คนอื่นทิ้ง ดูเย็นกว่าที่เป็น","คิดคนละทางกับห้อง เห็นระบบมากกว่าเห็นคน แปลกแยกโดยไม่ได้ตั้งใจ","ซึมซับทุกอย่างรอบตัว ขอบเขตบาง เมตตาง่าย เสียหลักง่ายพอกัน"],bQ=["แรงทั้งหมดกลับมาที่ตัวเอง พึ่งตัวเองสูง ดื้อกับคนที่มาสั่ง","หมดไปกับการสะสมและความมั่นคง พูดเรื่องเงินและคุณค่าบ่อยกว่าที่รู้ตัว","ลงที่ทักษะและการสื่อสาร ลงมือเองมากกว่าสั่ง พี่น้องเพื่อนฝูงมีน้ำหนัก","ลงที่บ้านและรากฐาน สร้างที่ทางให้ตัวเองก่อนจึงออกไปข้างนอกได้","ลงที่การสร้างของออกมา งานที่มีลายเซ็นตัวเองสำคัญกว่างานที่ได้เงิน","ลงที่การต่อสู้กับอุปสรรค เก่งขึ้นเพราะโดนบีบ ไม่ใช่เพราะโล่ง","ลงที่คู่และการสมาคม ตัวตนคมชัดขึ้นเมื่อมีคนอยู่ตรงข้าม","ลงที่การเปลี่ยนสภาพ ผ่านการรื้อแล้วสร้างใหม่หลายรอบ ของลับของลึกเป็นเรื่องปกติ","ลงที่วิชาและความเชื่อ ต้องมีครูหรือหลักให้ยึด เดินทางไกลเปลี่ยนคนคนนี้ได้","ลงที่งานและสถานะ วัดตัวเองด้วยสิ่งที่ทำสำเร็จ พักไม่ค่อยเป็น","ลงที่มิตรและเครือข่าย ได้มาด้วยคนรอบตัวมากกว่าด้วยลำพัง","ลงที่ที่ลับและการปลีกตัว ทำงานได้ดีตอนไม่มีใครดู เสียพลังกับที่ที่ไม่มีใครเห็น"];function WQ(Q,X){let Z=R[X],$=Q.find((J)=>J.graha.num===Z),q=new Map;for(let J of Q)q.set(J.bhava,[...q.get(J.bhava)??[],J.graha.num]);let Y=[...q.entries()].filter(([,J])=>J.length>=3).map(([J,z])=>({bhava:J,grahas:z})).sort((J,z)=>z.grahas.length-J.grahas.length);return{lagnaRasi:X,lagnaText:SQ[X],lordNum:Z,lordBhava:$.bhava,lordText:bQ[$.bhava-1],stelliums:Y,beneficCount:Q.filter((J)=>J.graha.benefic).length,maleficCount:Q.filter((J)=>!J.graha.benefic).length,inLagna:q.get(1)??[]}}function KQ(Q){let X=[],Z=($)=>H.find((q)=>q.num===$).th;if(X.push(`ลัคนา${b[Q.lagnaRasi]} — ${Q.lagnaText}`),X.push(`เจ้าเรือนลัคนาคือ ${Z(Q.lordNum)} สถิตภพ ${Q.lordBhava} ${E[Q.lordBhava-1].th}`),X.push(`   ${Q.lordText}`),Q.inLagna.length)X.push(`ดาวในลัคนา: ${Q.inLagna.map(Z).join(" ")} — ย้อมบุคลิกที่คนเห็นก่อนเสมอ`);else X.push("ไม่มีดาวในลัคนา — บุคลิกอ่านจากเจ้าเรือนเป็นหลัก ไม่ใช่จากดาวที่ทับตัว");for(let $ of Q.stelliums)X.push(`ดาวกระจุก ${$.grahas.length} ดวงในภพ ${$.bhava} ${E[$.bhava-1].th} (${$.grahas.map(Z).join(" ")}) — เรื่องนี้กินพื้นที่ชีวิตมากกว่าที่เจ้าตัวคิด`);return X.push(`ศุภเคราะห์ ${Q.beneficCount} : บาปเคราะห์ ${Q.maleficCount}`),X.join(`
+`)}globalThis.MawDuang={computeChart:VQ,RASI:b,RASI_LORD:R,GRAHAS:H,BHAVA:E,toThaiNum:u,fmtDeg:p,S:v,readNatal:WQ,renderReading:KQ};
+</script>
+<script>
+(function () {
+  var M = window.MawDuang;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // Fixed rasi positions of the Thai square chart: clockwise ring, hollow centre.
+  // Index into the 4x4 grid (0-15); centre cells 5,6,9,10 are the hollow.
+  var RING = [
+    { cell: 1,  rasi: 0  }, { cell: 2,  rasi: 1  }, { cell: 3,  rasi: 2  },
+    { cell: 7,  rasi: 3  }, { cell: 11, rasi: 4  }, { cell: 15, rasi: 5  },
+    { cell: 14, rasi: 6  }, { cell: 13, rasi: 7  }, { cell: 12, rasi: 8  },
+    { cell: 8,  rasi: 9  }, { cell: 4,  rasi: 10 }, { cell: 0,  rasi: 11 }
+  ];
+
+  var CITIES = [
+    ["กรุงเทพฯ", 13.7563, 100.5018], ["เชียงใหม่", 18.7883, 98.9853],
+    ["ขอนแก่น", 16.4419, 102.8360], ["ภูเก็ต", 7.8804, 98.3923],
+    ["อ่างทอง", 14.5896, 100.4550], ["หาดใหญ่", 7.0086, 100.4747]
+  ];
+
+  var cities = $("cities");
+  CITIES.forEach(function (c) {
+    var b = document.createElement("button");
+    b.type = "button"; b.textContent = c[0];
+    b.onclick = function () { $("lat").value = c[1]; $("lon").value = c[2]; render(); };
+    cities.appendChild(b);
+  });
+
+  function render(e) {
+    if (e) e.preventDefault();
+    var sidereal = $("zod").value === "sid";
+    var opts = {
+      date: $("date").value, time: $("time").value,
+      tz: parseFloat($("tz").value), lat: parseFloat($("lat").value),
+      lon: parseFloat($("lon").value), sidereal: sidereal
+    };
+    var c;
+    try { c = M.computeChart(opts); }
+    catch (err) { $("chart").textContent = err.message; return; }
+
+    $("d-zodiac").textContent = c.system.zodiac;
+    $("d-ayan").textContent = c.system.ayanamsa.toFixed(4) + "°  (" + c.system.ayanamsaName + ")";
+    $("d-eph").textContent = "Meeus + JPL elements";
+
+    // ── square chart ──
+    var chart = $("chart"); chart.textContent = "";
+    var cells = [];
+    for (var i = 0; i < 16; i++) cells[i] = null;
+    RING.forEach(function (slot) {
+      var div = document.createElement("div");
+      div.className = "cell" + (slot.rasi === c.lagna.rasi ? " lagna" : "");
+      var r = document.createElement("div");
+      r.className = "rasi"; r.textContent = M.RASI[slot.rasi];
+      var g = document.createElement("div");
+      g.className = "glyphs";
+      c.placements.filter(function (p) { return p.rasi === slot.rasi; }).forEach(function (p) {
+        var s = document.createElement("span");
+        s.className = p.graha.benefic ? "ben" : "mal";
+        s.textContent = M.toThaiNum(p.graha.num);
+        s.title = p.graha.th + " " + M.fmtDeg(p.degInRasi).trim();
+        g.appendChild(s);
+      });
+      div.appendChild(r); div.appendChild(g);
+      cells[slot.cell] = div;
+    });
+    var centre = document.createElement("div");
+    centre.className = "centre";
+    centre.innerHTML = '<div class="big">' + $("date").value + "</div>" +
+      '<div class="small mono">' + $("time").value + "  UTC" + ($("tz").value >= 0 ? "+" : "") + $("tz").value + "</div>" +
+      '<div class="small">ลัคนา ' + M.RASI[c.lagna.rasi] + " " + M.fmtDeg(c.lagna.degInRasi).trim() + "</div>";
+    for (var j = 0; j < 16; j++) {
+      if (j === 5) { chart.appendChild(centre); continue; }
+      if (j === 6 || j === 9 || j === 10) continue;
+      chart.appendChild(cells[j] || document.createElement("div"));
+    }
+
+    // ── placement table ──
+    var tb = $("tbody"); tb.textContent = "";
+    c.placements.forEach(function (p) {
+      var tr = document.createElement("tr");
+      var dig = M.S.dignity(p.graha.num, p.lon, M.RASI_LORD);
+      tr.innerHTML =
+        '<td class="num" style="color:' + (p.graha.benefic ? "var(--celadon)" : "var(--chad)") + '">' + M.toThaiNum(p.graha.num) + "</td>" +
+        "<td>" + p.graha.th + (p.retro ? ' <span class="retro">พักร์</span>' : "") + "</td>" +
+        '<td class="deg">' + M.fmtDeg(p.degInRasi) + "</td>" +
+        "<td>" + M.RASI[p.rasi] + "</td>" +
+        "<td>" + p.bhava + " " + M.BHAVA[p.bhava - 1].th + "</td>" +
+        '<td style="color:var(--ink-3)">' + (dig.label === "—" ? "" : dig.label) + "</td>";
+      tb.appendChild(tr);
+    });
+
+    // ── Thai layer ──
+    var d = $("date").value.split("-").map(Number);
+    var k = M.S.kalaYoka(d[0], d[1], d[2]);
+    var wd = new Date(Date.UTC(d[0], d[1] - 1, d[2])).getUTCDay();
+    var hit = function (v) { return v === wd ? ' <span style="color:var(--chad)">← ตรงวันนี้</span>' : ""; };
+    $("kala").innerHTML =
+      "จ.ศ. " + k.chulasakarat + " · วันเกิด" + M.S.WEEKDAY_TH[wd] + "<br>" +
+      "ธงชัย " + M.S.WEEKDAY_TH[k.thongchai] + hit(k.thongchai) + "<br>" +
+      "อธิบดี " + M.S.WEEKDAY_TH[k.athibodi] + hit(k.athibodi) + "<br>" +
+      "อุบาทว์ " + M.S.WEEKDAY_TH[k.ubat] + hit(k.ubat) + "<br>" +
+      "โลกาวินาศ " + M.S.WEEKDAY_TH[k.lokawinat] + hit(k.lokawinat);
+
+    var moon = c.placements[1].lon, sun = c.placements[0].lon;
+    var nk = M.S.nakshatraOf(moon), rk = M.S.reukOf(nk), dt = M.S.dithi(sun, moon);
+    var hh = parseFloat($("time").value.split(":")[0]) + parseFloat($("time").value.split(":")[1]) / 60;
+    var ym = M.S.yamOf(hh);
+    $("reuk").innerHTML =
+      "นักษัตรที่ " + nk + " " + M.S.NAKSHATRA_TH[nk - 1] + "<br>" +
+      "ฤกษ์ที่ " + rk + " <strong>" + M.S.REUK_9[rk - 1].th + "ฤกษ์</strong><br>" +
+      '<span style="color:var(--ink-3)">' + M.S.REUK_9[rk - 1].use + "</span><br>" +
+      "ดิถี " + dt.phase + " " + dt.kam + " ค่ำ<br>" +
+      "ยาม" + ym.half + "ที่ " + ym.n +
+      (ym.n === k.yamUbat ? ' <span style="color:var(--chad)">← ยามอุบาทว์</span>' : "");
+
+    drawRing(c); drawReading(c);
+
+    var t = M.S.thaksa(wd);
+    var kg = M.GRAHAS.filter(function (g) { return g.num === t.kalakini; })[0];
+    var rows = M.S.THAKSA_BHAVA.map(function (b) {
+      return b + " " + M.toThaiNum(t.byBhava[b]);
+    }).join(" · ");
+    $("thaksa").innerHTML = rows +
+      '<br><br><strong style="color:var(--chad)">กาลกิณี = ' + M.toThaiNum(t.kalakini) + " " + kg.th + "</strong>";
+  }
+
+  // ── กระดานห่วง — ring board. Lagna pinned to the left, longitude increasing
+  // counterclockwise, which is how a wheel chart is read.
+  function drawRing(c) {
+    var svg = $("ring"); svg.textContent = "";
+    var NS = "http://www.w3.org/2000/svg";
+    var cx = 200, cy = 200, rOut = 192, rRasi = 168, rBha = 128, rPla = 104, rIn = 66;
+    var css = getComputedStyle(document.body);
+    var ink = css.getPropertyValue("--ink"), ink3 = css.getPropertyValue("--ink-3");
+    var rule = css.getPropertyValue("--rule"), gold = css.getPropertyValue("--gold");
+    var chad = css.getPropertyValue("--chad"), cel = css.getPropertyValue("--celadon");
+    var L0 = c.lagna.lon;
+    function pt(lon, r) {
+      var th = (180 + (lon - L0)) * Math.PI / 180;
+      return [cx + r * Math.cos(th), cy - r * Math.sin(th)];
+    }
+    function el(n, a) { var e = document.createElementNS(NS, n);
+      for (var k in a) e.setAttribute(k, a[k]); return e; }
+    function txt(x, y, s, size, fill, weight) {
+      var e = el("text", { x: x, y: y, "text-anchor": "middle", "dominant-baseline": "central",
+        "font-size": size, fill: fill, "font-weight": weight || "400" });
+      e.textContent = s; return e;
+    }
+    [rOut, rRasi, rBha, rIn].forEach(function (r) {
+      svg.appendChild(el("circle", { cx: cx, cy: cy, r: r, fill: "none", stroke: rule, "stroke-width": .8 }));
+    });
+    for (var i = 0; i < 12; i++) {
+      var a = pt(i * 30, rIn), b = pt(i * 30, rOut);
+      svg.appendChild(el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: rule, "stroke-width": .8 }));
+      var m = pt(i * 30 + 15, (rOut + rRasi) / 2);
+      svg.appendChild(txt(m[0], m[1], M.RASI[i], 11, ink3));
+      var bh = ((i - c.lagna.rasi + 12) % 12) + 1;
+      var bm = pt(i * 30 + 15, (rBha + rIn) / 2 + 12);
+      svg.appendChild(txt(bm[0], bm[1], String(bh), 10, ink3));
+    }
+    // lagna: bold radial + marker
+    var la = pt(L0, rIn), lb = pt(L0, rOut);
+    svg.appendChild(el("line", { x1: la[0], y1: la[1], x2: lb[0], y2: lb[1], stroke: gold, "stroke-width": 2.4 }));
+    var lm = pt(L0, rOut - 12);
+    svg.appendChild(txt(lm[0] + 12, lm[1], "ลั", 13, gold, "700"));
+    // planets, nudged apart when they crowd
+    var sorted = c.placements.slice().sort(function (p, q) { return p.lon - q.lon; });
+    var lastLon = -99, tier = 0;
+    sorted.forEach(function (p) {
+      var d = ((p.lon - lastLon) + 360) % 360;
+      tier = (d < 7) ? (tier + 1) % 3 : 0;
+      lastLon = p.lon;
+      var q = pt(p.lon, rPla - tier * 19);
+      var g = el("g", {});
+      var t2 = txt(q[0], q[1], M.toThaiNum(p.graha.num), 16, p.graha.benefic ? cel : chad, "600");
+      var ttl = document.createElementNS(NS, "title");
+      ttl.textContent = p.graha.th + " " + M.RASI[p.rasi] + " " + M.fmtDeg(p.degInRasi).trim();
+      g.appendChild(t2); g.appendChild(ttl); svg.appendChild(g);
+      var tick = pt(p.lon, rBha), tick2 = pt(p.lon, rBha - 7);
+      svg.appendChild(el("line", { x1: tick[0], y1: tick[1], x2: tick2[0], y2: tick2[1],
+        stroke: p.graha.benefic ? cel : chad, "stroke-width": 1.4 }));
+    });
+    svg.appendChild(txt(cx, cy - 9, "ลัคนา " + M.RASI[c.lagna.rasi], 12, ink, "600"));
+    svg.appendChild(txt(cx, cy + 9, M.fmtDeg(c.lagna.degInRasi).trim(), 12, ink3));
+  }
+
+  function drawReading(c) {
+    var r = M.readNatal(c.placements, c.lagna.rasi);
+    var box = $("reading"); box.textContent = "";
+    var nameOf = function (n) { return M.GRAHAS.filter(function (g) { return g.num === n; })[0].th; };
+    function line(tag, html) {
+      var d = document.createElement("div"); d.className = "line";
+      d.innerHTML = '<span class="tag">' + tag + "</span><span>" + html + "</span>";
+      box.appendChild(d);
+    }
+    line("ลัคนา", "<strong>" + M.RASI[r.lagnaRasi] + "</strong> — " + r.lagnaText);
+    line("เจ้าเรือน", nameOf(r.lordNum) + " สถิตภพ " + r.lordBhava + " " +
+      M.BHAVA[r.lordBhava - 1].th + " — " + r.lordText);
+    line("ในลัคนา", r.inLagna.length
+      ? r.inLagna.map(nameOf).join(" · ") + " — ย้อมบุคลิกที่คนเห็นก่อนเสมอ"
+      : "ไม่มีดาวทับลัคนา — อ่านจากเจ้าเรือนเป็นหลัก");
+    r.stelliums.forEach(function (s) {
+      line("ดาวกระจุก", s.grahas.length + " ดวงในภพ " + s.bhava + " " + M.BHAVA[s.bhava - 1].th +
+        " (" + s.grahas.map(nameOf).join(" ") + ") — เรื่องนี้กินพื้นที่ชีวิตมากกว่าที่เจ้าตัวคิด");
+    });
+    line("สมดุล", "ศุภเคราะห์ " + r.beneficCount + " : บาปเคราะห์ " + r.maleficCount);
+  }
+
+  var square = $("v-square"), ringBtn = $("v-ring");
+  function setView(isRing) {
+    square.setAttribute("aria-pressed", String(!isRing));
+    ringBtn.setAttribute("aria-pressed", String(isRing));
+    $("chart").classList.toggle("hidden", isRing);
+    $("ring").classList.toggle("hidden", !isRing);
+  }
+  square.onclick = function () { setView(false); };
+  ringBtn.onclick = function () { setView(true); render(); };
+
+  $("f").addEventListener("submit", render);
+  ["zod"].forEach(function (id) { $(id).addEventListener("change", render); });
+  render();
+})();
+</script>
