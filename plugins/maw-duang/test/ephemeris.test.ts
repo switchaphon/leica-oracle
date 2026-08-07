@@ -16,7 +16,7 @@ import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
 import {
   kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity,
 } from "../src/siam";
-import { dwell, contactBaseRate, competingClaims, houseSweep } from "../src/weigh";
+import { dwell, contactBaseRate, competingClaims, houseSweep, convergentYears } from "../src/weigh";
 import { computeChart } from "../src/index";
 
 /** Julian centuries TT from a UTC calendar moment. */
@@ -265,5 +265,23 @@ describe("BLIND-02 post-mortem — the significator, not the mechanism, was wron
   test("the sweep covers all twelve, because a shortlist is where the answer was lost", () => {
     const ev = computeChart({ date: "2020-08-15", time: "12:00", sidereal: true, ...CM });
     expect(houseSweep(ev, natal.lagna.rasi)).toHaveLength(12);
+  });
+});
+
+describe("convergence — adopted from Atom and Ting, and measurably better than mine", () => {
+  const CM = { tz: 7, lat: 18.7883, lon: 98.9853 };
+  const natal = computeChart({
+    date: "1987-09-07", time: "18:33", tz: 7, lat: 14.6167, lon: 100.3333, sidereal: true,
+  });
+
+  test("requiring two independent mechanisms collapses the base rate", () => {
+    const loose = convergentYears([4, 12], 2010, 2026, natal.lagna.rasi, CM, 1);
+    const tight = convergentYears([4, 12], 2010, 2026, natal.lagna.rasi, CM, 2);
+
+    expect(loose.baseRate).toBeGreaterThan(0.4);   // ~47% — explains nothing
+    expect(tight.baseRate).toBeLessThan(0.1);      // ~6%  — actually discriminating
+    expect(tight.years).toHaveLength(1);
+    expect(tight.years[0].year).toBe(2020);
+    expect(tight.years[0].count).toBeGreaterThanOrEqual(3); // พฤหัส + เสาร์ + ราหู
   });
 });
