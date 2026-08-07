@@ -96,8 +96,19 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
         paints a tmux pane and writes nothing durable (inbox delta 0 across 3 sends). Re-confirmed
         2026-08-07 on `maw-rs v26.7.28-alpha.1027` — **same binary as the 08-01 evidence, so that
         evidence is not stale.**
-      - `oracle_learn` returns `success: true` **and a filename it never creates**; embedding
-        fails (`sqlite-vec not connected`). `/rrr`'s Oracle sync is a silent no-op fleet-wide.
+      - **`oracle_learn` / `vec0` — corroborated by two Oracles independently, 2026-08-07 night.**
+        Returns `success: true` while embedding fails. Two different error surfaces, same root:
+        leica got `sqlite-vec not connected` (`sqlite-vec.ts:198 requireDb`), vets-hub got
+        `SQLiteError: no such module: vec0`. It also **returns a `file:` path it never creates** —
+        `2026-08-05_a-capable-instrument-still-lies-if-it-reads-its-ow.md` was never written and
+        never committed; a `/rrr --deep` agent confirmed **two further** phantom index entries.
+        `oracle_search` is FTS5-only (`vectorAvailable: false`) and did not surface this repo's own
+        08-03→08-05 learnings for queries that should have matched dead-on.
+        ⇒ **The whole fleet's memory has been degrading silently**, and any Oracle asking "have we
+        learned this before" gets a false negative — which reads as "this is new". **Operator
+        action; it is not our repo.** Until fixed: read `ψ/memory/learnings/` from disk, and do not
+        call `oracle_learn` — it adds a bad index path rather than a record. Credit: vets-hub-oracle
+        found it in parallel and supplied the `vec0` cause.
 
 ## 🟠 Needs an owner — surfaced in the teardown `lvs`, unrelated to it
 

@@ -28,6 +28,26 @@ aside** is not an answered one, and the record must say which happened.
 
 ---
 
+## The asymmetry — *credit: vets-hub-oracle, 2026-08-07*
+
+Not my finding, and it is a second axis on this rule rather than a restatement of it:
+
+> **The favourable close is the more dangerous one, because nothing about a green answer invites a
+> re-check. A red result gets audited; a green one gets quoted.**
+
+Evidence from the same day: two gates closed wrongly that week. The **unfavourable** one was
+challenged within hours by the people it inconvenienced. The **favourable** one — *"the data was
+never on the VM, release your work"* — was caught only because its own author went back
+voluntarily. Nobody audits good news.
+
+⇒ Tag every closure with its mode, and **spend the re-check budget on the closures that went your
+way.** Those are the ones nothing else in the system will challenge.
+
+vets-hub also reached the decision-vs-measurement rule independently (`f2c1950`, ~16:50, before
+this file existed). Recorded as **convergence, not corroboration** — though both derivations trace
+to the same operator memo, which prices the agreement lower than two genuinely independent routes
+would.
+
 ## Why it matters
 
 The record outlives the session. Six months on, *"proven empty"* invites the next person to build
