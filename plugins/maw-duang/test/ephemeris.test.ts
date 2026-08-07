@@ -10,7 +10,7 @@
 import { expect, test, describe } from "bun:test";
 import {
   julianDay, deltaTSeconds, sunLongitude, moonLongitude, gmst, ascendant, obliquity, norm360,
-  sunLongitudeViaElements, precessionSinceJ2000,
+  sunLongitudeViaElements, precessionSinceJ2000, planetLongitude,
 } from "../src/astro";
 import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
 import {
@@ -283,5 +283,47 @@ describe("convergence — adopted from Atom and Ting, and measurably better than
     expect(tight.years).toHaveLength(1);
     expect(tight.years[0].year).toBe(2020);
     expect(tight.years[0].count).toBeGreaterThanOrEqual(3); // พฤหัส + เสาร์ + ราหู
+  });
+});
+
+describe("JPL Horizons — the external planetary control I should have had from the start", () => {
+  // Apparent geocentric ecliptic longitude of date, geocentre (500@399),
+  // 2026-08-06 12:00 UT, fetched from ssd.jpl.nasa.gov/api/horizons.api.
+  // Frozen here as fixtures so the suite stays offline and deterministic.
+  //
+  // Every earlier control in this file tests the Sun, the Moon or sidereal time.
+  // Not one tested a PLANET against an outside authority — which is precisely where
+  // the J2000-frame bug lived, undetected, while 21 tests passed. The idea to check
+  // against Horizons came from mahamodo-engine, who published their own bound first.
+  const JPL: Record<string, number> = {
+    mercury: 115.3815775,
+    venus:   179.6963245,
+    mars:     86.7665682,
+    jupiter: 128.1778582,
+    saturn:   14.6529740,
+  };
+  const T = centuriesTT(2026, 8, 6, 12);
+
+  test("no planet is off by more than 5 arcmin — and the frame fix is confirmed", () => {
+    // Before the precession fix every one of these was ~22' out. Passing at this
+    // tolerance is independent proof the frame is now right.
+    for (const body of Object.keys(JPL)) {
+      expect(Math.abs(arcminErr(planetLongitude(body, T), JPL[body]))).toBeLessThan(5);
+    }
+  });
+
+  test("the inner planets and Jupiter hold under 1.5 arcmin", () => {
+    for (const body of ["mercury", "venus", "mars", "jupiter"]) {
+      expect(Math.abs(arcminErr(planetLongitude(body, T), JPL[body]))).toBeLessThan(1.5);
+    }
+  });
+
+  test("Saturn is the weakest body and its error is declared, not hidden", () => {
+    // 4.5' — three times worse than anything else here, and outside the 0.04°
+    // bound mahamodo declared for their engine. Within JPL's stated tolerance for
+    // the approximate elements, but it is a real limit and the page says so.
+    const e = Math.abs(arcminErr(planetLongitude("saturn", T), JPL.saturn));
+    expect(e).toBeGreaterThan(2);
+    expect(e).toBeLessThan(6);
   });
 });
