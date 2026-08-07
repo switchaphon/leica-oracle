@@ -172,7 +172,7 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
         > collapses: there was only ever one bug. Credit to vets-hub either way; without the
         > pushback this would have reached the operator as fact.
 
-## 🟠 maw plugin shim — codec's owed finding, and my count does not match it
+## ✅ maw plugin shim — RESOLVED and FIXED (was: count discrepancy)
 
 codec-oracle delivered a finding it had held since 2026-07-27: **97 plugins in `~/.maw/plugins/`
 missing the `import.meta.main` shim**, which under maw-rs makes a plugin silently no-op while
@@ -191,10 +191,53 @@ silent on the fleet — and the real finding sat unread in its outbox for 11 day
 ⇒ **4 real entrypoints carry the shim** (`discord-graph`, `leica-pulse`, `atlas`, `maw-duang`),
 which reconciles with my own note that I fixed 5. No scoping I tried produces 97.
 
+### ✅ Resolved — same directory, our tools disagreed about symlinks
+
+codec found it: `~/.maw/plugins/` holds **105 symlinks + 4 real dirs**. `find` without `-L` does
+not descend symlinks → my 31. A shell glob `*/index.ts` resolves them → its 103. `find -L` = 109
+confirms. **Both measurements correct, different populations.**
+
+**And its alarm was wrong, which it withdrew itself.** Of the 97, **96 are maw-js's own vendored
+internals** symlinked in from the install tree (82 in `mpr-plugins`, 14 in `commands/plugins`) —
+legacy residue under a Rust binary, not live code paths.
+
+**The real count was 1, and it was mine** — `maw-plugins/discord-channel` in this repo.
+
+### ✅ And fixed, tonight
+
+I checked its framing rather than inheriting it, and **two more parts were wrong**:
+
+- codec called it *"the plugin behind the Discord bot channel… the channel dies quietly."* It is
+  **not.** It is a maw **CLI admin** plugin (`token save/load`, `access pair/allow`, `state init`).
+  The 7 live bots run `claude --channels plugin:discord@claude-plugins-official` and never touch
+  it. Nothing was dying.
+- It is **not silent.** maw-rs prints the exact cause and fix:
+  *"exited 0 with no output — maw executes the entry file, it does not import it."*
+
+**Real severity: a credential-management CLI that did nothing while exiting 0.** Worth fixing, not
+an incident. Shim added (shape copied from `leica-pulse`, not invented) and verified:
+
+```
+before: exit 0, no state output
+after : 364 B — state dir, access.json present, dmPolicy allowlist, 2 allowFrom,
+        11 channel groups, 0 pending
+```
+
+The after-output **independently corroborates two of tonight's other findings**: *"bot token: no
+.env file"* confirms the stale `.discord-state/.env` archive, and *"groups: 11"* matches the
+`requireMention` audit read straight from `access.json`.
+
+<details><summary>superseded: the unresolved-discrepancy note</summary>
+
 **Unresolved, and I am not asserting either number.** Either codec measured a different directory
 (`~/.claude/plugins` holds far more), or the tree changed in 11 days. The hazard is real in kind —
 a shimless plugin exits 0 and does nothing — but its **size is unknown**, and codec's figure is
 11 days old and unreproduced. Worth ten seconds with codec before anyone acts on 97.
+
+</details>
+
+*(It took rather less than ten seconds with codec. Retained per Nothing is Deleted — the
+discrepancy is how the real finding surfaced.)*
 
 ## 🟠 Fleet hazard — the harness `gitStatus` block is a cache, not a sensor
 
