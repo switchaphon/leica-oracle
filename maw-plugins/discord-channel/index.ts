@@ -441,3 +441,15 @@ export default async function handler(ctx: InvokeContext): Promise<InvokeResult>
     console.log = origLog;
   }
 }
+
+// maw-rs EXECUTES this entry file as a subprocess; it does not import it. Without
+// this block the default export is never called and every subcommand exits 0
+// having done nothing. Verified 2026-08-07: `maw discord-channel status` returned
+// exit 0 with no output before this was added.
+// Shape copied from leica-pulse, which is known to work under maw-rs.
+if (import.meta.main) {
+  const result = await handler({ source: "cli", args: process.argv.slice(2) });
+  if (result.output) console.log(result.output);
+  if (result.error) console.error(result.error);
+  process.exit(result.exitCode ?? (result.ok ? 0 : 1));
+}
