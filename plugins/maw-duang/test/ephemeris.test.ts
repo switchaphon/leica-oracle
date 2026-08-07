@@ -18,6 +18,7 @@ import {
 } from "../src/siam";
 import { dwell, contactBaseRate, competingClaims, houseSweep, convergentYears } from "../src/weigh";
 import { computeChart } from "../src/index";
+import { score, digest, type Prediction, type Outcome } from "../src/ledger";
 
 /** Julian centuries TT from a UTC calendar moment. */
 const centuriesTT = (y: number, m: number, d: number, h: number) =>
@@ -436,5 +437,76 @@ describe("1782 — the engine outside its nominal range, checked rather than ass
     const elong = ((JPL_1782.moon - JPL_1782.sun) % 360 + 360) % 360;
     expect(Math.floor(elong / 12) + 1).toBe(8);
     expect(dithi(sunLongitude(T), moonLongitude(T)).kam).toBe(8);
+  });
+});
+
+describe("prediction ledger — my own 7 Aug miss, replayed through it", () => {
+  // The reading I published on 2026-08-07 before searching the news.
+  const bangkokFriday: Prediction = {
+    claim: "จันทร์ลงเรือนคลังในวันที่ฤกษ์เป็นโจร — ทรัพย์สินที่ต้องระวัง",
+    domain: "money",
+    horizon: "day",
+    windowStart: "2026-08-07", windowEnd: "2026-08-07",
+    confidence: 0.3, noChartPrior: 0.15,
+    mechanisms: [
+      { description: "จันทร์จร ภพ ๒ กดุมภะ", lifetimeDays: 2.3, baseRate: 1 / 12,
+        committedAt: "2026-08-07T17:02:00Z" },
+      { description: "โจโรฤกษ์", lifetimeDays: 1, baseRate: 1 / 9,
+        committedAt: "2026-08-07T17:02:00Z" },
+    ],
+    committedAt: "2026-08-07T17:02:00Z",
+  };
+  const whatHappened: Outcome = {
+    happened: true, domain: "death",
+    note: "กราดยิงโรงเรียนเทพศิรินทร์ นนทบุรี — เสียชีวิต 8-9 ราย",
+    observedAt: "2026-08-07T17:05:00Z",
+  };
+
+  test("it scores as a miss, and the reason given is the domain", () => {
+    const s = score(bangkokFriday, whatHappened);
+    expect(s.verdict).toBe("miss");
+    expect(s.reasons.some((r) => r.includes("domain mismatch"))).toBe(true);
+    // "something bad happened" must never rescue a claim about money.
+    expect(s.verdict).not.toBe("hit");
+  });
+
+  test("the three retrofits I thought of are refused by the ledger, not by my restraint", () => {
+    const withHindsight: Prediction = {
+      ...bangkokFriday,
+      mechanisms: [
+        ...bangkokFriday.mechanisms,
+        { description: "โจโร = โจร = ความรุนแรง", lifetimeDays: 1, baseRate: 1 / 9,
+          committedAt: "2026-08-07T17:30:00Z" },
+        { description: "ศุกร์จร ภพ ๘ มรณะ ของดวงเมือง", lifetimeDays: 33, baseRate: 0.25,
+          committedAt: "2026-08-07T17:30:00Z" },
+        { description: "เกตุค้าง ภพ ๗", lifetimeDays: 540, baseRate: 0.5,
+          committedAt: "2026-08-07T17:30:00Z" },
+      ],
+    };
+    const s = score(withHindsight, whatHappened);
+    expect(s.retrofitted).toHaveLength(3);
+    expect(s.verdict).toBe("miss"); // still a miss, with hindsight bolted on
+  });
+
+  test("a slow mechanism cannot be credited with picking a single day", () => {
+    const climate: Prediction = {
+      ...bangkokFriday, domain: "death",
+      mechanisms: [{ description: "เกตุ ภพ ๗", lifetimeDays: 540, baseRate: 0.5,
+        committedAt: "2026-08-01T00:00:00Z" }],
+    };
+    const s = score(climate, whatHappened);
+    expect(s.verdict).toBe("hit");              // the claim happened to match
+    expect(s.mechanismVerdict).toBe("unscorable"); // but nothing earned it
+    expect(s.reasons.some((r) => r.includes("climate not cause"))).toBe(true);
+    expect(s.reasons.some((r) => r.includes("not discriminating"))).toBe(true);
+  });
+
+  test("chart_contribution is confidence minus what a chartless guess would give", () => {
+    expect(score(bangkokFriday, whatHappened).chartContribution).toBeCloseTo(0.15, 3);
+  });
+
+  test("the digest is stable, so a commit can be proved to predate an outcome", () => {
+    expect(digest(bangkokFriday)).toBe(digest({ ...bangkokFriday }));
+    expect(digest(bangkokFriday)).not.toBe(digest({ ...bangkokFriday, confidence: 0.31 }));
   });
 });
