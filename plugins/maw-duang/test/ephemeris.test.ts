@@ -14,7 +14,7 @@ import {
 } from "../src/astro";
 import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
 import {
-  kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity,
+  kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity, nakshatraOf,
 } from "../src/siam";
 import { dwell, contactBaseRate, competingClaims, houseSweep, convergentYears } from "../src/weigh";
 import { computeChart } from "../src/index";
@@ -325,5 +325,44 @@ describe("JPL Horizons — the external planetary control I should have had from
     const e = Math.abs(arcminErr(planetLongitude("saturn", T), JPL.saturn));
     expect(e).toBeGreaterThan(2);
     expect(e).toBeLessThan(6);
+  });
+});
+
+describe("สุริยยาตร์ vs modern ephemeris — the fork, measured", () => {
+  // maw-suriyayart implemented the traditional คัมภีร์สุริยยาตร์ against Eade (2000)
+  // and printed 1910/1948 calendars, and published these for 1987-09-07:
+  const SURIYAYART = { sun: 4 * 30 + 24.33, moon: 10 * 30 + 22.73 };
+
+  const natal = computeChart({
+    date: "1987-09-07", time: "18:33", tz: 7, lat: 14.6167, lon: 100.3333, sidereal: true,
+  });
+  const lon = (n: number) => natal.placements.find((p) => p.graha.num === n)!.lon;
+
+  test("the two systems differ by DEGREES, not by the arcminutes we spent the day arguing over", () => {
+    expect(SURIYAYART.sun - lon(1)).toBeGreaterThan(3);   // ~3.7°
+    expect(SURIYAYART.moon - lon(2)).toBeGreaterThan(5);  // ~5.9°
+  });
+
+  test("the gap is not a different ayanamsa — it is a different algorithm", () => {
+    // If สุริยยาตร์ were merely modern positions minus some other ayanamsa, the value
+    // implied by the Sun and by the Moon would agree. They differ by more than 2°,
+    // so no single constant reconciles the two systems.
+    const trop = computeChart({
+      date: "1987-09-07", time: "18:33", tz: 7, lat: 14.6167, lon: 100.3333, sidereal: false,
+    });
+    const tl = (n: number) => trop.placements.find((p) => p.graha.num === n)!.lon;
+    const impliedFromSun = tl(1) - SURIYAYART.sun;
+    const impliedFromMoon = tl(2) - SURIYAYART.moon;
+    expect(Math.abs(impliedFromSun - impliedFromMoon)).toBeGreaterThan(2);
+  });
+
+  test("it lands on a different ฤกษ์ — which seeds the whole dasha chain", () => {
+    expect(nakshatraOf(lon(2))).not.toBe(nakshatraOf(SURIYAYART.moon));
+  });
+
+  test("but both systems agree on ดิถี — a real convergence, worth as much as the gaps", () => {
+    const mine = dithi(lon(1), lon(2));
+    expect(mine.phase).toBe("ขึ้น");
+    expect(mine.kam).toBe(15);
   });
 });
