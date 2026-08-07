@@ -410,3 +410,31 @@ describe("cross-validated against mawdo's reference chapters", () => {
     expect(Math.abs(lahiriAyanamsa(T) - 23.868723) * 3600).toBeLessThan(3);
   });
 });
+
+describe("1782 — the engine outside its nominal range, checked rather than assumed", () => {
+  // Casting a ดวงเมือง means working centuries before the JPL elements' 1800–2050
+  // window. Rather than assume the Sun and Moon still hold there, I asked Horizons.
+  // Values below are from ssd.jpl.nasa.gov for 1782-04-21 00:12 UT, geocentre.
+  const JPL_1782 = { sun: 30.9800980, moon: 122.6046645 };
+  const T = centuriesTT(1782, 4, 21, 12 / 60);
+
+  test("Sun and Moon still agree with JPL in 1782", () => {
+    expect(Math.abs(arcminErr(sunLongitude(T), JPL_1782.sun))).toBeLessThan(0.5);
+    expect(Math.abs(arcminErr(moonLongitude(T), JPL_1782.moon))).toBeLessThan(0.5);
+  });
+
+  test("historical ΔT is used, not the flat fallback", () => {
+    // The fallback of 64s was wrong by ~48s for 1782 — 0.2° of lagna.
+    expect(deltaTSeconds(1782)).toBeGreaterThan(10);
+    expect(deltaTSeconds(1782)).toBeLessThan(25);
+    expect(deltaTSeconds(1900)).toBeLessThan(0); // genuinely negative around 1900
+  });
+
+  test("ดิถี at the Bangkok founding moment is ๘, and JPL's own elongation agrees", () => {
+    // A source summary gave ขึ้น ๑๐ ค่ำ. Both my engine and JPL give the 8th, so the
+    // mismatch is in the record or its date conversion, not in the arithmetic.
+    const elong = ((JPL_1782.moon - JPL_1782.sun) % 360 + 360) % 360;
+    expect(Math.floor(elong / 12) + 1).toBe(8);
+    expect(dithi(sunLongitude(T), moonLongitude(T)).kam).toBe(8);
+  });
+});

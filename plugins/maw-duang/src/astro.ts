@@ -51,7 +51,29 @@ export function deltaTSeconds(year: number): number {
     const u = (year - 1975) / 1;
     return 45.45 + 1.067 * u - (u * u) / 260 - (u * u * u) / 718;
   }
-  // Outside the well-fitted range the value is small next to our other error terms.
+  // Historical branches (Espenak & Meeus). A city chart is cast from a founding
+  // moment centuries back, so the flat fallback below is not good enough there:
+  // for 1782 it was wrong by ~48s, which is 0.2° of lagna.
+  if (year >= 1700 && year < 1800) {
+    const u = year - 1700;
+    return 8.83 + 0.1603 * u - 0.0059285 * u ** 2 + 0.00013336 * u ** 3 - u ** 4 / 1174000;
+  }
+  if (year >= 1800 && year < 1860) {
+    const u = year - 1800;
+    return 13.72 - 0.332447 * u + 0.0068612 * u ** 2 + 0.0041116 * u ** 3
+      - 0.00037436 * u ** 4 + 0.0000121272 * u ** 5
+      - 0.0000001699 * u ** 6 + 0.000000000875 * u ** 7;
+  }
+  if (year >= 1860 && year < 1900) {
+    const u = year - 1860;
+    return 7.62 + 0.5737 * u - 0.251754 * u ** 2 + 0.01680668 * u ** 3
+      - 0.0004473624 * u ** 4 + (u ** 5) / 233174;
+  }
+  if (year >= 1900 && year < 1961) {
+    const u = year - 1900;
+    return -2.79 + 1.494119 * u - 0.0598939 * u ** 2 + 0.0061966 * u ** 3 - 0.000197 * u ** 4;
+  }
+  // Beyond these, the residual is small next to our other error terms.
   return 64;
 }
 
