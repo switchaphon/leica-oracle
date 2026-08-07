@@ -16,6 +16,8 @@ import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
 import {
   kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity,
 } from "../src/siam";
+import { dwell, contactBaseRate, competingClaims } from "../src/weigh";
+import { computeChart } from "../src/index";
 
 /** Julian centuries TT from a UTC calendar moment. */
 const centuriesTT = (y: number, m: number, d: number, h: number) =>
@@ -194,5 +196,41 @@ describe("whole-sign houses", () => {
     expect(bhavaOf(185, lagna)).toBe(1);  // 5° Libra — BEHIND the lagna degree, still bhava 1
     expect(bhavaOf(215, lagna)).toBe(2);  // 5° Scorpio — next sign, next bhava
     expect(bhavaOf(170, lagna)).toBe(12); // 20° Virgo — previous sign wraps to 12
+  });
+});
+
+describe("weighing a mechanism — the checks the 6 Aug case forced", () => {
+  const base = { tz: 7, lat: 18.7883, lon: 98.9853 };
+  const NATAL_LAGNA = 10; // กุมภ์
+
+  test("the Moon is the only day-scale mechanism; the slow grahas are climate", () => {
+    // Timescale of the mechanism must match timescale of the question. A condition
+    // true for a year cannot explain one Thursday — including MY OWN second answer,
+    // which leaned on the Sun in ภพ ๖ and is a 31-day condition.
+    const moon = dwell(2, "2026-08-06", NATAL_LAGNA, base);
+    expect(moon.daysHeld).toBeLessThanOrEqual(3);
+    expect(moon.verdict).toBe("เฉพาะวัน");
+
+    for (const slow of [5, 7, 9]) {           // พฤหัส, เสาร์, เกตุ
+      expect(dwell(slow, "2026-08-06", NATAL_LAGNA, base).verdict).toBe("ภูมิอากาศ");
+    }
+
+    const sun = dwell(1, "2026-08-06", NATAL_LAGNA, base);
+    expect(sun.daysHeld).toBeGreaterThan(14);  // my กาลกิณี argument was never day-scale
+  });
+
+  test("a sub-1° contact is near a coin flip, so it is not evidence on its own", () => {
+    const br = contactBaseRate("2026-08-06", "18:00", base, { orbDeg: 1.0, samples: 24 });
+    expect(br.rate).toBeGreaterThan(0.2);
+    expect(br.rate).toBeLessThan(0.7);
+  });
+
+  test("the competing-claim scan reaches every occupied bhava, not just the question's", () => {
+    const ev = computeChart({ date: "2026-08-06", time: "18:00", sidereal: true, ...base });
+    const claims = competingClaims(ev, NATAL_LAGNA, 3);
+    expect(claims.find((c) => c.isQuestion)?.bhava).toBe(3);
+    // ภพ ๗ ปัตนิ — the spouse — is the house the real cause came from, and it is
+    // occupied. Scanning only the question's house never surfaces it.
+    expect(claims.some((c) => c.bhava === 7 && c.grahas.length > 0)).toBe(true);
   });
 });
