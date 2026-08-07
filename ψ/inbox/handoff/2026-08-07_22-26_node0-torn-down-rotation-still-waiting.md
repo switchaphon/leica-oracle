@@ -95,7 +95,18 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
         `maw locate <name> --path`"* while that exact command **succeeds, exit 0**. Plain `hey`
         paints a tmux pane and writes nothing durable (inbox delta 0 across 3 sends). Re-confirmed
         2026-08-07 on `maw-rs v26.7.28-alpha.1027` — **same binary as the 08-01 evidence, so that
-        evidence is not stale.**
+        evidence is not stale.** Second surface found tonight: `maw hey pops-pet` **and**
+        `maw hey 10-pops-pet` both fail with *"bare names are local-only"* while
+        `maw locate pops-pet` succeeds and reports the session and registry entry. Only that one
+        son; the other six took `hey` fine.
+
+        > **⚠️ Reframed by codec-oracle, and it narrows the ask.** My earlier line — *"maw has no
+        > working durable message channel"* — is **too broad**. `~/.maw/inbox/` **exists, is
+        > durable and append-only, and works**: 6 jsonl files of worktree lifecycle events. It
+        > holds **zero** `hey` messages.
+        > ⇒ maw is not missing recipient durability. **`hey` does not write to the inbox maw
+        > already has.** Delivery and retention are separate axes; maw-rs fixed delivery and we
+        > read it as both. File the issue against *that*, not against a missing subsystem.
       - **`oracle_learn` / `vec0` — ONE bug: the embedding. Corroborated by two Oracles.**
         Returns `success: true` while the vector embedding fails. Two error surfaces, same root:
         leica got `sqlite-vec not connected` (`sqlite-vec.ts:198 requireDb`), vets-hub got
@@ -107,13 +118,28 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
 
         > ### ⚠️ Third correction — "search misses our learnings" is true, and it is OUR doing
         >
-        > Measured: **184 of leica's 265 learnings exist only in the repo and are not in the vault
-        > at all**; 81 are in both. `oracle_learn` writes to the vault — files written by hand with
-        > the Write tool are **never submitted to the index**. Search was not failing to find
-        > indexed content; **70% of the content was never offered to it.**
+        > **Use vets-hub's number, not mine.** Its repo: **24 of 25 never offered to the index
+        > (96%), and ZERO exact filename matches** between its repo and the vault.
         >
-        > ⇒ **Fixing `vec0` will not make those 184 findable.** They need ingesting. Two separate
-        > actions, and only one of them is the operator's.
+        > ~~184 of leica's 265 are repo-only~~ — **withdrawn.** I joined the two sets by exact
+        > filename, and the same night proved names do not join: my own lesson exists as
+        > `2026-08-05_instrument-reading-its-own-footprint.md` in the repo and
+        > `2026-08-05_a-capable-instrument-still-lies-if-it-reads-its-ow.md` in the vault. One
+        > lesson, two names, counted by my method as **both** repo-only *and* vault-only. The 184
+        > therefore overstates by an unknown amount, and the vault is **fleet-shared**, so its 230
+        > is not a leica denominator at all. Caught by vets-hub. Fourth correction to this one item
+        > tonight.
+        >
+        > **What survives, and it is enough:** `oracle_learn` writes to the vault under an
+        > auto-generated truncated name that differs from any hand-written filename — verified on a
+        > concrete pair. Two Oracles show the same mechanism at different rates (vets-hub barely
+        > calls step 4 and sits at 96%; leica calls it more often and sits lower), which is
+        > corroboration from genuinely independent instances rather than two readings of one source.
+        >
+        > ⇒ **Fixing `vec0` will not make the unsubmitted lessons findable.** And per vets-hub, the
+        > sharper cost is not the ratio but the **zero name matches**: even the lessons that *did*
+        > get indexed cannot be joined back to their originals by any tool. Backfill has to be done
+        > **by content or by hand** — no script can do it from the names.
         >
         > Root cause is in **our own `/rrr` skill**: step 3 writes the lesson to
         > `ψ/memory/learnings/`, step 4 syncs via `oracle_learn` — which writes its **own** file,
@@ -145,6 +171,42 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
         > resulting framing ("two separate bugs, mine proves the write path can succeed") also
         > collapses: there was only ever one bug. Credit to vets-hub either way; without the
         > pushback this would have reached the operator as fact.
+
+## 🟠 maw plugin shim — codec's owed finding, and my count does not match it
+
+codec-oracle delivered a finding it had held since 2026-07-27: **97 plugins in `~/.maw/plugins/`
+missing the `import.meta.main` shim**, which under maw-rs makes a plugin silently no-op while
+exiting 0. It had sent me *"No custom plugins. No changes needed."* — true of its own plugins,
+silent on the fleet — and the real finding sat unread in its outbox for 11 days.
+
+**I re-ran the grep as it asked. I cannot reproduce 97.**
+
+| scope | count |
+|---|---|
+| top-level plugin dirs | **5** |
+| `.ts` files, any depth, excluding `node_modules` | **31** |
+| `.ts` files including `node_modules` | 373 |
+| files matching `import.meta.main` | 5 — **but one is `discord-graph/node_modules/bun-types/globals.d.ts`**, a type declaration, not a plugin |
+
+⇒ **4 real entrypoints carry the shim** (`discord-graph`, `leica-pulse`, `atlas`, `maw-duang`),
+which reconciles with my own note that I fixed 5. No scoping I tried produces 97.
+
+**Unresolved, and I am not asserting either number.** Either codec measured a different directory
+(`~/.claude/plugins` holds far more), or the tree changed in 11 days. The hazard is real in kind —
+a shimless plugin exits 0 and does nothing — but its **size is unknown**, and codec's figure is
+11 days old and unreproduced. Worth ten seconds with codec before anyone acts on 97.
+
+## 🟠 Fleet hazard — the harness `gitStatus` block is a cache, not a sensor
+
+codec's finding, and **it applies to this session.** The harness injects a `gitStatus` block at
+session start, **with no timestamp**, and keeps serving it — including to subagents. This session
+opened 2026-08-05; its block still shows `41d7883` as HEAD and the tree as clean, which is now
+three days and ~20 commits stale. codec traced **four false assertions about its own repo** to
+this, one of which reached a subagent brief.
+
+⇒ Any Oracle holding a session open for days is reasoning from a stale snapshot of its own repo.
+**Re-run `git status` / `git log`; never cite the block.** I got away with it tonight only because
+every agent I dispatched was told to run git itself.
 
 ## 🟠 Needs an owner — surfaced in the teardown `lvs`, unrelated to it
 

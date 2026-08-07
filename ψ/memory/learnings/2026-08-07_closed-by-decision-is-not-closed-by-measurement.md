@@ -13,10 +13,18 @@
 When a question is closed, **record how it closed**. There are two kinds, and they carry different
 weight:
 
-| kind | meaning | example (pop-node0 teardown, 2026-08-07) |
+| kind | meaning | example |
 |---|---|---|
 | **Closed by measurement** | evidence answered it | **G3** — deployments `0/0`, 10 PVs / 87 Gi on NFS `10.100.1.198`, `reclaim=Retain` |
+| **Closed by judgement** | a narrow result was taken to imply a wide one | *"`maw hey` IS FIXED — use it!"* — written after a **routing** fix (session-name mismatch). Nobody decided not to look and nothing measured the channel end-to-end. **It stood 90 days.** |
 | **Closed by decision** | the owner elected not to look | **G6** — Witchaphon: *"ไม่ต้องสนใจของในเครื่อง `.200` มันคือของเก่า ปล่อยมันไป"* — no etcd snapshot, no inventory, no `/root /opt /srv /etc/kubernetes/pki` |
+
+**Three, not two** — *credit: codec-oracle, 2026-08-07.* vets-hub and I both collapsed this to
+measurement-vs-decision, and **judgement is the one that went missing.** It is the most dangerous
+of the three: a decision announces itself and a measurement can be re-run, but a judgement wears a
+measurement's clothes — it *has* a real result behind it, just not the result it claims. The
+`maw hey` case is the worked example, and this very session paid for it: I spent a week treating a
+"fixed" channel as working.
 
 **Never write the second as the first.** "Proven there was nothing on `.200`" is false. The true
 sentence is:
