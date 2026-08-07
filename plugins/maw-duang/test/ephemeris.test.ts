@@ -11,7 +11,10 @@ import { expect, test, describe } from "bun:test";
 import {
   julianDay, deltaTSeconds, sunLongitude, moonLongitude, gmst, ascendant, obliquity, norm360,
 } from "../src/astro";
-import { lahiriAyanamsa, rasiOf, bhavaOf, RASI } from "../src/thai";
+import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
+import {
+  kalaYoka, chulasakarat, WEEKDAY_TH, thaksa, THAKSA_WHEEL, dithi, yamOf, dignity,
+} from "../src/siam";
 
 /** Julian centuries TT from a UTC calendar moment. */
 const centuriesTT = (y: number, m: number, d: number, h: number) =>
@@ -91,6 +94,69 @@ describe("ascendant", () => {
     const seen = new Set<number>();
     for (let lst = 0; lst < 360; lst += 1) seen.add(rasiOf(ascendant(lst, 13.7563, obliquity(0))));
     expect(seen.size).toBe(12);
+  });
+});
+
+describe("กาลโยค — checked against a published จุลศักราช year", () => {
+  // จ.ศ. 1387 (16 Apr 2025 – 15 Apr 2026) is published as:
+  //   ธงชัย=ศุกร์  อธิบดี=ศุกร์  อุบาทว์=พฤหัสบดี  โลกาวินาศ=อาทิตย์
+  // Four independent formulas, four independent published answers. Nothing here is
+  // compared against my own arithmetic.
+  test("all four day-qualities reproduce for จ.ศ. 1387", () => {
+    const k = kalaYoka(2025, 8, 1); // any date inside that Songkran year
+    expect(k.chulasakarat).toBe(1387);
+    expect(WEEKDAY_TH[k.thongchai]).toBe("ศุกร์");
+    expect(WEEKDAY_TH[k.athibodi]).toBe("ศุกร์");
+    expect(WEEKDAY_TH[k.ubat]).toBe("พฤหัสบดี");
+    expect(WEEKDAY_TH[k.lokawinat]).toBe("อาทิตย์");
+  });
+
+  test("the จุลศักราช year turns at Songkran, not at New Year", () => {
+    expect(chulasakarat(2026, 4, 15)).toBe(1387); // still the old year
+    expect(chulasakarat(2026, 4, 16)).toBe(1388); // turned
+    expect(chulasakarat(2026, 8, 6)).toBe(1388);  // the event day
+  });
+});
+
+describe("ทักษา", () => {
+  test("a Monday-born carries อาทิตย์ as กาลกิณี", () => {
+    const t = thaksa(1);
+    expect(t.byBhava["บริวาร"]).toBe(2); // จันทร์ at the start
+    expect(t.kalakini).toBe(1);          // อาทิตย์ lands on กาลกิณี
+  });
+
+  test("the wheel is อ จ ภ ว ส ช ร ศ — เสาร์ before พฤหัส, not ๑..๘", () => {
+    expect(THAKSA_WHEEL).toEqual([1, 2, 3, 4, 7, 5, 8, 6]);
+  });
+
+  test("every weekday assigns all eight grahas exactly once", () => {
+    for (let wd = 0; wd < 7; wd++) {
+      expect(new Set(Object.values(thaksa(wd).byBhava)).size).toBe(8);
+    }
+  });
+});
+
+describe("ดิถี and ยาม", () => {
+  test("new moon is ขึ้น 1 ค่ำ, full moon is ขึ้น 15 ค่ำ", () => {
+    expect(dithi(100, 100).kam).toBe(1);              // conjunction
+    expect(dithi(100, 100 + 179).phase).toBe("ขึ้น"); // just short of opposition
+    expect(dithi(100, 100 + 181).phase).toBe("แรม");  // just past it
+  });
+
+  test("watches are 1h30 from 06:00 and 18:00", () => {
+    expect(yamOf(6)).toEqual({ half: "กลางวัน", n: 1 });
+    expect(yamOf(17.9)).toEqual({ half: "กลางวัน", n: 8 });
+    expect(yamOf(18)).toEqual({ half: "กลางคืน", n: 1 });
+    expect(yamOf(19.5)).toEqual({ half: "กลางคืน", n: 2 });
+  });
+});
+
+describe("มาตรฐานดาว", () => {
+  test("มหาอุจ is a degree, not a sign — อุจ by sign alone is not มหาอุจ", () => {
+    // พุธ exalts in กันย์ at 15°. Virgo starts at 150°.
+    expect(dignity(4, 150 + 15, RASI_LORD).label).toBe("มหาอุจ");
+    expect(dignity(4, 150 + 6.34, RASI_LORD).label).toBe("อุจ"); // 8.66° off the point
+    expect(dignity(6, 150 + 5, RASI_LORD).label).toBe("นิจ");    // ศุกร์ falls in กันย์
   });
 });
 
