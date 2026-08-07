@@ -49,7 +49,11 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
 
 ## What got done (08-05 → 08-07)
 
-- **13 `start.sh` rewritten + 1 created.** Every launcher was sourcing a stale `.env` that
+- **12 `start.sh` rewritten + 1 created = 13 total.** (Corrected 2026-08-07 23:0x — an earlier
+  draft of this handoff and the 08-05 retrospective both said "13 rewritten + 1 created", which
+  implies 14. There are only 13 `start.sh` files fleet-wide: 11 uniform + leica's fleet script
+  were rewritten, rpro-saas's was created. The fix itself is real and verified; only the tally was
+  wrong. Caught by a `/rrr --deep` agent, not by me.) Every launcher was sourcing a stale `.env` that
   clobbered direnv's fresh token, and ran under non-interactive bash where the direnv hook never
   fires — so bots would have launched on rotated Discord tokens *and* dropped the per-repo Claude
   token. 13 dead credential files archived to `~/security/stale-discord-env-2026-08-05/`.
