@@ -1,0 +1,17 @@
+{
+  "name": "maw-duang",
+  "version": "0.1.0",
+  "entry": "./src/index.ts",
+  "sdk": "^1.0.0",
+  "target": "js",
+  "description": "แมวดวง — Thai nirayana natal chart engine (self-contained ephemeris)",
+  "author": "leica-oracle",
+  "capabilities": [],
+  "cli": {
+    "command": "duang",
+    "help": "maw duang <YYYY-MM-DD> <HH:MM> [--tz 7] — Thai nirayana natal chart"
+  },
+  "weight": 50,
+  "license": "MIT",
+  "schemaVersion": 1
+}
