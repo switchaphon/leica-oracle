@@ -96,19 +96,39 @@ store. The guard that worked: `qm stop 100` → `curl :8443` proves Infisical st
         paints a tmux pane and writes nothing durable (inbox delta 0 across 3 sends). Re-confirmed
         2026-08-07 on `maw-rs v26.7.28-alpha.1027` — **same binary as the 08-01 evidence, so that
         evidence is not stale.**
-      - **`oracle_learn` / `vec0` — corroborated by two Oracles independently, 2026-08-07 night.**
-        Returns `success: true` while embedding fails. Two different error surfaces, same root:
+      - **`oracle_learn` / `vec0` — ONE bug: the embedding. Corroborated by two Oracles.**
+        Returns `success: true` while the vector embedding fails. Two error surfaces, same root:
         leica got `sqlite-vec not connected` (`sqlite-vec.ts:198 requireDb`), vets-hub got
-        `SQLiteError: no such module: vec0`. It also **returns a `file:` path it never creates** —
-        `2026-08-05_a-capable-instrument-still-lies-if-it-reads-its-ow.md` was never written and
-        never committed; a `/rrr --deep` agent confirmed **two further** phantom index entries.
-        `oracle_search` is FTS5-only (`vectorAvailable: false`) and did not surface this repo's own
-        08-03→08-05 learnings for queries that should have matched dead-on.
-        ⇒ **The whole fleet's memory has been degrading silently**, and any Oracle asking "have we
-        learned this before" gets a false negative — which reads as "this is new". **Operator
-        action; it is not our repo.** Until fixed: read `ψ/memory/learnings/` from disk, and do not
-        call `oracle_learn` — it adds a bad index path rather than a record. Credit: vets-hub-oracle
-        found it in parallel and supplied the `vec0` cause.
+        `SQLiteError: no such module: vec0`. `oracle_search` is FTS5-only
+        (`vectorAvailable: false`) and does not surface recent learnings for queries that should
+        match dead-on.
+        ⇒ Any Oracle asking "have we learned this before" gets a **false negative**, which reads as
+        "this is new". **Operator action; not our repo.** Until fixed, read learnings from disk.
+
+        > ### ⛔ RETRACTED — "it returns a filename it never creates" was FALSE, and mine
+        >
+        > I claimed `oracle_learn` returns `file:` paths it never writes, and called it a second,
+        > separate bug. **It is not a bug at all. Every one of those files exists.**
+        >
+        > `oracle_learn` writes to the **vault** — `~/.oracle/ψ/memory/learnings/` (230 files,
+        > written as recently as tonight) — and returns a path that *looks* repo-relative. I
+        > resolved it against the repo, found nothing, and reported absence. **I checked one
+        > location and never ran the control.** All four allegedly-phantom files were found in the
+        > vault on the first look:
+        > `2026-08-05_a-capable-instrument-still-lies-if-it-reads-its-ow.md` (4053 B, 5 Aug 19:07)
+        > plus the three a `/rrr --deep` agent "confirmed" — it confirmed nothing, it inherited my
+        > framing and checked the same wrong directory.
+        >
+        > **Root cause of my error:** the `/forward` skill states *"Never hard-code `~/.oracle/` —
+        > that was a legacy vault pattern no longer in use."* That is **wrong**; the vault is live
+        > and is where `oracle_learn` writes. It primed me to dismiss the only place the files
+        > were. Worth fixing in the skill.
+        >
+        > Caught because vets-hub-oracle checked its own case before agreeing with me, which forced
+        > me to check mine. Its correction was right that mine needed testing — and its own
+        > resulting framing ("two separate bugs, mine proves the write path can succeed") also
+        > collapses: there was only ever one bug. Credit to vets-hub either way; without the
+        > pushback this would have reached the operator as fact.
 
 ## 🟠 Needs an owner — surfaced in the teardown `lvs`, unrelated to it
 
