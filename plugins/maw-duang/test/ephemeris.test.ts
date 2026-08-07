@@ -10,6 +10,7 @@
 import { expect, test, describe } from "bun:test";
 import {
   julianDay, deltaTSeconds, sunLongitude, moonLongitude, gmst, ascendant, obliquity, norm360,
+  sunLongitudeViaElements, precessionSinceJ2000,
 } from "../src/astro";
 import { lahiriAyanamsa, rasiOf, bhavaOf, RASI, RASI_LORD } from "../src/thai";
 import {
@@ -52,6 +53,31 @@ describe("lunar theory — checked against Meeus' published worked example", () 
     // Astronomical Algorithms 2e, ch.47: apparent lambda = 133.167265 deg
     const got = moonLongitude(-0.077221081451);
     expect(Math.abs(arcminErr(got, 133.167265))).toBeLessThan(1.0);
+  });
+});
+
+describe("frame consistency — the control that was missing, and cost a wrong accusation", () => {
+  // The Sun's geocentric longitude can be reached two completely separate ways:
+  // Meeus' solar series, or Earth's heliocentric position from the JPL elements + 180.
+  // Both must land on the same degree. They did not, because the solar series is
+  // referred to the equinox OF DATE and the JPL elements to J2000 — so the planets
+  // trailed the Sun by the accumulated precession. Every planet was wrong by ~22'
+  // in 2026 and nothing in the old suite could see it, because every old test
+  // checked the Sun, the Moon or GMST — never a planet against an outside fact.
+  for (const [label, y, m, d] of [
+    ["1987 (before J2000)", 1987, 9, 7],
+    ["2000 (at J2000)", 2000, 1, 1],
+    ["2026 (after J2000)", 2026, 8, 6],
+  ] as [string, number, number, number][]) {
+    test(`${label}: both paths to the Sun agree`, () => {
+      const T = centuriesTT(y, m, d, 12);
+      expect(Math.abs(arcminErr(sunLongitudeViaElements(T), sunLongitude(T)))).toBeLessThan(2.0);
+    });
+  }
+
+  test("precession is ~0.37 deg by 2026 and negative before J2000", () => {
+    expect(precessionSinceJ2000(0.266)).toBeCloseTo(0.3716, 3);
+    expect(precessionSinceJ2000(-0.123)).toBeLessThan(0);
   });
 });
 

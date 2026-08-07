@@ -205,7 +205,20 @@ function heliocentric(name: string, T: number): Vec3 {
 
 const LIGHT_DAYS_PER_AU = 0.0057755183;
 
-/** Apparent geocentric ecliptic longitude of a planet, degrees. */
+/**
+ * General precession in longitude since J2000, degrees.
+ *
+ * The JPL elements above are referred to the ecliptic and equinox of **J2000**.
+ * sunLongitude/moonLongitude/rahuLongitude are all referred to the equinox **of date**.
+ * Mixing the two frames leaves the planets trailing everything else by ~0.37° in 2026 —
+ * which is 22', enough to move a conjunction by a day and a half. Everything must be
+ * expressed in one frame before anything is subtracted from anything.
+ */
+export function precessionSinceJ2000(T: number): number {
+  return (5029.0966 * T + 1.11161 * T * T - 0.000006 * T * T * T) / 3600;
+}
+
+/** Apparent geocentric ecliptic longitude of a planet, degrees, equinox of date. */
 export function planetLongitude(name: string, T: number): number {
   const earth = heliocentric("earth", T);
   let body = heliocentric(name, T);
@@ -219,7 +232,20 @@ export function planetLongitude(name: string, T: number): number {
 
   const x = body[0] - earth[0];
   const y = body[1] - earth[1];
-  return norm360((Math.atan2(y, x) * 180) / Math.PI + nutationLongitude(T));
+  const lonJ2000 = (Math.atan2(y, x) * 180) / Math.PI;
+  return norm360(lonJ2000 + precessionSinceJ2000(T) + nutationLongitude(T));
+}
+
+/**
+ * The Sun's geocentric longitude derived from the PLANETARY code path
+ * (Earth's heliocentric direction, reversed). Exists so a test can hold it against
+ * sunLongitude(), which comes from an entirely separate series. The two paths must
+ * agree; when they do not, the frames have drifted apart.
+ */
+export function sunLongitudeViaElements(T: number): number {
+  const e = heliocentric("earth", T);
+  const lonJ2000 = (Math.atan2(e[1], e[0]) * 180) / Math.PI;
+  return norm360(lonJ2000 + 180 + precessionSinceJ2000(T) + nutationLongitude(T));
 }
 
 /** Greenwich mean sidereal time in degrees, from JD(UT). */
