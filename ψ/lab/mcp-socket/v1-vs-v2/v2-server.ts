@@ -1,23 +1,20 @@
-// v2: @modelcontextprotocol/server@2.0.0
-// Claim under test: this is the DUAL-ERA package — one handler serving both a modern
-// stateless request and a legacy initialize handshake. I asserted that from the
-// tarball; this proves or disproves it.
+// v2 — stateless. The factory runs per request, so the McpServer and anything on it
+// is born and dies inside one request. Same probe tool as the v1 stateful server,
+// so the counter tells the whole story.
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 const factory = () => {
-  const s = new McpServer({ name: "duang-v2", version: "2.0.0" });
-  s.registerTool(
-    "which_era",
-    { description: "Reports the pid and package that served this call.",
-      inputSchema: z.object({}) },
-    async () => ({ content: [{ type: "text", text: `v2 server@2.0.0 pid=${process.pid}` }] })
-  );
+  const instanceId = randomUUID().slice(0, 8);
+  let calls = 0;                                   // ← same state, same place as v1
+  const s = new McpServer({ name: "v2-stateless", version: "2.0.0" });
+  s.registerTool("probe",
+    { description: "reports instance + call count", inputSchema: z.object({}) },
+    async () => ({ content: [{ type: "text", text: `instance=${instanceId} calls=${++calls}` }] }));
   return s;
 };
 
-// createMcpHandler returns { fetch, notify, bus, close } — not a bare function.
-// It is shaped to drop straight into any fetch-style server.
 const handler = createMcpHandler(factory);
 const server = Bun.serve({ port: 8801, hostname: "127.0.0.1", fetch: handler.fetch });
-console.log(`v2 listening 127.0.0.1:${server.port} pid=${process.pid}`);
+console.log(`v2-stateless on ${server.port}`);
