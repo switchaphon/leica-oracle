@@ -94,3 +94,82 @@ claude mcp add --transport http --scope local demo http://127.0.0.1:8765
 claude mcp list
 claude mcp remove demo -s local     # clean up
 ```
+
+---
+
+# Spec versions — and the one your client actually speaks
+
+Researched 2026-08-14. The newest spec is **not** the one to build against, and the
+only way to know that was to ask the client.
+
+## What Claude Code sends
+
+Probed by pointing a logging server at it:
+
+```json
+{ "protocolVersion": "2025-11-25",
+  "clientInfo": { "name": "claude-code", "version": "2.1.232" },
+  "capabilities": { "roots": { "listChanged": true }, "elicitation": {} } }
+```
+
+**Claude Code 2.1.232 negotiates `2025-11-25`.** The current published spec is
+`2026-07-28`. Build for what the client speaks, not for what is newest — and note
+that this client still advertises `roots`, a feature the newest spec deprecates.
+
+This is also why the demo server echoes the client's `protocolVersion` back instead
+of hard-coding one. Hard-code `2026-07-28` and the handshake fails against a client
+that speaks `2025-11-25`.
+
+## Timeline
+
+| version | what it did |
+|---|---|
+| 2024-11-05 | HTTP+SSE transport |
+| 2025-03-26 | Streamable HTTP introduced, HTTP+SSE deprecated |
+| 2025-06-18 | Origin validation MUST, elicitation, protocol-version header |
+| **2025-11-25** | **what Claude Code speaks today** — icons, tasks (experimental), tool-calling in sampling, OIDC discovery |
+| 2026-07-28 | stateless redesign — see below |
+
+## 2026-07-28 — the stateless rewrite
+
+This is not an incremental release. It removes the things most implementations are
+built around:
+
+- **The `initialize` handshake is gone.** No `initialize`, no
+  `notifications/initialized`. Every request carries its own protocol version and
+  client capabilities in `_meta`.
+- **Sessions are gone.** No `Mcp-Session-Id`. Servers needing cross-call state mint
+  explicit handles and pass them as ordinary tool arguments.
+- **`server/discover`** is new and servers MUST implement it.
+- **MRTR replaces server-initiated requests.** Rather than pushing
+  `sampling/createMessage` or `elicitation/create` down an open stream, the server
+  returns `resultType: "input_required"` with `inputRequests`, and the client retries
+  the original call carrying `inputResponses`. No bidirectional stream needed.
+- **Every result now needs `resultType`** — `"complete"` or `"input_required"`.
+- **`subscriptions/listen`** replaces the HTTP GET stream and
+  `resources/subscribe`.
+- **Removed:** `ping`, `logging/setLevel`, `notifications/roots/list_changed`,
+  `tasks/list`, SSE resumability (`Last-Event-ID`).
+- **Tasks moved** from experimental core feature to an official extension.
+- **Deprecated: Roots, Sampling, and Logging.** Suggested migrations — pass paths as
+  tool parameters instead of Roots; call the LLM provider directly instead of
+  Sampling; write to stderr or OpenTelemetry instead of Logging.
+- Also deprecated: HTTP+SSE (now formally, under the lifecycle policy) and OAuth
+  Dynamic Client Registration in favour of Client ID Metadata Documents.
+- New: `ttlMs` and `cacheScope` required on list results; `Mcp-Method` and `Mcp-Name`
+  headers required on POST; tools SHOULD be returned in deterministic order so client
+  and prompt caches can hit.
+
+There is now a formal feature lifecycle with a **minimum twelve-month deprecation
+window**, so nothing above disappears overnight.
+
+## What this means for the fleet
+
+1. **Target 2025-11-25.** That is what Claude Code speaks; 2026-07-28 support is not
+   there yet.
+2. **Do not build new work on Roots, Sampling or Logging.** They still function, but
+   they are on the way out.
+3. **Expect the stateless migration.** Any server holding per-session state in a
+   `Mcp-Session-Id` will need to move that state into explicit handles.
+4. **Echo the client's protocol version.** It is the difference between connecting
+   and failing silently.
