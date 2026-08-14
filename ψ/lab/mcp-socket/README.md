@@ -173,3 +173,124 @@ window**, so nothing above disappears overnight.
    `Mcp-Session-Id` will need to move that state into explicit handles.
 4. **Echo the client's protocol version.** It is the difference between connecting
    and failing silently.
+
+---
+
+# Stateless (2026-07-28) — full detail
+
+## The vocabulary the spec uses
+
+| term | meaning |
+|---|---|
+| **Modern** | `2026-07-28`+ — version, identity and capabilities travel as per-request metadata |
+| **Legacy** | `2025-11-25` and earlier — establishes a session with an `initialize` handshake |
+| **Dual-era** | implements both |
+
+**Claude Code 2.1.232 is a Legacy client.** That single fact decides what we can build.
+
+## The compatibility matrix, and the row that matters
+
+| client | server | outcome |
+|---|---|---|
+| Modern | Modern | works |
+| Modern | Legacy | **fails** |
+| Dual-era | Modern | works |
+| Dual-era | Legacy | works |
+| **Legacy** | **Modern** | **fails** |
+| Legacy | Dual-era | works |
+| Legacy | Legacy | works |
+
+**A pure 2026-07-28 server will not connect to Claude Code.** On HTTP the request is
+missing required headers and gets `400 Bad Request`; on stdio `initialize` is simply an
+unknown method. And the spec is blunt about why this cannot be fixed from our side:
+*"Legacy clients have no fall-forward mechanism."* A legacy client cannot upgrade
+itself mid-conversation. The entire burden sits on the server.
+
+So anyone in the fleet writing a 2026-07-28 server must write it **dual-era** — serve
+a request carrying modern `_meta` statelessly, and serve an `initialize` request under
+legacy semantics. A dual-era server MAY serve both on the same endpoint.
+
+One courtesy the spec asks of modern-only servers: name your supported versions in the
+error you return to `initialize`, because for a legacy client that error string is the
+only diagnostic a user will ever see.
+
+## No handshake — what every request carries instead
+
+There is no negotiation. Each request stands alone and the server accepts or rejects it
+independently. Required in `_meta`:
+
+```
+io.modelcontextprotocol/protocolVersion      the version this request speaks
+io.modelcontextprotocol/clientCapabilities   what the client can do
+io.modelcontextprotocol/clientInfo           who the client is (SHOULD)
+io.modelcontextprotocol/logLevel             per-request log level (optional)
+```
+
+Servers SHOULD identify themselves back via `io.modelcontextprotocol/serverInfo` in each
+result's `_meta`. On HTTP the version is also carried in the `MCP-Protocol-Version`
+header.
+
+Version mismatch is an ordinary error rather than a failed handshake:
+
+```json
+{ "jsonrpc": "2.0", "id": 1,
+  "error": { "code": -32022, "message": "Unsupported protocol version",
+    "data": { "supported": ["2026-07-28", "2025-11-25"], "requested": "1900-01-01" } } }
+```
+
+The client SHOULD pick from `supported` and retry. Servers **MUST** implement
+`server/discover`; clients MAY call it up front or MAY just fire an RPC and handle the
+error.
+
+## MRTR — how a stateless server asks a question
+
+Server-initiated requests are a breaking change: `roots/list`,
+`sampling/createMessage` and `elicitation/create` can no longer be pushed down a
+stream. Instead the server *interrupts its own result*:
+
+```json
+{ "jsonrpc": "2.0", "id": 1,
+  "result": {
+    "resultType": "input_required",
+    "inputRequests": {
+      "github_login": { "method": "elicitation/create", "params": { ... } }
+    },
+    "requestState": "AEAD-protected blob"
+  } }
+```
+
+The client gathers the answers and **retries the original call** with `inputResponses`
+keyed the same way, echoing `requestState` back untouched.
+
+Rules worth knowing before implementing:
+
+- Allowed **only** on `prompts/get`, `resources/read`, `tools/call`. MUST NOT appear on
+  anything else.
+- The retry **MUST** use a different JSON-RPC `id` — they are independent requests.
+- The client **MUST NOT** inspect, parse or modify `requestState`, and **MUST** echo it
+  exactly; if none was sent, it MUST NOT invent one.
+- The server **MUST NOT** request a capability the client never declared.
+- The server **MUST** include at least one of `inputRequests` or `requestState`.
+- If the client returns incomplete answers, the server **SHOULD** ask again with a new
+  `InputRequiredResult` rather than erroring.
+
+## The security requirement inside MRTR
+
+`requestState` is how a stateless server remembers anything — and it travels **through
+the client**. The spec is explicit: servers **MUST** treat it as attacker-controlled.
+
+If it influences authorization, resource access, or business logic, servers **MUST**
+integrity-protect it (HMAC or AEAD) and **MUST** reject anything failing verification.
+To bound replay, the protected payload SHOULD carry:
+
+- the authenticated principal — reject state presented by a different one
+- a short TTL — reject state presented after it lapses
+- an identifier for the originating request (method name + digest of salient params) —
+  reject state presented on a request that does not match
+
+And the spec's own caveat: those measures bound the replay window and stop cross-user
+and cross-request reuse, but do **not** guarantee single use. Anything that must be
+redeemed once (a payment, a one-time token) has to enforce that server-side.
+
+This is the signed-cookie problem wearing new clothes. Statelessness did not remove the
+state; it moved it across the trust boundary and made integrity the server's job.
