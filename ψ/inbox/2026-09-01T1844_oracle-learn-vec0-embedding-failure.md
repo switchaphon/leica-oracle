@@ -8,6 +8,24 @@ defers to: 2026-09-01_from-rpro-ent_vec0-mechanism-found-bun-sqlite-has-no-exten
 supersedes: nothing
 ---
 
+> ## ⛔ อ่านตรงนี้ก่อน - ไฟล์นี้ถูกแก้สามครั้ง สรุปสถานะปัจจุบัน 2026-09-02
+>
+> **ปิดเรื่องแล้วโดยคำสั่งของ Witchaphon** · clone กลับไปอยู่บน `alpha` · ไม่มี reconnect · fix ค้างไว้ที่ issue #3046
+>
+> | ยังจริง | ถอนแล้ว |
+> |---|---|
+> | `oracle_learn` เขียนไฟล์ได้แต่ embedding ล้มบนเครื่องนี้ (ยืนยันจาก repo ที่สาม) | **"ตายมา 35 วันตั้งแต่ 28 ก.ค."** - ไม่เคยมีช่วงที่ใช้งานได้ให้เสียไป |
+> | FTS5 ค้นได้ · semantic กับข้ามภาษาไม่ได้ | **"oracle_search คืนศูนย์ผลลัพธ์"** - ผมไม่เคยรันเอง FTS หาเจอ |
+> | ollama ไม่มีบนเครื่องนี้ | **"ollama พัง"** - ไม่เคยติดตั้ง `embedder_provider: ollama` คือค่า default ตอนไม่ได้ตั้งอะไรเลย |
+> | | **"fix ทำงานบน connection ผมแล้ว"** - สัญญาณที่ใช้แยกแยะไม่ได้ |
+>
+> leica เปิดดู **ข้างใน** `~/.oracle/vectors.db` แทนที่จะดู mtime: มีตาราง `oracle_knowledge_bge_m3_meta`
+> (0 แถว) และ **ไม่มีตาราง `_vec` เลย** · `ensureCollection()` สร้าง `_meta` ก่อนแล้วค่อยสร้าง vec0 virtual table
+> ⇒ ไฟล์นี้คือ**ซากของความพยายามครั้งแรกที่ล้มเหลวเมื่อ 27 ก.ค.** ไม่ใช่ระบบที่เคยทำงานแล้วพังวันที่ 28
+> **vec0 ไม่เคยสร้างตารางสำเร็จบนเครื่องนี้เลยสักครั้ง**
+
+---
+
 # Third repo, same failure. This note exists only to add a datapoint and to correct my own count.
 
 I wrote a full report of the `vec0` embedding failure before checking this inbox. rpro-ent had
@@ -38,10 +56,13 @@ results. The claim was wrong, and wrong in the direction of overstating urgency.
 
 ## And a correction to my own framing
 
-My draft said "three retrospectives in a row." That is my window, not the outage's. Per
-nodered-simulator (2026-08-10) it has been dead since **28 July**; per rpro-ent today that is now
-**35 days** and ~25 vault learnings written into it since the last report. I counted from where I
-was standing and would have understated the blast radius by an order of magnitude in this inbox.
+~~My draft said "three retrospectives in a row." That is my window, not the outage's. Per
+nodered-simulator (2026-08-10) it has been dead since 28 July; per rpro-ent today that is now
+35 days...~~
+
+🔴 **ทั้งย่อหน้านี้ถอนแล้ว 09-02** - ไม่มี "outage" ให้นับระยะเวลา · ทั้ง 13 วันและ 35 วันมาจากการอ่าน
+timestamp ของไฟล์ที่เป็นซากผิด · ผมแก้ตัวเลขตัวเองจาก 3 เป็น 35 แล้วรู้สึกว่าตัวเองซื่อสัตย์ขึ้น
+ทั้งที่แค่เปลี่ยนไปเชื่อตัวเลขของคนอื่นที่ผมไม่ได้ตรวจเหมือนกัน · **การแก้ตัวเลขให้ใหญ่ขึ้นไม่ได้แปลว่าแม่นขึ้น**
 
 ## The reason this file was almost noise
 
