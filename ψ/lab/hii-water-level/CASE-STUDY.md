@@ -95,7 +95,7 @@ Endpoint names came from pulling `thaiwater.net/dist/js/app.chunk.js` (7.6 MB) a
 
 ---
 
-## 3. Twenty-six traps, each found by measuring rather than assuming
+## 3. Twenty-nine traps, each found by measuring rather than assuming
 
 These are the reason this document exists. Every one of them produces plausible output.
 
@@ -691,8 +691,14 @@ The join settles it, and the answer is the first one:
 | api-v3 stations claimed by more than one twa | 0 |
 | match distance median / p90 / max | 0.0 m / 0.0 m / **0.1 m** |
 
-**For water level, `twa` adds twelve stations and nothing else.** The value of the
-new host is radar, CCTV, PM2.5 and cumulative rainfall.
+**This answers coverage, and coverage is not the question anyone asked.** I wrote
+"for water level twa adds twelve stations and nothing else" here and it was wrong
+for the second time in one night: a registry result standing in for a data result.
+Comparing the values those 768 shared stations actually report finds them
+identical only 37% of the time, with one pair 8.783 m apart at the same minute -
+see 3.27. The defensible statement is that twa adds twelve stations plus a set of
+disagreements that have to be adjudicated, and that its clear value is radar,
+CCTV, PM2.5 and cumulative rainfall.
 
 Three things this taught that the headline number does not.
 
@@ -717,6 +723,122 @@ neighbour 0.68 km to 25.50 km, so they are genuinely absent, not tolerance misse
 This is 3.9's shape a second time. There I answered half a ledger by anti-joining
 in one direction only. Here I reported two totals and never joined them at all.
 Both times the missing step was cheap, and both times someone else had to ask.
+
+### 3.27 Same stations is not same data, and a freshness figure that reversed
+
+3.26 closed the registry question and I let it close the data question too.
+rpro-ent-oracle refused that: identical coordinates prove the two hosts share a
+station list, and say nothing about whether those stations report the same value,
+at the same cadence, with the same gaps. The endpoint pair `rain_today` /
+`rain_24h` in 3.8 had already proved on a single host that two feeds over one
+station set can disagree completely about whether a station is even alive.
+
+Measured across the 768 matched pairs:
+
+| | |
+|---|---|
+| value identical exactly | 37.2% |
+| value agrees within 1 mm | 75.3% |
+| value agrees within 1 cm | 98.0% |
+| largest disagreement | **8.783 m**, same station, same timestamp |
+
+So the hosts agree to a centimetre almost everywhere and disagree materially in a
+handful of places. "Adds nothing" was never supportable from a join.
+
+**A freshness claim that did not survive its second run.** The same comparison
+reported 108 stations fresher on twa against 3 on api-v3, and I published that as
+a 36:1 property of the hosts. It is not a property of anything. rpro-ent re-ran it
+and the direction **reverses with sampling phase**: two hosts on offset refresh
+cycles make whichever you read just after its update look fresher. A later run
+gave 7 against 319, the other way round.
+
+The figure was retracted from the case study, the reference page and eventually
+the README - that last one seven hours late, which is 3.28's subject. What is
+worth keeping is the shape: **a measurement taken once, of a system with a
+period, measures the phase you sampled at.** Anything periodic needs two samples
+before it produces a finding, and the second sample costs one command.
+
+**The one disagreement phase cannot explain.** Offset refresh cycles do not move
+a river nine metres, so the 8.783 m pair was the only case worth chasing.
+Station `URTD03`, แม่น้ำชี ฝายมหาสารคาม (เหนือ): api-v3 publishes
+`storage_percent: -18.93` beside its 138.03 reading. A negative percentage of
+capacity is not a value a river can take, so the row contradicts itself.
+
+Two notes on that evidence, both rpro-ent's before they were mine.
+`storage_percent` is **not** a second witness - it is derived from the same `msl`
+and datum, so "level below ground" and "negative storage" are one observation
+stated twice. A genuinely independent one does exist: a different station at the
+same weir, `ridhydro_TE.100`, reads 148.15, which is 1.3 m from twa's 146.813 and
+10 m from api-v3's 138.03. Different row, different station, different agency,
+computed from neither. Nearby `CHI012` reads a normal positive storage, so this
+is one bad row rather than a sick basin.
+
+Worth sending to สสน. alongside the ทน. outage in 3.11.
+
+### 3.28 A retraction is not done when the source is fixed
+
+The freshness figure was withdrawn from the case study and the reference page
+within minutes. The committed `README.md` kept asserting "the freshness asymmetry
+is 36:1 in twa's favour" for another seven hours, and was found only while writing
+the retrospective for the session that produced it.
+
+That is the same failure as 3.11 - a stale row served as though current - except
+the stale row was mine, and the reader I had specifically pointed at that file was
+the person who disproved it.
+
+I had also written the rule the day before, in
+`ψ/memory/learnings/2026-09-04_a-published-claim-outlives-my-belief-in-it.md`:
+
+> Retraction is not complete when the source is corrected. It is complete when
+> every surface carrying the claim is corrected, withdrawn, or explicitly
+> superseded.
+
+The same file supplied the enumeration - source file, generated rendering,
+published URL, messages sent, other agents' repos - and I did not run it. Writing
+a rule down is not a control; the only thing that would have caught this is
+something that fails a commit. That gate now exists as
+`ψ/lib/hooks/check-generated-current.sh`, which is 3.29.
+
+### 3.29 The gate, because eleven rules in thirty-nine days did not work
+
+A memory audit run during this retrospective counted **eleven occurrences of one
+failure class in thirty-nine days** across this repo's own learnings: a
+measurement executed correctly, a conclusion drawn wider than the measurement
+reached, published, and then corrected by someone else. Un caught five,
+rpro-ent-oracle caught five. The author caught none.
+
+Every remedy on record is a rule to remember. Several are quoted in this document.
+All of them were broken by the person who wrote them, twice within the same day
+and once within the hour. The repo's own words for this, written 2026-08-28:
+
+> Documentation is not a control; only a changed default is.
+
+There has been exactly one attempt at a control rather than a rule -
+`build-case-study.py --check`, added the previous session with the next-step
+"wire `--check` into whatever runs before a publish". It was implemented and
+wired to nothing. A gate that nobody calls is a rule with extra steps.
+
+It is wired now. `ψ/lib/hooks/check-generated-current.sh` runs from the fleet
+pre-commit hook's repo-local chain point and refuses a commit when:
+
+| Condition | Why it is here |
+|---|---|
+| `CASE-STUDY.md` staged and `CASE-STUDY.html` not rebuilt | 3.28 - a claim withdrawn in source, still asserted in the published rendering |
+| the prose trap count disagrees with the heading count | the page asserted "six traps" for a day while the markdown held seventeen |
+| `see 3.N` points at a heading that does not exist | 3.26 cited a fix that had not been written yet |
+
+Verified by failing on purpose: staged this file with a stale HTML, the commit
+was refused, the message named the file and the command to fix it.
+
+**What it does not do matters as much.** It cannot tell whether a claim is true,
+and it cannot find every copy of a number - the README that carried the retracted
+36:1 figure for seven hours is not covered by any of these three rules, because
+nothing mechanically links a sentence in one file to a sentence in another. The
+gate closes the half of the problem that is mechanical. The half that is
+judgement is not automatable and was never the part that failed silently.
+
+The honest test of this entry is not that the gate exists. It is whether the next
+retrospective has to record a twelfth occurrence.
 
 ## 4. The finding that is not about data quality
 

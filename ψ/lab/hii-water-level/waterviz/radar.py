@@ -47,8 +47,9 @@ PAD = 0.25
 # 92 KB): 24 copies of the same small error image compress better than 12 real
 # ones. Size looked like evidence of efficient encoding and was evidence of
 # failure. The tiles were only caught by rendering them and reading the words.
-# assert_real_tiles() below now refuses to bake a frame whose tiles are all
-# byte-identical, so raising ZOOM can fail loudly but never silently.
+# assert_real_tiles() below refuses a frame whose tiles are all identical AND
+# too large to be empty, so raising ZOOM fails loudly - while a genuinely
+# rain-free frame, which is ALSO all-identical, still bakes.
 ZOOM = 7
 MAX_ZOOM = 7
 
@@ -80,20 +81,44 @@ def fetch(url, timeout=45):
         return r.read()
 
 
-def assert_real_tiles(pngs, zoom, when):
-    """Refuse a frame whose tiles are all identical.
+# A fully transparent RainViewer tile is ~334 bytes. The "Zoom Level Not
+# Supported" placeholder is a rendered text image and runs into the kilobytes.
+# Size is what separates them; identity does not.
+BLANK_TILE_MAX = 800
 
-    Real radar over a 3-degree box is never byte-identical tile to tile; one
-    repeated image means the service answered 200 with a placeholder. This is
-    the only check standing between a silent failure and a page that ships
-    twelve copies of the words "Zoom Level Not Supported".
+
+def assert_real_tiles(pngs, zoom, when):
+    """Refuse a frame whose tiles are all identical AND all large.
+
+    The first version of this refused any frame whose tiles were all identical,
+    on the reasoning that "real radar over a 3-degree box is never byte-identical
+    tile to tile". That reasoning is wrong, and measurably so: over a rain-free
+    box every tile is the same 334-byte fully-transparent PNG. Verified
+    2026-09-05, 12 of 12 tiles identical at z=7.
+
+    So the original guard fires on exactly the condition it was built to allow -
+    a working service reporting no rain - and in the Thai dry season that is most
+    frames. It would have aborted every bake from November to April, and
+    refresh.sh would have logged "keeping the previous radar.json" while the page
+    served an ever-older loop. An anti-false-positive guard that becomes a
+    seasonal false-positive generator.
+
+    Identity alone cannot tell "placeholder" from "no rain". Size can, because
+    the placeholder carries rendered text and a transparent tile carries nothing.
     """
     if len(pngs) > 1 and len(set(pngs)) == 1:
-        raise SystemExit(
-            f"radar: every tile at z={zoom} is identical - the service is "
-            f"returning a placeholder, not radar (frame {when}). "
-            f"RainViewer serves up to z={MAX_ZOOM}."
-        )
+        # base64 inflates by 4/3; compare against the decoded size
+        decoded = len(pngs[0]) * 3 // 4
+        if decoded > BLANK_TILE_MAX:
+            raise SystemExit(
+                f"radar: every tile at z={zoom} is identical and {decoded} bytes "
+                f"- too big to be an empty tile, so the service is returning a "
+                f"placeholder, not radar (frame {when}). "
+                f"RainViewer serves up to z={MAX_ZOOM}."
+            )
+        print(f"  frame {when}: no echo anywhere in the box "
+              f"({decoded} B/tile) - kept, this is weather not failure",
+              file=sys.stderr)
 
 
 def build(nframes, zoom):

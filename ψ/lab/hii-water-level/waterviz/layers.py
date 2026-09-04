@@ -64,9 +64,17 @@ RAIN_WINDOW = 1440  # cumulative minutes; the token is c<minutes>, 1440 = 24 h
 # 500 KB JPEGs from doubling the page.
 IMAGE_BUDGET = 2_200_000
 
-# Layer 4's poll gap. Must exceed the slowest source refresh period or healthy
-# cameras report frozen; the EGAT feeds measured exactly 60 s, so 90 s carries a
-# margin. Raise it before adding a slower source, never lower it to speed a build.
+# Layer 4's poll gap. MEASURED, not chosen: the EGAT feeds refresh at exactly
+# 60 s (EXIF stepping 23:15:12 / 23:16:12 / 23:17:12 with the bytes changing in
+# step, 2026-09-04), so 90 s carries a margin. That measurement is from ONE
+# camera family, and the refresh period is a property of each source.
+#
+# This single global value is safe ONLY because the layer-4 verdict is one-sided
+# (see probe(): identical bytes return "unknown", never "frozen"). A source
+# refreshing slower than 90 s therefore comes back UNKNOWN - honest, not wrong.
+# The two decisions are coupled: if anyone ever makes identical bytes mean
+# FROZEN, this constant becomes a false-positive generator for every source
+# slower than the one camera it was measured on. Change neither alone.
 GAP_SECONDS = 90
 
 
@@ -199,7 +207,15 @@ def probe(cam, timeout=8, second_poll=True):
         frozen = hashlib.sha256(blob).digest() == hashlib.sha256(blob2).digest()
     except Exception:
         frozen = None          # could not ask twice; do not claim either way
-    return ("frozen" if frozen else "live"), stamp, blob, frozen
+    # Layer 4 is ONE-SIDED. Bytes differing proves the source produced something
+    # new, with no knowledge of its period needed. Bytes matching means frozen OR
+    # polled inside one refresh cycle, and those are indistinguishable from here -
+    # so it reports "unknown", never "frozen". Credit rpro-ent-oracle: the first
+    # version of this returned "frozen" and would have libelled any camera whose
+    # refresh is slower than GAP_SECONDS.
+    if frozen is None:
+        return "unknown", stamp, blob, None
+    return ("unknown" if frozen else "live"), stamp, blob, frozen
 
 
 def cctv_layer(do_probe=True, second_poll=True):
