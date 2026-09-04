@@ -20,8 +20,13 @@ counts.** Both are live. Neither supersedes the other.
 | CCTV rows | 106 | 85 |
 | Error language | Thai/English | **Chinese** |
 
-The row counts differ because they are different station sets, not because one is
-stale. Do not assume a number carried over from the old notes applies here.
+Two different row counts are NOT evidence of two different station sets - that
+was my first reading and it was wrong. Joined on coordinates, 768 of twa's 780
+water level stations are api-v3 stations under a different code scheme, matching
+to within 0.1 m. See trap 9 in [[1711_TESTING]].
+
+Do not assume a number carried over from the old notes applies here, and do not
+assume a different number means different coverage either.
 
 ## Hosts
 

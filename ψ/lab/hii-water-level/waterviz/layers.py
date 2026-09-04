@@ -6,7 +6,9 @@ layers.py - bake the rain-gauge and CCTV layers into a JSON blob for the page.
 
 Source is twa-api-public.thaiwater.net, a *different* API from the
 api-v3.thaiwater.net that supplies the water levels: different host, different
-auth, different station sets. See ψ/learn/thaiwater/twa/ for the survey.
+auth, different code scheme - but largely the SAME stations. 768 of twa's 780
+water level stations sit on api-v3 coordinates to within 0.1 m, so only the rain
+gauges, cameras and radar here are genuinely new. See ψ/learn/thaiwater/twa/.
 
 Both layers are baked rather than fetched, for the same reason as radar.py: a
 published artifact's CSP blocks XHR and images from non-allowlisted hosts with
@@ -16,6 +18,12 @@ CCTV needs a word of warning. The API reports isActive: true on all 85 cameras
 and that flag means nothing - nationwide, only 10 of 57 hostnames resolve at
 all. So this script probes each camera at build time and records what actually
 answered, rather than passing the vendor's flag through to the page.
+
+Read the states precisely. 'nodns' means the NAME does not resolve, not that
+the camera is dead: dyndns.org withdrew its free tier, so a lapsed account
+explains it and the hardware may still be filming. And 'live' counts cameras
+that returned a JPEG; the EXIF check on top of that is a lower bound, because a
+camera serving a current frame without EXIF fails it while being fine.
 
 Camera frames ARE embedded, for the cameras that answer - a modal on the page
 shows the picture without sending the reader to a third-party host. The CSP on a

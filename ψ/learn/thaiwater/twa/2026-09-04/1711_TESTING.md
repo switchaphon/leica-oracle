@@ -1,4 +1,4 @@
-# How this was verified, and the eight traps
+# How this was verified, and the ten traps
 
 Every count in these notes came from executing the call and reading the response.
 Where I could not verify something I said so rather than inferring it. This file
@@ -187,3 +187,124 @@ Stated as leads, not facts:
   endpoints, and for the v1 `/graph` family
 - whether the anonymous key is rate-limited, rotated, or intended for reuse
 - **licensing** - no terms are published on this host at all
+
+## Trap 9 - the station overlap, and a figure that existed only in a message
+
+Two independent keys were tried against the `api-v3` water level set: station code
+and coordinates. They disagreed maximally - **0 overlap by code, 768 by position.**
+
+Resolved in favour of coordinates, but not because coordinates are better. **A
+code-scheme mismatch fully explains a zero-overlap result; nothing explains 768 exact
+coordinate coincidences.** One key's failure had an available mechanism, the other's
+did not. The rule to carry forward is *prefer the key whose failure has no available
+mechanism* - not "prefer coordinates", which would be the wrong lesson and may point
+the other way next time.
+
+### The numbers, re-derived 2026-09-04 and reproducible
+
+| | twa | api-v3 |
+|---|---|---|
+| water level stations | **780** | **1,406** |
+| with usable coordinates | 780 | 1,406 |
+| without coordinates | **0** | **0** |
+
+| join at 110 m | |
+|---|---|
+| twa matched to a v3 station | **768 (98.5%)** |
+| twa with no match | **12** |
+| v3 stations matched by more than one twa | **0** |
+| match distance: median / p90 / max | 0.0 m / 0.0 m / **0.1 m** |
+| matched within 10 m | 768 of 768 (100%) |
+
+Two things follow. **The 110 m tolerance is doing no work** - the hosts publish
+identical coordinates, not nearby ones, so a 1 m tolerance returns the same 768.
+Choosing 110 m was luck, not method; the load-bearing check is the cardinality, and
+it is 1:1 everywhere. And **twa-only = 12 is a count, not a lower bound**, because
+nothing was excluded by construction: every station on both hosts had coordinates and
+entered the join.
+
+The 12 are coherent rather than scattered - nine are a GNSS programme in Nan
+(`GNSS01`-`GNSS10`), plus บางพระ (ตราด), บ้านดอนยาง (ยโสธร) and น้ำพวย อ.ผาขาว (เลย).
+Their nearest `api-v3` neighbour is **0.68 km to 25.50 km** away, so they are genuinely
+absent, not tolerance misses.
+
+### The trap itself
+
+An earlier pass reported `791` stations and `721 of 733` matched. **None of those
+three figures was written to any file** - they existed only in a message to
+rpro-ent-oracle. When challenged on the denominator they could not be re-derived,
+because 791 had already moved to 780 on live data and 733 corresponds to nothing
+recoverable.
+
+**A number that lives only in a message cannot survive its first "where did that come
+from".** The join is now scripted and its output recorded here, so the next challenge
+is answered by re-running it rather than by defending a remembered figure.
+
+### Operational conclusion
+
+For water level, `twa` adds nothing `api-v3` does not already carry - the coordinate
+identity shows one station registry surfaced twice, not two surveys. The new host's
+value is radar, CCTV, PM2.5 and cumulative rainfall.
+
+## Trap 10 - coordinate identity proves the registry, not the readings
+
+rpro-ent-oracle refused the conclusion drawn from trap 9: 768 exact coordinate matches
+prove the two hosts share a **station registry**, and say nothing about whether those
+stations report the same **values**, at the same cadence, with the same gaps. The
+objection is correct, and this host pair demonstrates why.
+
+### The near-miss first
+
+The initial cross-host comparison reported **timestamps differing on all 768 pairs**
+and was about to be filed as a freshness divergence. It was a serialisation artefact:
+
+```
+twa : '2026-09-04T22:40:00+07:00'
+v3  : '2026-09-04 22:40'
+```
+
+Both were sliced `[:16]`, so position 10 compared `T` against a space on every row.
+The tell was in the output being read rather than the code: the most common
+"difference" printed as `twa 22:40 vs v3 22:40`, times visibly identical while the
+comparison called them different. **A difference count that disagrees with the values
+printed beside it is an instrument fault, not a finding.**
+
+### The comparison after normalising
+
+768 matched pairs, same instant:
+
+| | count |
+|---|---|
+| timestamps identical | **763 (99.3%)** |
+| timestamps differing | 5 - all five twa **fresher**, v3 a full day stale |
+| values identical exactly | 294 |
+| values within 5 mm (float/rounding) | 467 |
+| **values genuinely different** | **7** |
+
+The seven, largest first:
+
+| station | twa | api-v3 | difference |
+|---|---|---|---|
+| แม่น้ำชี ฝายมหาสารคาม | 146.813 | 138.030 | **8.783 m** |
+| บ้านค่าย | 5.500 | 6.150 | 0.650 m |
+| บ้านดอนขยอม | 120.430 | 120.000 | 0.430 m |
+| บ้านห้วยทับทัน | 123.550 | 123.600 | 0.050 m |
+| ตลาดเสนา | 1.220 | 1.210 | 0.010 m |
+| ลำโดมใหญ่ บ้านนาเยีย | 112.860 | 112.850 | 0.010 m |
+
+**761 of 768 (99.1%) agree within 5 mm.** But an 8.78 m disagreement about a river
+level at a weir is not rounding: one of the two hosts is currently wrong about
+มหาสารคาม, and nothing in the coordinate join could have surfaced it.
+
+### What this settles
+
+| claim | status |
+|---|---|
+| one registry surfaced twice | **proven** - 768 exact matches, 1:1 |
+| current values agree | **99.1% within 5 mm**, 7 exceptions |
+| freshness | 5 stations where twa leads v3 by a day |
+| cadence, backfill, history | **unproven** - this is one snapshot, not a window |
+
+The full-window comparison (the shape used against the file corpus on CPY001, 51,872
+timestamps) has **not** been run across hosts. Until it is, the honest statement is
+that this settles coverage and one snapshot of values, not equivalence.

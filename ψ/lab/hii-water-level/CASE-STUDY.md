@@ -95,7 +95,7 @@ Endpoint names came from pulling `thaiwater.net/dist/js/app.chunk.js` (7.6 MB) a
 
 ---
 
-## 3. Twenty-five traps, each found by measuring rather than assuming
+## 3. Twenty-six traps, each found by measuring rather than assuming
 
 These are the reason this document exists. Every one of them produces plausible output.
 
@@ -158,17 +158,25 @@ are separate endpoints; pull both in the same minute and join by station. If
 `rain_24h` were since-midnight under a misleading name it would have to EQUAL
 `rain_today`.
 
+> **SUPERSEDED - do not cite the table below.** These counts were contaminated by
+> trap 3.11, which had not been found when they were measured: every ทน. row in
+> `rain_today` was frozen at 2026-08-06, so this compares live values against dead
+> ones. The corrected figures, restricted to stations fresh on both sides, are in
+> **trap 3.12**: 990 / 640 / 32 across 1,662 stations. The conclusion is unchanged.
+
 Measured 2026-09-04 11:10 +07, 3,737 stations with both values numeric:
 
 | relation | stations |
 |---|---|
-| `rain_24h` > `rain_today` | **2,202** |
-| `rain_24h` == `rain_today` | 1,434 |
-| `rain_24h` < `rain_today` | 101 (see 3.8) |
+| `rain_24h` > `rain_today` | ~~2,202~~ |
+| `rain_24h` == `rain_today` | ~~1,434~~ |
+| `rain_24h` < `rain_today` | ~~101~~ (see 3.8) |
 
 Largest gap: `rain_24h` = 129.00 mm while `rain_today` = 0.00 mm. A since-midnight
 total cannot report 129 mm on a day that has recorded nothing. The rain fell before
-midnight and is still inside the window.
+midnight and is still inside the window. (That station is a ทน. gauge, so this
+specific pair is itself contaminated - the clean equivalent in 3.12 is 88.40 against
+0.00 at a station reporting today.)
 
 **`rain_24h` is a genuine rolling 24-hour window.** It remains non-summable across
 stations for the same reason as before; only `rain_1h` and the bulk `rainfall_1h`
@@ -484,8 +492,13 @@ for the other.
 | Rain gauges | 4,433 (`rain_24h`) | 2,696 (`rainfall_c1440`) |
 | Error language | Thai / English | **Chinese** |
 
-The counts differ because the station sets differ, not because one is stale. The
-danger is that both answer to "the ThaiWater API" in conversation, so a figure
+I first wrote that the counts differ because the station sets differ. That was an
+inference, not a measurement, and it was wrong: joined on coordinates, **768 of
+twa's 780 water level stations are api-v3 stations** under a different code
+scheme, matching to within 0.1 m. Only 12 are genuinely new. Two counts differing
+is not evidence of two populations - see 3.26.
+
+The danger is that both answer to "the ThaiWater API" in conversation, so a figure
 quoted from one lands in a document sourced from the other and nothing looks wrong.
 
 **Name the host beside every number.** Section 2's table now describes one of two
@@ -600,7 +613,11 @@ pixels:
 | returning a JPEG | 8 |
 | **EXIF timestamp matching the wall clock** | **4** |
 
-All 44 `dyndns.org` hostnames are NXDOMAIN; that whole domain family has lapsed.
+All 44 `dyndns.org` hostnames are NXDOMAIN. That proves the **name** is
+unreachable, not that the camera is dead - `dyndns.org` withdrew its free tier,
+so a lapsed account explains all 44, and the hardware may still be filming.
+Calling them dead cameras would repeat 3.11 exactly, where gauges that looked
+dead in one endpoint were alive in a sibling.
 
 Then the survivors split again. เขื่อนสิรินธร returns HTTP 200 and a structurally
 perfect JPEG with **15/06/2024** burned into the overlay - a frozen frame more than
@@ -645,6 +662,61 @@ which needs no paging at all.
 
 **An error you produced is not a property of the system.** Reproduce the working
 client's exact call before writing down a limitation.
+
+### 3.26 Two counts differing is not evidence of two populations
+
+I wrote in 3.18 that `api-v3` and `twa` "differ because the station sets differ."
+That was an inference from two totals, never a measurement, and it was wrong.
+
+rpro-ent-oracle rejected it on sight, and correctly: 791 against 1,407 is equally
+consistent with three situations that demand different work.
+
+```
+twa is a strict subset of api-v3   -> ignore twa for level, api-v3 covers it
+partial overlap                    -> need both, and must dedupe
+disjoint                           -> need both, no dedupe
+```
+
+The join settles it, and the answer is the first one:
+
+| | twa | api-v3 |
+|---|---|---|
+| water level stations | 780 | 1,406 |
+| without usable coordinates | 0 | 0 |
+
+| join at 110 m | |
+|---|---|
+| twa matched to an api-v3 station | **768 (98.5%)** |
+| twa with no match | **12** |
+| api-v3 stations claimed by more than one twa | 0 |
+| match distance median / p90 / max | 0.0 m / 0.0 m / **0.1 m** |
+
+**For water level, `twa` adds twelve stations and nothing else.** The value of the
+new host is radar, CCTV, PM2.5 and cumulative rainfall.
+
+Three things this taught that the headline number does not.
+
+**The two join keys disagreed maximally.** By station code the overlap is **zero**;
+by coordinate it is 768. Had I joined on code alone - the obvious key - I would
+have concluded "disjoint, use both, no dedupe", which is the opposite of the truth.
+The tiebreak is not "coordinates are better". It is that **a code-scheme mismatch
+fully explains a zero-overlap result, while nothing explains 768 exact coordinate
+coincidences.** Prefer the key whose failure has no available mechanism.
+
+**The tolerance was doing no work.** Max match distance is 0.1 m and a 1 m tolerance
+returns the same 768: the two hosts publish identical coordinates, not nearby ones.
+Choosing 110 m was luck. The load-bearing check was the cardinality, which is 1:1
+everywhere, and nothing at all rested on the number I picked.
+
+**The 12 are a count, not a lower bound**, because nothing was excluded by
+construction - every station on both hosts had coordinates and entered the join.
+They are coherent rather than scattered: nine are a GNSS programme in Nan
+(`GNSS01`-`GNSS10`), plus บางพระ, บ้านดอนยาง and น้ำพวย อ.ผาขาว. Nearest api-v3
+neighbour 0.68 km to 25.50 km, so they are genuinely absent, not tolerance misses.
+
+This is 3.9's shape a second time. There I answered half a ledger by anti-joining
+in one direction only. Here I reported two totals and never joined them at all.
+Both times the missing step was cheap, and both times someone else had to ask.
 
 ## 4. The finding that is not about data quality
 

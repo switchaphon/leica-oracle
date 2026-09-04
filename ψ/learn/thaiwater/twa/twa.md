@@ -17,7 +17,7 @@
 - [[2026-09-04/1711_QUICK-REFERENCE|Quick Reference]] - the direct answer, start here
 - [[2026-09-04/1711_ARCHITECTURE|Architecture]] - hosts, auth model, payload shapes
 - [[2026-09-04/1711_API-SURFACE|API Surface]] - all 195 paths, verified status and counts
-- [[2026-09-04/1711_TESTING|Testing]] - verification method and the eight traps
+- [[2026-09-04/1711_TESTING|Testing]] - verification method and the ten traps
 - [[2026-09-04/1711_CODE-SNIPPETS|Code Snippets]] - working curl and Python
 
 **Key insights**:
@@ -27,8 +27,10 @@
    datasets. Granted 159, not granted 0.
 2. **`twa-api-public.thaiwater.net` is a second, separate API** from the
    `api-v3.thaiwater.net` already documented in `ψ/lab/hii-water-level/`.
-   Different auth, different station sets (water level 791 vs 1,407).
-   Neither supersedes the other.
+   Different auth, different code schemes, and mostly the SAME stations:
+   768 of twa's 780 water level stations sit on api-v3 coordinates to within
+   0.1 m. For water level twa adds 12 stations and nothing else. Its value is
+   radar, CCTV, PM2.5 and cumulative rainfall.
 3. **The animated rain radar is RainViewer, not a Thai product.** Thai radar
    exists separately as 40 station images via `mediaTypeId=30`.
 4. **Three separate fields lie**: MAP payload key counts are provinces not

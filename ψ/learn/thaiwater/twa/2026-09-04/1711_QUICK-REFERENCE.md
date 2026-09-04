@@ -68,8 +68,11 @@ the way to the pixels:
 | Confirmed returning a JPEG | 8 |
 | **EXIF timestamp within seconds of now** | **4** |
 
-All 44 `dyndns.org` hostnames are NXDOMAIN - that whole domain family has lapsed.
-What survives is mostly EGAT dam cameras on `egat.co.th`.
+All 44 `dyndns.org` hostnames are NXDOMAIN. That says the **names** are
+unreachable, not that the cameras are dead: `dyndns.org` withdrew its free tier
+years ago, so a lapsed dynamic-DNS account explains every one of them, and the
+camera behind it may still be filming for anyone who knows its address.
+What survives by name is mostly EGAT dam cameras on `egat.co.th`.
 
 Verified live right now (Axis P5655-E, 1920x1080, EXIF matching wall clock):
 เขื่อนสิริกิติ์, เขื่อนภูมิพล, เขื่อนวชิราลงกรณ์, เขื่อนบางลาง.
@@ -172,6 +175,6 @@ one, and nothing above answers it.
 
 - [[1711_ARCHITECTURE]] - hosts, auth model, payload shapes
 - [[1711_API-SURFACE]] - all 195 discovered paths with verified status
-- [[1711_TESTING]] - how each claim was checked, and the six traps
+- [[1711_TESTING]] - how each claim was checked, and the ten traps
 - [[1711_CODE-SNIPPETS]] - copy-paste curl and Python
 - `ψ/lab/hii-water-level/WATER-APIS.md` - the older `api-v3` surface, still valid

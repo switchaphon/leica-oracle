@@ -51,7 +51,10 @@ Each of these silently produces a wrong answer if you skip it:
 
 `isActive: true` on all 85 cameras means nothing. Measured 2026-09-04:
 64 have URLs, on 57 hostnames, of which 10 resolve; 8 return a JPEG; **4** have an
-EXIF timestamp matching now. All 44 `dyndns.org` hosts are NXDOMAIN.
+EXIF timestamp matching now, which is a LOWER BOUND on live cameras: a camera
+serving a current frame without EXIF fails that test while being fine.
+All 44 `dyndns.org` hosts are NXDOMAIN, which makes the names unreachable and
+says nothing about whether the cameras still work.
 One camera serves a valid JPEG stamped 15/06/2024.
 
 Check EXIF `datetime` before trusting a frame.
