@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# twa.thaiwater.net anonymous x-api-key  (recorded 2026-09-04)
+#
+# NOT our credential and not a secret. HII ships this key in the public JS
+# bundle at twa.thaiwater.net, in an axios request interceptor, to every
+# visitor who is not logged in:
+#
+#   t ? headers.Authorization = `Bearer ${t}`
+#     : headers["x-api-key"] ||= "<this key>"
+#
+# It authenticates the anonymous public role; /auth/get-public shows that role
+# holds view on all 159 public datasets and nothing else. We cannot rotate it,
+# and every endpoint returns 401 without it, so redacting it would make the
+# survey and the puller non-reproducible - which is their whole point.
+#
+# Reclassify if it ever stops being served publicly by HII.
+ψ/lab/twa-thaiwater/twa_pull.py:generic-api-key:31
+ψ/learn/thaiwater/twa/2026-09-04/1711_QUICK-REFERENCE.md:generic-api-key:15
+ψ/learn/thaiwater/twa/2026-09-04/1711_CODE-SNIPPETS.md:generic-api-key:8
