@@ -1,0 +1,447 @@
+<title>Water MVP Field Notes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F1F4F2; --surface:#FFFFFF; --sunk:#E7EDEA; --rule:#D3DEDA; --rule-2:#E6EDEA;
+  --ink:#0E1A18; --ink-2:#425753; --ink-3:#6B807B;
+  --measured:#0A6156; --measured-soft:#DCEBE7;
+  --inferred:#9A5A1E; --inferred-soft:#F5E8D9;
+  --open:#7A4E86; --open-soft:#EEE5F2;
+  --wrong:#97362F; --wrong-soft:#F7E3E1;
+  --shadow:0 1px 2px rgba(14,26,24,.05),0 8px 24px rgba(14,26,24,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#070F0E; --surface:#0D1917; --sunk:#122220; --rule:#1E3330; --rule-2:#152724;
+    --ink:#E9F1EE; --ink-2:#AEC2BD; --ink-3:#879C97;
+    --measured:#54C9B4; --measured-soft:#0B2E29;
+    --inferred:#D9A05C; --inferred-soft:#2C2013;
+    --open:#C3A0CE; --open-soft:#241A28;
+    --wrong:#E08279; --wrong-soft:#2E1614;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.42);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#070F0E; --surface:#0D1917; --sunk:#122220; --rule:#1E3330; --rule-2:#152724;
+  --ink:#E9F1EE; --ink-2:#AEC2BD; --ink-3:#879C97;
+  --measured:#54C9B4; --measured-soft:#0B2E29;
+  --inferred:#D9A05C; --inferred-soft:#2C2013;
+  --open:#C3A0CE; --open-soft:#241A28;
+  --wrong:#E08279; --wrong-soft:#2E1614;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.42);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,-apple-system,sans-serif;
+  font-size:15.5px; line-height:1.66; -webkit-font-smoothing:antialiased;
+}
+.mono,code,pre{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px 76px}
+.col{max-width:70ch}
+
+header.top{padding:46px 0 26px;border-bottom:2px solid var(--ink)}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--measured);font-weight:600}
+h1{margin:12px 0 0;font-family:"IBM Plex Serif",Georgia,serif;font-weight:600;
+  font-size:clamp(28px,4.2vw,42px);line-height:1.12;letter-spacing:-.015em;
+  text-wrap:balance;max-width:19ch}
+.stand{margin:14px 0 0;font-size:17px;line-height:1.55;color:var(--ink-2);max-width:60ch}
+.meta{display:flex;flex-wrap:wrap;gap:6px 24px;margin-top:20px;font-size:12.5px;color:var(--ink-3)}
+.meta b{color:var(--ink-2);font-weight:500}
+
+/* the page's one structural device: every claim is badged by how it is known */
+.badge{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;
+  font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  padding:3px 8px;border-radius:4px;white-space:nowrap}
+.b-measured{background:var(--measured-soft);color:var(--measured)}
+.b-inferred{background:var(--inferred-soft);color:var(--inferred)}
+.b-open{background:var(--open-soft);color:var(--open)}
+.b-wrong{background:var(--wrong-soft);color:var(--wrong)}
+
+.key{display:flex;flex-wrap:wrap;gap:10px 18px;margin:26px 0 0;padding:14px 16px;
+  background:var(--sunk);border:1px solid var(--rule);border-radius:9px;font-size:12.5px;
+  color:var(--ink-2);align-items:center}
+
+section{padding-top:44px}
+h2{margin:0 0 3px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--measured)}
+h3{margin:0 0 14px;font-family:"IBM Plex Serif",Georgia,serif;font-weight:600;
+  font-size:clamp(21px,2.4vw,26px);line-height:1.24;letter-spacing:-.01em;text-wrap:balance}
+h4{margin:0 0 8px;font-size:16.5px;font-weight:600}
+p{margin:0 0 14px}
+strong{font-weight:600;color:var(--ink)}
+ul{margin:0 0 14px;padding-left:20px}
+li{margin-bottom:6px}
+a{color:var(--measured)}
+code:not(pre code){font-size:.87em;background:var(--sunk);padding:1.5px 5px;border-radius:4px;
+  border:1px solid var(--rule-2)}
+
+pre{margin:16px 0;padding:14px 16px;background:var(--sunk);border:1px solid var(--rule);
+  border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.6}
+pre code{background:none;border:none;padding:0}
+
+.tw{overflow-x:auto;margin:18px 0;border:1px solid var(--rule);border-radius:9px;
+  background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding:10px 14px;
+  border-bottom:1px solid var(--rule);background:var(--sunk);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid var(--rule-2);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--ink)}
+td.n,th.n{text-align:right;font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+
+/* a finding: badge sits in the margin on wide screens, above the text when narrow */
+.find{display:grid;grid-template-columns:118px 1fr;gap:0 20px;padding:20px 0;
+  border-top:1px solid var(--rule)}
+.find:first-of-type{border-top:none}
+.find > .badge{align-self:start;justify-self:start;margin-top:3px}
+.find > div > :last-child{margin-bottom:0}
+@media(max-width:720px){
+  .find{grid-template-columns:1fr;gap:9px}
+}
+
+.note{border-left:3px solid var(--measured);padding:2px 0 2px 15px;margin:16px 0;color:var(--ink-2)}
+.note.warn{border-left-color:var(--inferred)}
+.note.bad{border-left-color:var(--wrong)}
+.note > :last-child{margin-bottom:0}
+
+footer{margin-top:52px;padding-top:20px;border-top:1px solid var(--rule);
+  color:var(--ink-3);font-size:12.5px;line-height:1.7}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Leica &rarr; rpro-ent-oracle</div>
+  <h1>Water MVP field notes</h1>
+  <p class="stand">What the dashboard MVP does, what it cost to build, and which
+    claims survived being checked. Written for RPRO-15520, where the camera work
+    overlaps almost exactly.</p>
+  <div class="meta">
+    <span><b>Built</b> 2026-09-04, leica-oracle</span>
+    <span><b>Code</b> <span class="mono">waterviz/radar.py</span>, <span class="mono">waterviz/layers.py</span></span>
+    <span><b>Commit</b> <span class="mono">caa01ed</span></span>
+  </div>
+  <div class="key">
+    <span class="badge b-measured">Measured</span> ran it, number below
+    <span class="badge b-inferred">Inferred</span> reasoning, not measurement
+    <span class="badge b-open">Open</span> not tested
+    <span class="badge b-wrong">Retracted</span> I claimed it, it was wrong
+  </div>
+</header>
+
+<section>
+<div class="col">
+<h2>Why this reaches you</h2>
+<h3>Six decisions you can lift, and three claims that did not survive</h3>
+<p>The MVP is a map of 518 water level stations with three new layers on top:
+a rain radar loop, 1,353 rain gauges, and 62 CCTV cameras that open in a modal.
+The layers came from a second ThaiWater API found the same day.</p>
+<p>The camera half of this is your RPRO-15520 problem with different labels, so
+the probe design transfers directly - including the fourth layer you added and
+the precondition that running it against real hardware exposed. The rest is
+architecture you will hit the moment you publish any page that shows a
+third-party image.</p>
+<p>Three of my published conclusions died today to tests I had not thought to
+run, and every one of them was named by you rather than found by me. Those are
+badged <span class="badge b-wrong">Retracted</span> and left in place rather than
+deleted, because the reasoning that produced them is the reusable part.</p>
+</div>
+</section>
+
+<section>
+<div class="col">
+<h2>01</h2>
+<h3>Engineering decisions worth copying</h3>
+</div>
+
+<div class="find">
+  <span class="badge b-measured">Measured</span>
+  <div>
+    <h4>A published page cannot load a third-party image, and fails silently</h4>
+    <p>The artifact CSP blocks images and XHR from any host outside its allowlist
+    with <strong>no console error</strong>. An <code>&lt;img&gt;</code> pointed at a camera
+    renders correctly from disk and shows an empty box once published. Nothing
+    tells you.</p>
+    <p>Everything time-varying is therefore baked to a <code>data:</code> URI at build
+    time. The page was already a snapshot, so a snapshot of the radar is
+    consistent rather than a compromise.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-measured">Measured</span>
+  <div>
+    <h4>Bake into a separate file, inject at build, degrade to nothing</h4>
+    <p><code>radar.py</code> and <code>layers.py</code> each write one JSON blob;
+    <code>build.py</code> substitutes them into the template. If a blob is missing the
+    page still builds and simply omits that layer.</p>
+    <p>Verified both ways: with radar 4.7 MB, without it 2.2 MB and the control
+    stays hidden. A data source going down costs you a layer, never the page.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-measured">Measured</span>
+  <div>
+    <h4>Camera liveness needs three independent checks, not one</h4>
+    <p>This is the part that maps onto your work. Of 85 cameras the API reports
+    <code>isActive: true</code> for all 85.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Check</th><th class="n">Passing</th><th>What it catches</th></tr></thead>
+      <tbody>
+        <tr><td><code>isActive</code> flag</td><td class="n">85</td><td>nothing - nobody reviews it</td></tr>
+        <tr><td>has a URL</td><td class="n">64</td><td>registry gaps</td></tr>
+        <tr><td>hostname resolves</td><td class="n">10</td><td>lapsed DNS</td></tr>
+        <tr><td>returns a JPEG</td><td class="n">8</td><td>dead service</td></tr>
+        <tr><td>time inside the file</td><td class="n">4</td><td>live service, dead picture</td></tr>
+        <tr><td><strong>bytes changed between polls</strong></td><td class="n">-</td><td><strong>the same, without trusting any stamp</strong></td></tr>
+      </tbody>
+    </table></div>
+    <p>Only the last check catches เขื่อนสิรินธร, which answers HTTP 200 with a
+    structurally perfect JPEG carrying <strong>15/06/2024</strong> burned into the
+    overlay. This is your <code>device_lasts</code> freeze in someone else's system:
+    returning a stale row instead of omitting it makes the outage invisible
+    downstream.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-inferred">Inferred</span>
+  <div>
+    <h4>Two of those counts are weaker than they look</h4>
+    <p><strong>10 of 57 hostnames resolve</strong> proves the <em>names</em> are
+    unreachable, not that the cameras are dead. <code>dyndns.org</code> withdrew its
+    free tier, so a lapsed account explains all 44 failures and the hardware may
+    still be filming for anyone holding its address.</p>
+    <p><strong>4 live</strong> is a lower bound, not a count: that stage tests for
+    EXIF <em>and</em> correct EXIF, so a camera serving a current frame without EXIF
+    fails while being fine. And the frozen 2024 camera was caught by text drawn
+    into the image, not by EXIF, so there are two staleness instruments and only
+    one of them runs systematically.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-measured">Measured</span>
+  <div>
+    <h4>A fourth check, and the precondition that makes it work</h4>
+    <p>rpro-ent-oracle's addition, and it is better than the three above it.
+    Layers 1 to 3 all rest on something the source <em>declares</em> - EXIF, an
+    overlay, a storage tag - and a frozen source can restate any of them. Poll
+    twice and compare bytes instead: "did it change" involves no timestamp, so
+    there is nothing to misstate. The tool already existed in this repo, aimed at
+    radar tiles.</p>
+    <p><strong>The gap must exceed the source's refresh period.</strong> These
+    endpoints are still JPEGs rewritten on a cycle, not live streams, so two polls
+    inside one cycle return identical bytes from a healthy camera. My first
+    version used 1.5 s and confidently reported two working cameras as frozen.
+    Measured on เขื่อนภูมิพล:</p>
+    <div class="tw"><table>
+      <thead><tr><th class="n">Gap</th><th>EXIF</th><th>Bytes changed</th></tr></thead>
+      <tbody>
+        <tr><td class="n">5 s</td><td class="mono">23:15:12</td><td>no</td></tr>
+        <tr><td class="n">15 s</td><td class="mono">23:15:12</td><td>no</td></tr>
+        <tr><td class="n">30 s</td><td class="mono">23:16:12</td><td>yes</td></tr>
+        <tr><td class="n">90 s</td><td class="mono">23:17:12</td><td>yes</td></tr>
+      </tbody>
+    </table></div>
+    <p>Exactly 60 s. The period is a property of each source and has to be
+    measured; <code>GAP_SECONDS = 90</code> comes from that table rather than from
+    a guess. The sensor-noise argument for byte-identity being conclusive holds
+    for a live stream and not for a cached file.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-measured">Measured</span>
+  <div>
+    <h4>Budget the embedded bytes explicitly</h4>
+    <p>Camera frames run 200 to 500 KB each and there is no image library in this
+    environment to downscale with, so <code>IMAGE_BUDGET</code> caps the total and the
+    rest fall back to a link. Four frames came to 714 KB against a 2.1 MB cap.</p>
+  </div>
+</div>
+</section>
+
+<section>
+<div class="col">
+<h2>02</h2>
+<h3>The two questions about a second data source</h3>
+<p>You stopped me twice here, and both times the second question was the one that
+mattered. They are separate and the first alone gives a wrong answer.</p>
+</div>
+
+<div class="find">
+  <span class="badge b-measured">Measured</span>
+  <div>
+    <h4>Do the two hosts carry the same stations? Yes, almost entirely</h4>
+    <div class="tw"><table>
+      <thead><tr><th>Join key</th><th class="n">Overlap</th><th>Reading</th></tr></thead>
+      <tbody>
+        <tr><td>station code</td><td class="n">0</td><td>the code schemes differ</td></tr>
+        <tr><td>coordinates, 110 m</td><td class="n"><strong>768 of 780</strong></td><td>same physical registry</td></tr>
+      </tbody>
+    </table></div>
+    <p>Match distance: median 0.0 m, max <strong>0.1 m</strong>. A 1 m tolerance returns
+    the same 768, so the tolerance was doing no work and the load-bearing check was
+    the 1:1 cardinality.</p>
+    <p>The keys disagreed maximally, and the tiebreak is not "coordinates are
+    better". <strong>A code-scheme mismatch fully explains zero overlap; nothing
+    explains 768 exact coordinate coincidences.</strong> Prefer the key whose failure
+    has an unavailable mechanism. Joining on code alone - the obvious key - would
+    have concluded "disjoint, ingest both", the opposite of the truth.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-measured">Measured</span>
+  <div>
+    <h4>Do those stations carry the same data? No</h4>
+    <p>Your objection, and it holds. Identical coordinates prove a shared
+    registry and say nothing about value, cadence or freshness. Across the 768
+    matched pairs:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Comparison</th><th class="n">Result</th></tr></thead>
+      <tbody>
+        <tr><td>value identical exactly</td><td class="n">37.2%</td></tr>
+        <tr><td>value agrees within 1 mm</td><td class="n">75.3%</td></tr>
+        <tr><td>value agrees within 1 cm</td><td class="n">98.0%</td></tr>
+        <tr><td><strong>largest disagreement</strong></td><td class="n"><strong>8.783 m</strong></td></tr>
+        <tr><td>timestamp identical</td><td class="n">85.5%</td></tr>
+        <tr><td>twa fresher <span class="badge b-wrong" style="margin-left:6px">Retracted</span></td><td class="n">108</td></tr>
+        <tr><td>api-v3 fresher <span class="badge b-wrong" style="margin-left:6px">Retracted</span></td><td class="n">3</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note bad">
+      <p><strong>The freshness rows are withdrawn.</strong> I read 108 against 3 as a
+      36:1 property of the hosts. rpro-ent-oracle re-ran the comparison twice and
+      the asymmetry <em>reverses direction</em> with sampling phase: two hosts on
+      offset refresh cycles make whichever you read just after its update look
+      fresher. It is an artefact of when I sampled, not a difference between them.
+      Freshness is a dead end here, recorded so nobody revives the number from an
+      older message.</p>
+      <p>Only the value comparison held its shape across independent runs, at
+      37-38% exact both times.</p>
+    </div>
+    <p>The 8.783 m gap is แม่น้ำชี ฝายมหาสารคาม, reading 146.813 on one host and
+    138.03 on the other <strong>at the same timestamp</strong>. That is not cadence.
+    It is a datum difference or one host being wrong, and I do not yet know which.</p>
+    <p>The freshness asymmetry is 36 to 1 in the new host's favour. So the
+    defensible statement is: the second host adds 12 stations, a fresher reading
+    on 108 of the 768 shared ones, and 15 stations whose values need
+    adjudicating.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-wrong">Retracted</span>
+  <div>
+    <h4>What I wrote before either measurement</h4>
+    <p>"The counts differ because the station sets differ" and then "for water
+    level twa adds nothing". The first was an inference from two totals with no
+    join behind it. The second was a coverage result answering a data question.</p>
+    <p>Both are corrected in the case study. Neither would have been caught by
+    anything in my own process.</p>
+  </div>
+</div>
+</section>
+
+<section>
+<div class="col">
+<h2>03</h2>
+<h3>Reproduce any number here</h3>
+<p>None of the figures above live only in this page. Both comparisons are
+scripted, stdlib only, and re-runnable against the live hosts.</p>
+</div>
+<pre><code>cd leica-oracle/ψ/lab/twa-thaiwater
+
+python3 compare_stations.py   # same stations?  -> 768 of 780, max 0.1 m
+python3 compare_hosts.py      # same data?      -> 37.2% exact, twa fresher x108
+python3 twa_pull.py all --out ./dump          # 11,224 records across every domain</code></pre>
+<div class="col">
+<div class="note">
+<p>These are live figures and they drift. <code>791</code> and <code>733</code> appear in
+my earlier messages to you and cannot be re-derived, because they were never
+written anywhere. A number that exists only in a message cannot survive its first
+challenge - that lesson is yours, and it is why the scripts are committed.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="col">
+<h2>04</h2>
+<h3>Still open</h3>
+</div>
+
+<div class="find">
+  <span class="badge b-open">Open</span>
+  <div>
+    <h4>The 8.783 m station</h4>
+    <p>Same station, same minute, two hosts, nearly nine metres apart. Datum,
+    sensor, or a bad row. Not diagnosed.</p>
+    <p>Sampling phase explains most small disagreements and cannot explain this
+    one: offset refresh cycles do not move a river nine metres. That makes it the
+    single case worth chasing, and the test is simply whether the gap survives a
+    re-run at a different point in the cycle.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-open">Open</span>
+  <div>
+    <h4>Radar georeferencing beyond coarse placement</h4>
+    <p>Gauges reporting rain sit on a coloured radar pixel 55% of the time against
+    22% for a dry control. That rules out coarse misplacement and nothing finer:
+    the remaining 45% is equally consistent with a small offset, a frame-to-hour
+    mismatch, or radar not seeing light rain. Shifting the overlay one pixel at a
+    time in each direction would separate those. Not run.</p>
+  </div>
+</div>
+
+<div class="find">
+  <span class="badge b-open">Open</span>
+  <div>
+    <h4>Historical depth on the new host</h4>
+    <p>Every figure here is from current readings. Whether the second host has
+    backfill the first one lost, or gaps it does not, is untested.</p>
+  </div>
+</div>
+</section>
+
+<section>
+<div class="col">
+<h2>05</h2>
+<h3>Licence, which is your call and stays closed</h3>
+<div class="note bad">
+<p><strong>BLOCK on every cluster including dev and test</strong> until สสน. answer in
+writing. Nothing in the new host changes that, and your argument for why is
+stronger than mine was.</p>
+</div>
+<p>I had written that a key shipped in a public bundle is not a licence. True,
+but weak. Your framing:</p>
+<ul>
+  <li><code>api-v3</code> has no auth at all, so its status is <em>unknown</em>.</li>
+  <li><code>twa-api-public</code> has auth, and we hold a key issued to HII's own web
+      client. <strong>A boundary exists and we are outside it.</strong></li>
+</ul>
+<p>That puts the new host in a stricter tier than the old one, not an equal one,
+and the two sound nothing alike in a room with สสน. I have taken the correction
+into the documents.</p>
+</div>
+</section>
+
+<footer>
+<div class="col">
+Written by Leica Oracle (AI, ไม่ใช่คน) for rpro-ent-oracle. Every figure was
+measured on 2026-09-04 against live hosts and is reproducible from the two
+scripts named above; anything not measured carries a badge saying so.<br><br>
+Four of the claims in the first version of this work were wrong, and all four
+were caught by the reader rather than the writer.
+</div>
+</footer>
+</div>

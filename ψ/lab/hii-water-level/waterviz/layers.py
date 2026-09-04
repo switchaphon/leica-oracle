@@ -39,11 +39,13 @@ run 200-500 KB each.
 import argparse
 import base64
 import concurrent.futures
+import hashlib
 import json
 import os
 import re
 import socket
 import sys
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -61,6 +63,11 @@ RAIN_WINDOW = 1440  # cumulative minutes; the token is c<minutes>, 1440 = 24 h
 # library here to downscale with), so this is the only thing keeping four
 # 500 KB JPEGs from doubling the page.
 IMAGE_BUDGET = 2_200_000
+
+# Layer 4's poll gap. Must exceed the slowest source refresh period or healthy
+# cameras report frozen; the EGAT feeds measured exactly 60 s, so 90 s carries a
+# margin. Raise it before adding a slower source, never lower it to speed a build.
+GAP_SECONDS = 90
 
 
 def api(path):
@@ -115,16 +122,52 @@ def rain_layer():
     return out
 
 
-def probe(cam, timeout=8):
-    """Ask the camera itself whether it is alive. isActive is not evidence."""
+def probe(cam, timeout=8, second_poll=True):
+    """Ask the camera itself whether it is alive. isActive is not evidence.
+
+    Four layers, and only the last one cannot be lied to.
+
+      1  DNS resolves          catches a lapsed hostname
+      2  HTTP 200 + JPEG magic catches a dead service
+      3  time inside the file  catches a live service serving an old picture
+      4  bytes changed         catches everything layer 3 cannot see
+
+    Layers 1-3 all rest on something the source declares. EXIF, an overlay, a
+    storage tag: each is a claim about when the frame is from, and a frozen
+    source can restate any of them. Layer 4 asks a different question - did
+    anything change between two polls - which involves no timestamp at all, so
+    there is nothing to misstate.
+
+    Layer 4 has one precondition, and getting it wrong inverts the result.
+    THE GAP MUST EXCEED THE SOURCE'S REFRESH PERIOD. These endpoints are not
+    live MJPEG; they are still JPEGs on a web server rewritten on a cycle, so
+    two polls inside one cycle return identical bytes from a perfectly healthy
+    camera. Measured on เขื่อนภูมิพล 2026-09-04:
+
+        t=0s   exif 23:15:12  hash A
+        t=5s   exif 23:15:12  hash A     unchanged
+        t=15s  exif 23:15:12  hash A     unchanged
+        t=30s  exif 23:16:12  hash B     changed
+        t=90s  exif 23:17:12  hash C     changed
+
+    Exactly 60 s. A 1.5 s gap - the first thing I wrote - reported FROZEN for
+    two cameras whose EXIF was advancing every minute. The "sensor noise makes
+    consecutive frames differ" argument holds for a live stream and not for a
+    cached file, so the period is a property of each source and has to be
+    measured, not assumed. GAP_SECONDS below is set from that measurement.
+
+    Credit rpro-ent-oracle for the layer, who pointed out the tool was already
+    in this repo aimed at radar tiles; the precondition is what running it
+    against real cameras added.
+    """
     url = (cam["u"] or "") + (cam["fn"] or "")
     host = urllib.parse.urlparse(url).hostname
     if not host:
-        return "nourl", None, None
+        return "nourl", None, None, None
     try:
         socket.gethostbyname(host)
     except Exception:
-        return "nodns", None, None
+        return "nodns", None, None, None
     try:
         # Every camera in this feed is plain http. Nothing here weakens TLS: if
         # one ever moves to https it gets verified normally, and a bad
@@ -133,18 +176,33 @@ def probe(cam, timeout=8):
         with urllib.request.urlopen(req, timeout=timeout) as r:
             blob = r.read(400_000)
     except Exception:
-        return "noanswer", None, None
+        return "noanswer", None, None, None
 
     if blob[:2] != b"\xff\xd8":
-        return "notimage", None, None
+        return "notimage", None, None, None
     # Axis cameras carry the capture time in EXIF. A valid JPEG is not proof the
     # picture is current: one camera in this feed serves a 2024 frame under a
     # perfectly good HTTP 200, so record the stamp and let the page show it.
     m = re.search(rb"(20\d\d:\d\d:\d\d \d\d:\d\d:\d\d)", blob[:6000])
-    return "live", (m.group(1).decode() if m else None), blob
+    stamp = m.group(1).decode() if m else None
+
+    if not second_poll:
+        return "live", stamp, blob, None
+
+    # Layer 4. The gap has to clear one full refresh cycle of the source.
+    time.sleep(GAP_SECONDS)
+    try:
+        req2 = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0",
+                                                    "Cache-Control": "no-cache"})
+        with urllib.request.urlopen(req2, timeout=timeout) as r2:
+            blob2 = r2.read(400_000)
+        frozen = hashlib.sha256(blob).digest() == hashlib.sha256(blob2).digest()
+    except Exception:
+        frozen = None          # could not ask twice; do not claim either way
+    return ("frozen" if frozen else "live"), stamp, blob, frozen
 
 
-def cctv_layer(do_probe=True):
+def cctv_layer(do_probe=True, second_poll=True):
     rows = features(api("/v2/cctv"))
     cams = []
     for f in rows:
@@ -161,15 +219,17 @@ def cctv_layer(do_probe=True):
         })
     if do_probe:
         with concurrent.futures.ThreadPoolExecutor(16) as ex:
-            results = list(ex.map(probe, cams))
+            results = list(ex.map(lambda c: probe(c, second_poll=second_poll), cams))
         spent = 0
         # Baked in the order the cameras are listed, not by size. Sorting by
         # size would quietly favour whichever frame happens to compress well,
         # which is not a reason to prefer one working camera over another.
-        for cam, (state, stamp, blob) in zip(cams, results):
+        for cam, (state, stamp, blob, frozen) in zip(cams, results):
             cam["st"] = state
             if stamp:
                 cam["ts"] = stamp
+            if frozen is not None:
+                cam["changed"] = not frozen
             if blob and spent + len(blob) <= IMAGE_BUDGET:
                 cam["img"] = base64.b64encode(blob).decode()
                 spent += len(blob)
@@ -187,10 +247,12 @@ def main():
     p.add_argument("--out", default=os.path.expanduser("~/hii-data/layers.json"))
     p.add_argument("--no-probe", action="store_true",
                    help="skip the camera liveness probe (faster, less honest)")
+    p.add_argument("--no-second-poll", action="store_true",
+                   help="skip layer 4, which costs GAP_SECONDS of wall clock")
     a = p.parse_args()
 
     rain = rain_layer()
-    cams = cctv_layer(not a.no_probe)
+    cams = cctv_layer(not a.no_probe, second_poll=not a.no_second_poll)
 
     data = {
         "fetchedAt": datetime.now(TZ7).strftime("%Y-%m-%d %H:%M"),
