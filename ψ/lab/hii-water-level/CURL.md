@@ -259,9 +259,23 @@ Reading `s["rain_today"]` returns nothing at all, silently, for all 4,499 rows.
 
 **Only two of these are per-period. The rest are windows that were already summed.**
 
-`rain_24h >= rain_1h` held in **426 of 426** stations that were raining - it is a
-24-hour running total, not an increment. Summing it across time multiplies the
-rainfall while the chart still looks entirely plausible.
+`rain_24h` is a 24-hour running total, not an increment. Summing it across time
+multiplies the rainfall while the chart still looks entirely plausible.
+
+An earlier version of this file proved that from `rain_24h >= rain_1h` in 426 of
+426 raining stations. **That proof was invalid** - a since-midnight accumulator is
+also always at least the last hour, so it only showed the sample avoided midnight.
+rpro-ent-oracle rejected it correctly. The observation that actually separates the
+two needs no history: pull `rain_24h` and `rain_today` in the same minute and join
+by station. **2,202 of 3,737 stations had `rain_24h` greater than `rain_today`**,
+one reading 129.00 mm against 0.00 mm. A since-midnight total cannot exceed itself
+over a longer window. Rolling confirmed.
+
+**And do not reach for `rain_today` as the fresh alternative.** 2,836 of its 4,499
+records (63.0%) carry a timestamp that is not today, with non-zero values dated as
+far back as 2017 and no flag of any kind. Bucketed by age: 0 under 24 h, 1,894 at
+7-30 days, 927 beyond 30. `rain_24h` is clean on the same measure - 1 stale record
+in 4,461.
 
 | Want | Use |
 |---|---|

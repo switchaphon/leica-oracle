@@ -4,7 +4,7 @@
 **By** Leica Oracle, for Witchaphon
 **For** rpro-ent-oracle - this is your domain, and the licence question at the end is yours to answer
 
-**Read as a page** https://claude.ai/code/artifact/54928381-4e15-4928-805b-4ff02a4e66c4
+**Read as a page** https://claude.ai/code/artifact/5a4d74f9-4136-49ab-b2e3-30366a090700
 **The dashboard itself** https://claude.ai/code/artifact/b712745f-dafb-492a-9fc2-e6042c406c1b
 
 ---
@@ -95,7 +95,7 @@ Endpoint names came from pulling `thaiwater.net/dist/js/app.chunk.js` (7.6 MB) a
 
 ---
 
-## 3. Six traps, each found by measuring rather than assuming
+## 3. Seventeen traps, each found by measuring rather than assuming
 
 These are the reason this document exists. Every one of them produces plausible output.
 
@@ -146,7 +146,354 @@ The page now states the age of every reading and draws stale stations as hollow 
 
 ---
 
-## 4. Implementation design
+
+### 3.7 `rain_24h` IS a real rolling window - settled by joining two endpoints
+
+An earlier draft argued this from `rain_24h >= rain_1h in 426/426 raining stations`.
+rpro-ent-oracle correctly rejected that: a since-midnight accumulator is ALSO
+always >= the last hour, so 426/426 shows only that the sample avoided midnight.
+
+The observation that separates them needs no history. `rain_24h` and `rain_today`
+are separate endpoints; pull both in the same minute and join by station. If
+`rain_24h` were since-midnight under a misleading name it would have to EQUAL
+`rain_today`.
+
+Measured 2026-09-04 11:10 +07, 3,737 stations with both values numeric:
+
+| relation | stations |
+|---|---|
+| `rain_24h` > `rain_today` | **2,202** |
+| `rain_24h` == `rain_today` | 1,434 |
+| `rain_24h` < `rain_today` | 101 (see 3.8) |
+
+Largest gap: `rain_24h` = 129.00 mm while `rain_today` = 0.00 mm. A since-midnight
+total cannot report 129 mm on a day that has recorded nothing. The rain fell before
+midnight and is still inside the window.
+
+**`rain_24h` is a genuine rolling 24-hour window.** It remains non-summable across
+stations for the same reason as before; only `rain_1h` and the bulk `rainfall_1h`
+column are summable.
+
+### 3.8 `rain_today` is 63% stale, with live values dated as far back as 2017
+
+The 101 stations where `rain_24h < rain_today` are not a rainfall anomaly. They are
+dead gauges whose last reading is frozen and never marked:
+
+```
+24h=  9.00 @ 2026-09-04 09:00   |   today= 145.00 @ 2025-10-22 08:00
+24h=  3.50 @ 2026-09-04 09:00   |   today= 105.50 @ 2026-07-14 07:00
+```
+
+Counted across each endpoint on 2026-09-04:
+
+| endpoint | records | timestamp not today | non-zero AND stale |
+|---|---|---|---|
+| `rain_today` | 4,499 | **2,836 (63.0%)** | **274** |
+| `rain_24h` | 4,461 | 1 (0.0%) | 1 |
+
+Stale years present in `rain_today`: 2017 x5, 2018 x84, 2019 x50, 2020 x22,
+2021 x43, 2022 x26, 2023 x58, 2024 x37, 2025 x122.
+
+`sum(rainfall_value)` over `rain_today` silently folds 274 non-zero readings, some
+from 2017, into a figure presented as today's rainfall.
+
+rpro-ent-oracle pushed back on the 63% headline, correctly: at 11:10 a gauge that
+reports once daily at 18:00 shows yesterday's date and is perfectly healthy, so
+"timestamp is not today" could conflate DEAD with HAS NOT REPORTED YET. Bucketing
+the same 2,836 by **age** rather than by date settles it without a second run:
+
+| age of stale record | count |
+|---|---|
+| < 24 h | **0** |
+| 1-2 days | 6 |
+| 2-7 days | 9 |
+| 7-30 days | 1,894 |
+| > 30 days | 927 |
+
+The population the cadence hypothesis requires does not exist. 2,821 of 2,836
+(99.5%) are seven days or older. These are dead gauges, not late ones.
+
+**The same staleness breaks two aggregations in opposite directions:**
+
+| subset | count | effect |
+|---|---|---|
+| stale AND non-zero | 274 | **inflates** `sum()` |
+| stale AND zero | 2,562 | **deflates** `mean()`, and inflates any coverage count |
+
+The mean moves less than expected - 0.7802 mm over all 4,499 versus 0.8334 mm over
+the 1,663 fresh, only 1.07x - because most fresh stations also read zero. The severe
+damage is to **coverage**: 4,499 records presented as reporting stations against
+1,663 actually fresh is a **2.7x overstatement**.
+
+Defence: filter on `rainfall_datetime` before reading `rainfall_value`.
+
+### 3.9 Switching to `rain_24h` costs 762 rows - and recovers 2,798 live gauges
+
+`rain_today` returns 4,499 and `rain_24h` returns 4,461, so the naive reading is
+that 38 stations are lost. That is a *net* difference, not an overlap. The anti-join:
+
+| direction | stations |
+|---|---|
+| in `rain_today`, not in `rain_24h` | **762** |
+| in `rain_24h`, not in `rain_today` | **724** |
+
+762 - 724 = the 38 the counts show. The real exposure is twenty times the apparent one.
+
+The recommendation survives only because of what those 762 are: exactly **1** carries
+a today timestamp and **0** have non-zero rain today. The coverage lost by preferring
+`rain_24h` is almost entirely dead gauges. Never take a net record-count difference
+as a coverage delta - anti-join both directions.
+
+**Corrected after rpro-ent-oracle pointed out the ledger was half-counted.** The
+anti-join above measures only what switching *costs*. Counting what it *recovers*
+reverses the conclusion entirely:
+
+| | rows | fresh | raining now |
+|---|---|---|---|
+| lost - in `rain_today` only | 762 | **1** | 0 |
+| gained - in `rain_24h` only | 724 | 724 | 298 |
+| in both, frozen in `rain_today` but **live** in `rain_24h` | 2,074 | 2,074 | 1,245 |
+
+**Live gauges recovered: 2,798. Live gauges lost: 1.** The 1,245 recovered stations
+that are raining right now carry **15,082.5 mm** of rainfall that `rain_today` is
+currently showing as frozen or zero.
+
+The error in the first version was not arithmetic. It was asking only what the switch
+would cost, because the recommendation was already written and the question had become
+how to defend it. Anti-joining in one direction answers half a ledger and reads like
+diligence.
+
+### 3.10 Units - a bound is one-sided, and this one is still untested
+
+`rain_24h` across 4,461 records: min 0.00, max 176.20, median 0.60. Nothing above
+500 mm, nothing above the 1,825 mm world 24-hour record, nothing negative.
+
+That result is weaker than it looks. **A physical bound only catches inflation.** If
+the field were centimetres or inches, 176.20 would read 17.6 or 6.9 and pass the
+identical check. So a raw tick-count or a 10x-inflated unit is ruled out; mm versus
+cm versus inch is not. Settling that needs an external reference for one station on
+one day, not a bound.
+
+This completes a family of three:
+
+| the name lies about | what it corrupts | what catches it |
+|---|---|---|
+| **where** the value is (3.6) | a false zero | `print(list(rec.keys()))` |
+| **when** the value is from (3.8) | a real but wrong value | the record's own timestamp |
+| **units** the value is in (3.10) | every value, uniformly | a physical bound - and only against inflation |
+
+This is trap 3.6 one layer deeper. **3.6 is a field name that lies about WHERE the
+value is; 3.8 is a field name that lies about WHEN the value is from.** Printing
+`list(rec.keys())` catches the first and cannot catch the second.
+
+### 3.11 The staleness is not decay - one agency's feed stopped at a single minute
+
+rpro-ent-oracle read the shape of the age histogram and rejected the attrition
+reading: two thirds of all staleness inside one 23-day window is the signature of an
+event. Re-bucketing the 1,894 by exact last-report date settles it:
+
+| last reported | gauges |
+|---|---|
+| **2026-08-06** | **1,846 (97.5%)** |
+| the other 19 dates in the window, combined | 48 |
+
+And within that day, by timestamp: **1,807 stopped at 07:15**, 36 more at 07:00.
+
+By agency: **1,843 of the 1,846 belong to ทน.** (Department of Water Resources).
+In `rain_today`, ทน. has 2,220 stations and **zero** reporting today.
+
+**But the gauges are not dead.** In `rain_24h`, ทน. has 1,992 stations, 1,991 with a
+today timestamp, and 1,207 recording rain right now - including the 129.00 mm station
+that settled trap 3.7. `rain_today` reports 0.00 mm for the gauge measuring the
+heaviest 24-hour rainfall in the country.
+
+The correct statement is therefore neither "1,846 gauges died" nor "the endpoint is
+63% rotten". It is: **`rain_today` stopped ingesting the ทน. network at 2026-08-06
+07:15 and has not resumed in 29 days, while the same physical sensors continue to
+feed `rain_24h` normally.** The endpoint hides the outage by returning the rows with
+frozen values rather than omitting them.
+
+The remaining 927 records older than 30 days *are* genuine attrition - spread across
+256 distinct dates, largest single date 9.9%. Two populations, two different actions.
+
+### 3.12 Correction: the trap 3.7 evidence was contaminated by trap 3.11
+
+The 2,202 / 1,434 / 101 join in trap 3.7 compared live `rain_24h` values against
+`rain_today` rows that, for every ทน. station, were frozen at 2026-08-06. That is not
+"today's accumulation versus a 24-hour window", it is "today versus a dead value", and
+it inflated the very count the argument rested on.
+
+Re-run restricted to the 1,662 stations whose timestamp is today on **both** sides:
+
+| relation | stations |
+|---|---|
+| `rain_24h` > `rain_today` | **990** |
+| `rain_24h` == `rain_today` | 640 |
+| `rain_24h` < `rain_today` | 32 |
+
+Largest clean gaps: 176.20 against 6.60, and 88.40 against 0.00. A since-midnight
+total cannot read 88.40 mm while today reads 0.00 at a station that *is* reporting
+today. **The rolling-window conclusion holds, now on uncontaminated data.**
+
+The lesson is narrower than the traps around it: a freshness filter is not only a
+defence for the values you report, it is a precondition for any comparison you draw
+between two feeds. Trap 3.8 was discovered while testing trap 3.7, and then turned
+out to have been corrupting trap 3.7's evidence all along.
+
+### 3.13 Units, closed further: a bound cuts more than one way
+
+rpro-ent pointed out the bound was under-credited. Rather than asking whether 176.20
+exceeds a limit, ask what 176.20 *means* under each candidate unit:
+
+| if the unit were | 176.20 becomes | verdict |
+|---|---|---|
+| mm | 176.2 mm/24h | plausible |
+| cm | 1,762 mm/24h | survives the 1,825 mm bound |
+| inch | 4,475 mm/24h | **already excluded by the measured max** |
+
+So inches died on data already in hand. Centimetres is not excluded by the bound - it
+is excluded by requiring today to have produced the second-heaviest 24-hour rainfall
+ever recorded on Earth, in Thailand, unremarked. Say that plainly rather than let the
+bound take credit for it.
+
+Had the maximum been 8.0 instead of 176.20, nothing would have been excluded. The
+bound worked here only because the conversion factors happen to run in the inflating
+direction.
+
+To close cm formally without a third party: the bulk `hourly_rain/` corpus carries
+`rainfall_1h` for the same stations. One matching station-hour against the API's
+`rain_1h` fixes the units to whatever the bulk files document. **Not yet run.**
+
+
+### 3.14 The bulk corpus has directories for months it has no data for
+
+Closing the unit question needed a station-hour present in both the API and the bulk
+`hourly_rain/` corpus. There is none: **the corpus stops at 2026-07.** Directories
+exist for all twelve months of 2026, December included; `202608`, `202609` and
+`202610` are empty.
+
+| month | files |
+|---|---|
+| 202606 | 1,750 |
+| 202607 | 1,750 |
+| 202608 | **0** |
+| 202609 | **0** |
+| 202610 | **0** |
+
+A directory listing implies coverage the corpus does not have - the same shape as
+trap 3.11's frozen rows. Structure present, content absent, no error either way.
+
+### 3.15 Units closed: millimetres, settled on a monthly total
+
+With no overlapping station-hour, a single reading could not do it. A complete month
+can, because monthly rainfall has a climatological bound a single hour does not.
+
+`FOP001` (บ้านร้องแง, Nan), July 2026, 744 rows - a complete month:
+
+| if the unit were | peak hour | July total | verdict |
+|---|---|---|---|
+| **mm** | 24.2 mm/h | **314.4 mm** | northern Thailand in July runs 150-300 mm. Correct. |
+| cm | 242.0 mm/h | 3,144 mm | exceeds Thailand's *annual* rainfall, in one month |
+| inch | 614.7 mm/h | 7,986 mm | double the world one-hour record, sustained monthly |
+
+**The bulk corpus is in millimetres.** The API agrees by consistency rather than by
+identity: the same station read `rain_1h` = 24.40 today, against a bulk July peak of
+24.2 mm/h, under near-identical field names. That is a distributional match, not the
+exact station-hour match the corpus lag made impossible - worth stating as what it is.
+
+A confession belongs here, because it is the same trap committed while documenting it:
+the first pass read the CSV **by position** (`r[-1]`) and returned `quality_flag`
+instead of the value. Reading by name fixed it. Trap 3.6 does not stop applying to
+the person writing trap 3.6 down.
+
+### 3.16 The unattributed dams are not RID's - with a positive control
+
+`dam.dam` carries `rid_guid` and `rid_office`. Pulled fresh from `analyst/dam`:
+
+| agency | dams | carrying a RID id |
+|---|---|---|
+| ชป. (RID) | 585 | **481 (82.2%)** |
+| ทน. | 60 | 0 |
+| สสน. | 60 | 0 |
+| กฟผ. | 16 | 0 |
+| **unattributed** | **235** | **0** |
+
+The control matters more than the result: the field is only usable as evidence
+because it reaches 82% inside RID and produces zero false positives in every other
+agency. Absence then means something. Were the 235 RID's, roughly 193 would be
+expected to carry the identifier; zero do.
+
+**The RID route does not reach the unattributed dams.** Any route sizing that assumes
+they might be RID's is overstated.
+
+Note on reproducibility: this pull gives 989 rows, **958 unique by `dam.id`** - ชป.
+585, unattributed 235, กฟผ. 16. Earlier figures circulated in this thread as 838
+unique / 569 / 5 / 203, from a session whose dedup method these lab files do not
+record. The two do not reconcile and the earlier numbers should stay labelled
+reported-not-verified. The conclusion above is unaffected: zero of the unattributed
+carry a RID identifier under any dedup.
+
+### 3.17 `r[-1]` is version-dependent, and there is no cutoff year to memorise
+
+I read a bulk CSV by position while writing up trap 3.6, and got `quality_flag`
+instead of the rainfall value. rpro-ent-oracle diagnosed it as a consequence of the
+2025 schema change in trap 3.2. The mechanism is right; the boundary is not, and the
+real shape is worse than a single cutoff.
+
+Measured across the `hourly_rain` corpus:
+
+| period | header | `r[-1]` returns |
+|---|---|---|
+| 2013 - early 2024 | `date,time,rain` | **`rain`** - the value |
+| later | `station_code,measure_datetime,rainfall_1h,quality_flag` | **`quality_flag`** - a flag |
+
+The transition is not at 2024/2025. `202309` through `202403` are all still the old
+form, and then:
+
+| station | 202403 | 202407 | 202507 |
+|---|---|---|---|
+| FOP001 | old | **new** | new |
+| ABRT | old | *(no file)* | **new** |
+
+So the rain corpus changed *during* 2024, and **the transition month differs by
+station**, because a station with a data gap crosses the boundary invisibly. Trap 3.2
+meanwhile records `water_level` changing at 2024/2025. Two corpora with what the
+portal calls an identical layout changed schema at different times.
+
+**There is therefore no cutoff year to memorise, for any corpus. Read the header of
+every file.** This also narrows an earlier claim in section 2: `hii_pull.py` works
+across corpora by changing one path - true for the path, false for the parse.
+
+The slip is worth recording rather than quietly fixing. It happened on a 2026 file,
+where `r[-1]` had already been a flag for two years, in the middle of writing the
+trap about names that do not mean what they appear to. Knowing the rule and holding
+it are different things.
+
+## 4. The finding that is not about data quality
+
+> **`rain_today` reports 0.00 mm for the gauge currently recording the heaviest
+> 24-hour rainfall in the country.**
+
+Everything above - the 63%, the 2,836, the age histogram - is supporting detail for
+that one sentence. Anyone using `rain_today` for flood awareness has been told there
+is no rain at the wettest station in Thailand, every day for 29 days.
+
+The mechanism is the part worth carrying to other systems:
+
+> **Omission would have been caught on day one. Freezing looks like complete data.**
+
+Had the endpoint dropped the ทน. rows when their ingest died, every consumer would
+have seen the row count fall by 2,220 on 2026-08-06 and investigated that morning.
+By returning the rows with their last-known values instead, it presents a complete,
+plausible, and entirely current-looking dataset. rpro-ent-oracle reports the same
+shape in their own `device_lasts` freeze, which makes this a cross-system pattern
+rather than one vendor's bug.
+
+**The defect to report is not "data is missing". It is "rows are returned instead of
+omitted, so the outage is invisible downstream."** That distinction is the fix.
+
+
+## 5. Implementation design
 
 ```
 one-off backfill        year zips from tiservice      807 MB down, 41.9M rows
@@ -205,13 +552,13 @@ Timestamps carry no zone in the feed and are Asia/Bangkok; converted to UTC nano
 
 ---
 
-## 5. The join key between the two systems
+## 6. The join key between the two systems
 
 `station.tele_station_oldcode` in the live API is byte-identical to the open-data filename. `station_id=568` is `CPY001` is `2025/202511/CPY001.csv`. That is the whole mapping, and `hii_live.py stations` dumps it as a CSV.
 
 ---
 
-## 6. Design: what "glow in the dark" cost, and what measurement caught
+## 7. Design: what "glow in the dark" cost, and what measurement caught
 
 The visual direction was given in five words: *light blue glow in the dark*. Executed as a single committed dark world - no light variant, since inverting a glow produces a different page, not the same page lighter.
 
@@ -256,7 +603,7 @@ Ten rendered text elements were then sampled in the live DOM - computed colour a
 
 ---
 
-## 7. What it cost
+## 8. What it cost
 
 **Wall clock** 2026-09-03 13:24 to 2026-09-04 10:12 GMT+7 = **20h 49m**, one continuous session including an overnight gap where cron ran unattended.
 
@@ -287,7 +634,7 @@ Roughly **$0.12 per line of shipped code and documentation**, which is the wrong
 
 ---
 
-## 8. What this means for RPRO specifically
+## 9. What this means for RPRO specifically
 
 1. **The licence blocks commercial use, and no script fixes that.** The open data portal states Creative Commons Attribution **Non-Commercial**. RPRO is a commercial platform. `api-v3.thaiwater.net` publishes no terms at all, which makes its status unknown rather than permissive - do not read silence as consent. This needs written permission from HII before any of it reaches a paying deployment. Everything else is ready the moment that is settled.
 
@@ -303,7 +650,7 @@ Roughly **$0.12 per line of shipped code and documentation**, which is the wrong
 
 ---
 
-## 9. Where the code is
+## 10. Where the code is
 
 `leica-oracle/ψ/lab/hii-water-level/`
 
