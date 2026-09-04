@@ -242,6 +242,49 @@ Also under `data_catalog/`: `temperature/`, `humidity/`, `pressure/`, and the
 `*_mou/` headwater-forest variants. `hii_pull.py` works on all of them by
 changing the base path.
 
+## Rainfall: the path name is not the field name, and most values are already summed
+
+Two traps stacked on one endpoint family. Both were measured on 2026-09-04.
+
+**The field name differs from the path on every rain endpoint:**
+
+| Endpoint | Field that carries the value | Records |
+|---|---|---|
+| `public/rain_24h` | `rain_24h` (rolling 24 h) **and** `rain_1h` (the period) | 4,461 / 3,892 |
+| `public/rain_today` | `rainfall_value` - *not* `rain_today` | 4,499 |
+| `public/rain_yesterday` | `rainfall_value` - *not* `rain_yesterday` | 3,638 |
+| `provinces/rain7d` | `rain_7d` - note the underscore | 3,357 |
+
+Reading `s["rain_today"]` returns nothing at all, silently, for all 4,499 rows.
+
+**Only two of these are per-period. The rest are windows that were already summed.**
+
+`rain_24h >= rain_1h` held in **426 of 426** stations that were raining - it is a
+24-hour running total, not an increment. Summing it across time multiplies the
+rainfall while the chart still looks entirely plausible.
+
+| Want | Use |
+|---|---|
+| A series you can `sum()` | `rain_1h` from `public/rain_24h`, or `rainfall_1h` from the bulk files |
+| A ready-made 24 h total | `rain_24h`, and never aggregate it further |
+| Daily totals | `rainfall_value` from `rain_today` / `rain_yesterday`, one row per station per day |
+
+The bulk corpus is unambiguous by comparison: `hourly_rain/` carries a column
+literally named `rainfall_1h` whose values return to 0, so it is per-period and
+safe to aggregate.
+
+```bash
+# per-period, safe to sum
+curl -s "$API/public/rain_24h" \
+| jq -r '.data[] | select(.rain_1h != null and (.rain_1h|tonumber) > 0)
+         | [.rain_1h, .station.tele_station_name.th] | @tsv'
+
+# already a 24 h total - report it, do not aggregate it
+curl -s "$API/public/rain_24h" \
+| jq -r '[.data[] | select(.rain_24h != null)] | sort_by(.rain_24h|tonumber) | reverse
+         | .[0:10][] | [.rain_24h, .station.tele_station_name.th] | @tsv'
+```
+
 ## Sanity checks worth running once
 
 ```bash

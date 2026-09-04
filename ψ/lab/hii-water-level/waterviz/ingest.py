@@ -104,8 +104,18 @@ def open_db(path):
 
 
 def sync_stations(con):
-    """Refresh the station table and write the current reading for each."""
-    d = get("public/waterlevel_load")["waterlevel_data"]["data"]
+    """Refresh the station table and write the current reading for each.
+
+    Returns the number of stations seen, or -1 when the feed is unreachable.
+    A source outage is an expected condition, not a crash: the caller still
+    exports and rebuilds from whatever the database already holds.
+    """
+    try:
+        d = get("public/waterlevel_load")["waterlevel_data"]["data"]
+    except Exception as e:
+        print(f"live feed unreachable ({type(e).__name__}: {e}) - "
+              f"keeping the stations and readings already stored", file=sys.stderr)
+        return -1
     rows, now = [], []
     for s in d:
         basin = th((s.get("basin") or {}).get("basin_name")) or ""
@@ -266,7 +276,11 @@ def main():
 
     con = open_db(a.db)
     n = sync_stations(con)
-    print(f"stations across {len(BASINS)} basins: {n}", file=sys.stderr)
+    if n < 0:
+        n = con.execute("SELECT COUNT(*) FROM station").fetchone()[0]
+        print(f"stations across {len(BASINS)} basins: {n} (from cache, feed down)", file=sys.stderr)
+    else:
+        print(f"stations across {len(BASINS)} basins: {n}", file=sys.stderr)
     if not a.skip_backfill:
         ok, fail = backfill(con, a.days, a.delay)
         print(f"backfill: ok={ok} failed={fail}", file=sys.stderr)
