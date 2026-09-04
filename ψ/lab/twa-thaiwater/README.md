@@ -59,6 +59,43 @@ One camera serves a valid JPEG stamped 15/06/2024.
 
 Check EXIF `datetime` before trusting a frame.
 
+## Is twa redundant with api-v3?
+
+Two scripts, because the two questions are different and the first one alone
+gives a wrong answer.
+
+```bash
+python3 compare_stations.py   # do the two hosts carry the same STATIONS?
+python3 compare_hosts.py      # do those stations carry the same DATA?
+```
+
+`compare_stations.py` joins on coordinates: **768 of twa's 780** water level
+stations are api-v3 stations to within 0.1 m, 12 are new. By station code the
+overlap is **zero** - the code schemes differ - so joining on the obvious key
+would have concluded "disjoint, use both", the opposite of the truth.
+
+That answers coverage and **stops short of the question that matters**.
+rpro-ent-oracle refused the conclusion at that point, correctly: identical
+coordinates prove a shared station registry, not identical data. Measured
+2026-09-04 across the 768 matched pairs:
+
+| | |
+|---|---|
+| value identical exactly | 37.2% |
+| value agrees within 1 mm | 75.3% |
+| value agrees within 1 cm | 98.0% |
+| largest disagreement | **8.783 m**, same station, same timestamp |
+| timestamp identical | 85.5% |
+| **twa fresher** | **108 stations** |
+| api-v3 fresher | 3 stations |
+
+So "twa adds nothing for water level" was wrong. It adds 12 stations, a fresher
+reading on 108 of the 768 shared ones, and 15 stations whose values disagree by
+more than a centimetre and need adjudicating. The freshness asymmetry is 36:1
+in twa's favour and is not explained by cadence alone.
+
+Re-run both before quoting any of these - they are live figures.
+
 ## Licence
 
 Unsettled. No terms published on this host; CKAN at `data.hii.or.th` is

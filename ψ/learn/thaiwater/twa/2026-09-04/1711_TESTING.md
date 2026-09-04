@@ -156,6 +156,44 @@ plain HTTP and port 5001 both work from here. The failures are NXDOMAIN, not
 egress filtering. That check is the difference between "the registry is stale"
 and "my network is limited", and they are indistinguishable from the error alone.
 
+### The timestamp you reach for is three different timestamps
+
+rpro-ent-oracle traced this trap into their own platform and came back with the
+distinction the probe above was blurring. "Check the time in the file" names three
+defences of very different strength:
+
+| layer | what it measures | survives | fails on |
+|---|---|---|---|
+| **3a** | when the file was **stored** | nothing - a re-upload refreshes it | the naive design |
+| **3b** | when the **recording started** | re-upload | a live stream of a frozen frame |
+| **3c** | time inside the **content** - EXIF, or text burned into the pixels | both | the only layer that caught เขื่อนสิรินธร |
+
+RPRO sits at **3b**, and got there deliberately: the freshness timestamp comes from a
+MinIO object *tag* rather than `lastModified` (`info.js:86`, `base.js:32-34`), and that
+tag is written at upload from the media's own recording start
+(`cctv.js:244` -> `cctv.js:108`, `moment(vod.data.startTime).unix()`). Re-uploading a
+stale file therefore preserves the old start time, the age check exceeds its 3-minute
+threshold, and the thumbnail is marked INACTIVE. It also **fails closed**: an empty
+catch leaves the timestamp undefined, `NaN <= 3` evaluates false, and the result is
+INACTIVE rather than a silent pass. That is the correct direction for a freshness
+check to fail in.
+
+The residual gap is narrow and is exactly the case in this trap. A camera pushing a
+**frozen frame into a live RTSP stream** produces a genuinely new recording of a dead
+image: the recording start is fresh, the status reads ACTIVE, and the picture is from
+2024. 3b cannot see it because nothing about the transport is stale - only the pixels
+are.
+
+**The warning worth carrying: 3b feels like content time and is transport time wearing
+its clothes.** A team that implements 3b will believe it has 3c. RPRO's authors did the
+careful thing - they deliberately avoided 3a - and still land one layer short of the
+failure actually observed here.
+
+For this trap the probe reached 3c on both cameras, but by two different routes:
+burned-in overlay text at เขื่อนสิรินธร, EXIF at เขื่อนรัชชประภา. Only one of those is
+machine-readable, which is why the check cannot be fully automated: **the layer that
+works is the one that is hardest to read.**
+
 ## Trap 8 - this is not the API already in our notes
 
 `ψ/lab/hii-water-level/WATER-APIS.md` documents `api-v3.thaiwater.net`. This is
