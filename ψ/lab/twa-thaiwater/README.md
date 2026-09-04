@@ -86,13 +86,25 @@ coordinates prove a shared station registry, not identical data. Measured
 | value agrees within 1 cm | 98.0% |
 | largest disagreement | **8.783 m**, same station, same timestamp |
 | timestamp identical | 85.5% |
-| **twa fresher** | **108 stations** |
-| api-v3 fresher | 3 stations |
+| ~~twa fresher~~ | ~~108 stations~~ - RETRACTED |
+| ~~api-v3 fresher~~ | ~~3 stations~~ - RETRACTED |
 
-So "twa adds nothing for water level" was wrong. It adds 12 stations, a fresher
-reading on 108 of the 768 shared ones, and 15 stations whose values disagree by
-more than a centimetre and need adjudicating. The freshness asymmetry is 36:1
-in twa's favour and is not explained by cadence alone.
+So "twa adds nothing for water level" was wrong. It adds 12 stations and 15
+stations whose values disagree by more than a centimetre and need adjudicating.
+
+**The freshness rows are withdrawn.** I read 108 against 3 as a 36:1 property of
+the hosts. rpro-ent-oracle re-ran the comparison twice and the direction
+*reverses* with sampling phase: two hosts on offset refresh cycles make whichever
+you read just after its update look fresher. It measured when I sampled, not how
+the hosts behave. Freshness is a dead end here, left visible so nobody revives
+the number from an older message.
+
+Only the value comparison held its shape across independent runs, at 37-38%
+exact both times - and the 8.783 m station, which phase cannot explain because
+offset cycles do not move a river nine metres. That one resolved: `URTD03`,
+where api-v3 publishes `storage_percent: -18.93` beside its reading, and a
+different gauge at the same weir (`ridhydro_TE.100`, 148.15) supports twa's
+figure. api-v3 is the wrong side.
 
 Re-run both before quoting any of these - they are live figures.
 
