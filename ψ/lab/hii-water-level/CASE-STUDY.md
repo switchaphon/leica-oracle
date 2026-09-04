@@ -55,7 +55,7 @@ Requirements were never handed over as a document. They arrived one message at a
 
 ## 2. What the source actually is
 
-Two hosts, and they are not interchangeable.
+Two hosts, and they are not interchangeable. (A third, on a near-identical name, turned up a day later and is covered in trap 3.18 - everything in this section describes `api-v3.thaiwater.net`, not `twa-api-public.thaiwater.net`.)
 
 | | Open data files | Live API |
 |---|---|---|
@@ -95,7 +95,7 @@ Endpoint names came from pulling `thaiwater.net/dist/js/app.chunk.js` (7.6 MB) a
 
 ---
 
-## 3. Seventeen traps, each found by measuring rather than assuming
+## 3. Twenty-five traps, each found by measuring rather than assuming
 
 These are the reason this document exists. Every one of them produces plausible output.
 
@@ -469,6 +469,183 @@ where `r[-1]` had already been a flag for two years, in the middle of writing th
 trap about names that do not mean what they appear to. Knowing the rule and holding
 it are different things.
 
+### 3.18 A second API exists on a near-identical name, and disagrees
+
+Everything above concerns `api-v3.thaiwater.net`. On 2026-09-04 a question about a
+map URL turned up **`twa.thaiwater.net`**, a Next.js rebuild running on a different
+API host, `twa-api-public.thaiwater.net`. Both are live. Neither is a replacement
+for the other.
+
+| | `api-v3.thaiwater.net` | `twa-api-public.thaiwater.net` |
+|---|---|---|
+| Auth | none | `x-api-key` required, 401 without |
+| Water level stations | 1,407 | 791 |
+| CCTV cameras | 106 | 85 |
+| Rain gauges | 4,433 (`rain_24h`) | 2,696 (`rainfall_c1440`) |
+| Error language | Thai / English | **Chinese** |
+
+The counts differ because the station sets differ, not because one is stale. The
+danger is that both answer to "the ThaiWater API" in conversation, so a figure
+quoted from one lands in a document sourced from the other and nothing looks wrong.
+
+**Name the host beside every number.** Section 2's table now describes one of two
+sources, not the source.
+
+### 3.19 A count of the top-level keys is not a count of the records
+
+The new API's map routes return `{data: {"<provinceCode>": FeatureCollection}}`.
+
+`len(data)` on `/v2/cctv` is **44**. The camera count is **85**. The keys are
+provinces. Flattening is one line, and omitting it produces a number that is
+plausible, stable, reproducible and wrong:
+
+```python
+rows = [f for fc in payload["data"].values() for f in fc["features"]]
+```
+
+I published 44 to myself first. What caught it was the sibling route `/v2/cctv/list`
+reporting `totalItems: 85` - two routes disagreeing. A single route read naively
+offers nothing to disagree with.
+
+### 3.20 "No permission" was a missing parameter
+
+`/data/platform/v1/public/media?mediaTypeId=30` returns HTTP 500 with
+`{"code":1006,"message":"无操作权限"}` - "no operation permission".
+
+That is not the problem. The endpoint requires `startDate` and `endDate`; supplied,
+it returns 27 radar image records. The permission reading was falsifiable and I
+falsified it before acting on it: `GET /auth/get-public` returns the anonymous
+role's manifest, and diffing it against the 159 dataset keys the page declares gives
+**159 granted, 0 denied**, radar included.
+
+An error string is the server's theory of what went wrong. It is not evidence.
+Reading this one at face value would have cost the entire radar catalogue - the
+largest single find of the session.
+
+### 3.21 A hardcoded flag in the vendor's own code 404s the vendor's own images
+
+Media records carry an obfuscated `mediaPath` blob, redeemed at
+`platform.thaiwater.net/api/v1/public/media/view`. The site's bundle contains exactly
+one URL builder for it, with `isStaticFile=true` baked in. Applied to any radar frame
+that returns **404**.
+
+I nearly recorded the radar images as unreachable. The positive control is what
+prevented it: the same base URL with a water level cross-section `mediaPath` returned
+a 9,004-byte PNG, so host and route were correct and only the flag was wrong.
+`isStaticFile=false` returns the frame - 128,784 bytes of JPEG.
+
+Two media classes, one flag, no documentation. **A 404 means "not at that URL", never
+"not available"** - and copying the vendor's own call is not a control, because the
+vendor calls it correctly somewhere you have not read.
+
+### 3.22 A timezone suffix can be the thing that lies
+
+Trap 3.8 was a name lying about *when*. This is the same failure one level lower, in
+the field designed to prevent it.
+
+TMD radar records report `mediaDatetime` as `2026-09-04T09:00:00+07:00` while the
+wall clock read 17:11 +07. Taken literally: a seven-hour-old frame from a
+fifteen-minute product. The value is the UTC wall clock with `+07:00` appended.
+
+Three independent confirmations, none of which required waiting:
+
+- the filename, `ubn240_202609040900.jpg`, carries the same `0900`
+- across the afternoon the newest frame tracked UTC-now minus about 20 minutes
+- **the rendered image's own footer reads `CHU 2026-09-04 09:45:00`** - the radar
+  stamps its own picture, and it stamps it in UTC
+
+And the convention is not uniform across the one endpoint. `rasisalai` reports
+`16:41:06+07:00`, which is true local time - but it is the *ingest* time, while its
+filename says `0930`, the frame time.
+
+| field | what it actually holds |
+|---|---|
+| `mediaDatetime`, most sites | frame time in UTC, labelled `+07:00` |
+| `mediaDatetime`, rasisalai | local ingest time, not frame time |
+| `filename` | frame time in UTC, on all 40 sites |
+
+**Parse the filename.** It is the only clock that means the same thing at every site.
+
+A timestamp with an explicit offset reads as self-describing, which is why this one
+survives: the field that would normally settle the question is the field doing the
+lying.
+
+### 3.23 The radar on the map is not Thai
+
+The page's layer code is `rr`, "radar-rain", on a Thai government water portal. The
+natural reading is TMD or HII radar.
+
+A browser network capture shows the map painting tiles from
+`tilecache.rainviewer.com` - **RainViewer**, a third-party global service, 13 frames
+at 10-minute spacing. Thai radar exists on the same site but is a different product
+entirely: 40 individual station images, JPEG and CAPPI PNG, not tiles.
+
+This matters twice. Anyone asking for "the radar layer this map shows" gets a
+third-party feed under third-party terms, not HII's. And anyone who assumes the
+attribution follows the domain will attribute it wrongly.
+
+**Provenance does not inherit from the page it is displayed on.**
+
+### 3.24 `isActive: true`, HTTP 200, and a valid JPEG - all three can be false
+
+All 85 cameras in the new API report `isActive: true`. Following that flag to the
+pixels:
+
+| stage | count |
+|---|---|
+| registered, `isActive: true` on every one | 85 |
+| carrying a URL | 64 |
+| distinct hostnames | 57 |
+| **hostnames that resolve in DNS** | **10** |
+| returning a JPEG | 8 |
+| **EXIF timestamp matching the wall clock** | **4** |
+
+All 44 `dyndns.org` hostnames are NXDOMAIN; that whole domain family has lapsed.
+
+Then the survivors split again. เขื่อนสิรินธร returns HTTP 200 and a structurally
+perfect JPEG with **15/06/2024** burned into the overlay - a frozen frame more than
+two years old. เขื่อนรัชชประภา carries EXIF from 2026-07-28. Four cameras carry EXIF
+within seconds of now and are genuinely live.
+
+Three defences stack, each catching what the previous one passes: DNS resolution
+catches the dead host, HTTP 200 catches the dead service, and only the **EXIF
+timestamp inside the image** catches the live service serving a dead picture.
+
+Before concluding any of this I proved the tester could detect a success:
+`http://example.com` returned 200 and `http://portquiz.net:5001` returned 200, so
+plain HTTP and the non-standard port both work from this machine. Without that
+control, "every camera is unreachable" and "my sandbox blocks this" produce an
+identical result - and the wrong one of those is a much more comfortable conclusion
+to reach about someone else's system.
+
+### 3.25 An error I caused, read back as a property of the system
+
+I tested pagination on the new API by sending `pagination[page]=2` alone and getting
+`400 INVALID_DATA`, then `page=2` alone and getting page 1 back. I wrote down that
+`/v2/cctv/list` was hard-capped at ten rows with pagination broken.
+
+Then a browser capture showed the site issuing:
+
+```
+/v2/agency?pagination[pageSize]=-1&pagination[page]=1&dataset=weather   -> 200
+```
+
+**Both parameters are required together.** Sent as a pair, `/v2/cctv/list` returns
+all 85. There was no cap. There was a malformed request, and I had promoted it to a
+finding about someone else's API.
+
+This is trap 3.9's shape in a different domain - there I answered half a ledger
+because the recommendation was already written; here I described my own error as a
+limitation because the error arrived first and nothing contradicted it. Both are the
+same move: treating the absence of a contradiction as evidence.
+
+`pageSize=-1` is separately unreliable, working on `/v2/agency` and returning 0 rows
+on `/v2/cctv/list` - so the correct advice is an explicit page size, or the map route,
+which needs no paging at all.
+
+**An error you produced is not a property of the system.** Reproduce the working
+client's exact call before writing down a limitation.
+
 ## 4. The finding that is not about data quality
 
 > **`rain_today` reports 0.00 mm for the gauge currently recording the heaviest
@@ -659,11 +836,15 @@ Roughly **$0.12 per line of shipped code and documentation**, which is the wrong
 | `hii_pull.py` | bulk / pull / year / basins / months / peak - the file corpus |
 | `hii_live.py` | live / backfill / stations / bounds - Influx line protocol out |
 | `waterviz/ingest.py` | 8-basin ingest to SQLite + page snapshot |
+| `waterviz/radar.py` | bakes a RainViewer rain radar loop into the page as data URIs |
+| `waterviz/layers.py` | bakes the rain-gauge and CCTV layers from the twa API, probing each camera |
 | `waterviz/refresh.sh` | cron entry, run lock, live and full modes |
 | `waterviz/page.template.html` | the page, single file |
 | `CURL.md` | every endpoint as a runnable curl, all executed |
 | `RPRO-INGEST.md` | ingest spec written for your side |
 | `WATER-APIS.md` | the full survey of what exists |
+| `../twa-thaiwater/twa_pull.py` | the second API - rainfall, water level, CCTV, radar |
+| `../../learn/thaiwater/twa/twa.md` | the second API, written up in full |
 
 Data lives outside git at `~/hii-data/` - 2.2 GB of CC BY-NC third-party data has no business in a public repo.
 

@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Field report on integrating Thailand's HII water telemetry - seventeen silent-failure traps, the ingest design, WCAG measurements, and cost.">
+<meta name="description" content="Field report on integrating Thailand's HII water telemetry across two separate ThaiWater APIs - 25 silent-failure traps, the ingest design, WCAG measurements, and cost.">
 <meta name="author" content="Leica Oracle">
-<title>Seventeen Traps in Thailand's Water Feed</title>
+<title>Twenty-five Traps in Thailand's Water Feed</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 :root{
@@ -106,11 +106,11 @@ footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--line);color:v
 <div class="wrap">
 <header class="top">
   <div class="kicker">Field report / rpro-ent-oracle</div>
-  <h1>Seventeen traps in Thailand's public water feed</h1>
-  <p class="standfirst">One question - "have we ever pulled from this URL?" - became a running ingest for 518 telemetry stations across the Greater Chao Phraya. Every trap below produces output that looks correct.</p>
+  <h1>Twenty-five traps in Thailand's public water feed</h1>
+  <p class="standfirst">One question - "have we ever pulled from this URL?" - became a running ingest for 518 telemetry stations across the Greater Chao Phraya, and then a second survey of a second API on a near-identical name. Every trap below produces output that looks correct.</p>
   <div class="byline"><span><b>Built</b> 2026-09-03 13:24 to 2026-09-04 10:12 GMT+7 (20h 49m wall clock, one session)</span><span><b>By</b> Leica Oracle, for Witchaphon</span><span><b>For</b> rpro-ent-oracle - this is your domain, and the licence question at the end is yours to answer</span></div>
   <p class="links"><a href="https://claude.ai/code/artifact/5a4d74f9-4136-49ab-b2e3-30366a090700" target="_blank" rel="noopener">Read as a page</a> &#183; <a href="https://claude.ai/code/artifact/b712745f-dafb-492a-9fc2-e6042c406c1b" target="_blank" rel="noopener">The dashboard itself</a></p>
-  <div class="figs"><div class="fig"><b class="mono">878,095</b><span>readings in SQLite</span></div><div class="fig"><b class="mono">518</b><span>stations, 8 basins</span></div><div class="fig"><b class="mono">17</b><span>silent-failure traps found</span></div><div class="fig"><b class="mono">~$120</b><span>API-equivalent token cost</span></div></div>
+  <div class="figs"><div class="fig"><b class="mono">878,095</b><span>readings in SQLite</span></div><div class="fig"><b class="mono">518</b><span>stations, 8 basins</span></div><div class="fig"><b class="mono">25</b><span>silent-failure traps found</span></div><div class="fig"><b class="mono">~$120</b><span>API-equivalent token cost</span></div></div>
 </header>
 <section>
 <div class="col">
@@ -137,7 +137,7 @@ footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--line);color:v
 <div class="col">
 <h2>02</h2>
 <h3>What the source actually is</h3>
-<p>Two hosts, and they are not interchangeable.</p>
+<p>Two hosts, and they are not interchangeable. (A third, on a near-identical name, turned up a day later and is covered in trap 3.18 - everything in this section describes <code>api-v3.thaiwater.net</code>, not <code>twa-api-public.thaiwater.net</code>.)</p>
 </div>
 <div class="tw"><table><thead><tr><th></th><th>Open data files</th><th>Live API</th></tr></thead><tbody><tr><td>Host</td><td><code>tiservice.hii.or.th</code></td><td><code>api-v3.thaiwater.net</code></td></tr><tr><td>Shape</td><td>Apache directory index, CSV + year zips</td><td>JSON REST</td></tr><tr><td>Coverage</td><td>2012-01 to 2026-07</td><td>now, plus per-station history</td></tr><tr><td>Cadence</td><td>10 min</td><td>10 min (HII), 1 h (RID), published 10-15 min late</td></tr><tr><td>Auth</td><td>none</td><td>none</td></tr><tr><td>Lag</td><td>about 2 months</td><td>minutes</td></tr></tbody></table></div>
 <div class="col">
@@ -154,7 +154,7 @@ footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--line);color:v
 <section>
 <div class="col">
 <h2>03</h2>
-<h3>Seventeen traps, each found by measuring rather than assuming</h3>
+<h3>Twenty-five traps, each found by measuring rather than assuming</h3>
 <p>These are the reason this document exists. Every one of them produces plausible output.</p>
 </div>
 <div class="trap">
@@ -311,6 +311,78 @@ footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--line);color:v
 <p><strong>There is therefore no cutoff year to memorise, for any corpus. Read the header of every file.</strong> This also narrows an earlier claim in section 2: <code>hii_pull.py</code> works across corpora by changing one path - true for the path, false for the parse.</p>
 <p>The slip is worth recording rather than quietly fixing. It happened on a 2026 file, where <code>r[-1]</code> had already been a flag for two years, in the middle of writing the trap about names that do not mean what they appear to. Knowing the rule and holding it are different things.</p>
 </div>
+<div class="trap">
+<div class="tn">TRAP 18</div>
+<h4>A second API exists on a near-identical name, and disagrees</h4>
+<p>Everything above concerns <code>api-v3.thaiwater.net</code>. On 2026-09-04 a question about a map URL turned up <strong><code>twa.thaiwater.net</code></strong>, a Next.js rebuild running on a different API host, <code>twa-api-public.thaiwater.net</code>. Both are live. Neither is a replacement for the other.</p>
+<div class="tw"><table><thead><tr><th></th><th><code>api-v3.thaiwater.net</code></th><th><code>twa-api-public.thaiwater.net</code></th></tr></thead><tbody><tr><td>Auth</td><td>none</td><td><code>x-api-key</code> required, 401 without</td></tr><tr><td>Water level stations</td><td>1,407</td><td>791</td></tr><tr><td>CCTV cameras</td><td>106</td><td>85</td></tr><tr><td>Rain gauges</td><td>4,433 (<code>rain_24h</code>)</td><td>2,696 (<code>rainfall_c1440</code>)</td></tr><tr><td>Error language</td><td>Thai / English</td><td><strong>Chinese</strong></td></tr></tbody></table></div>
+<p>The counts differ because the station sets differ, not because one is stale. The danger is that both answer to "the ThaiWater API" in conversation, so a figure quoted from one lands in a document sourced from the other and nothing looks wrong.</p>
+<p><strong>Name the host beside every number.</strong> Section 2's table now describes one of two sources, not the source.</p>
+</div>
+<div class="trap">
+<div class="tn">TRAP 19</div>
+<h4>A count of the top-level keys is not a count of the records</h4>
+<p>The new API's map routes return <code>{data: {"&lt;provinceCode&gt;": FeatureCollection}}</code>.</p>
+<p><code>len(data)</code> on <code>/v2/cctv</code> is <strong>44</strong>. The camera count is <strong>85</strong>. The keys are provinces. Flattening is one line, and omitting it produces a number that is plausible, stable, reproducible and wrong:</p>
+<pre><code>rows = [f for fc in payload["data"].values() for f in fc["features"]]</code></pre>
+<p>I published 44 to myself first. What caught it was the sibling route <code>/v2/cctv/list</code> reporting <code>totalItems: 85</code> - two routes disagreeing. A single route read naively offers nothing to disagree with.</p>
+</div>
+<div class="trap">
+<div class="tn">TRAP 20</div>
+<h4>"No permission" was a missing parameter</h4>
+<p><code>/data/platform/v1/public/media?mediaTypeId=30</code> returns HTTP 500 with <code>{"code":1006,"message":"无操作权限"}</code> - "no operation permission".</p>
+<p>That is not the problem. The endpoint requires <code>startDate</code> and <code>endDate</code>; supplied, it returns 27 radar image records. The permission reading was falsifiable and I falsified it before acting on it: <code>GET /auth/get-public</code> returns the anonymous role's manifest, and diffing it against the 159 dataset keys the page declares gives <strong>159 granted, 0 denied</strong>, radar included.</p>
+<p>An error string is the server's theory of what went wrong. It is not evidence. Reading this one at face value would have cost the entire radar catalogue - the largest single find of the session.</p>
+</div>
+<div class="trap">
+<div class="tn">TRAP 21</div>
+<h4>A hardcoded flag in the vendor's own code 404s the vendor's own images</h4>
+<p>Media records carry an obfuscated <code>mediaPath</code> blob, redeemed at <code>platform.thaiwater.net/api/v1/public/media/view</code>. The site's bundle contains exactly one URL builder for it, with <code>isStaticFile=true</code> baked in. Applied to any radar frame that returns <strong>404</strong>.</p>
+<p>I nearly recorded the radar images as unreachable. The positive control is what prevented it: the same base URL with a water level cross-section <code>mediaPath</code> returned a 9,004-byte PNG, so host and route were correct and only the flag was wrong. <code>isStaticFile=false</code> returns the frame - 128,784 bytes of JPEG.</p>
+<p>Two media classes, one flag, no documentation. <strong>A 404 means "not at that URL", never "not available"</strong> - and copying the vendor's own call is not a control, because the vendor calls it correctly somewhere you have not read.</p>
+</div>
+<div class="trap">
+<div class="tn">TRAP 22</div>
+<h4>A timezone suffix can be the thing that lies</h4>
+<p>Trap 3.8 was a name lying about <em>when</em>. This is the same failure one level lower, in the field designed to prevent it.</p>
+<p>TMD radar records report <code>mediaDatetime</code> as <code>2026-09-04T09:00:00+07:00</code> while the wall clock read 17:11 +07. Taken literally: a seven-hour-old frame from a fifteen-minute product. The value is the UTC wall clock with <code>+07:00</code> appended.</p>
+<p>Three independent confirmations, none of which required waiting:</p>
+<ul><li>the filename, <code>ubn240_202609040900.jpg</code>, carries the same <code>0900</code></li><li>across the afternoon the newest frame tracked UTC-now minus about 20 minutes</li><li><strong>the rendered image's own footer reads <code>CHU 2026-09-04 09:45:00</code></strong> - the radar</li></ul>
+<p>stamps its own picture, and it stamps it in UTC</p>
+<p>And the convention is not uniform across the one endpoint. <code>rasisalai</code> reports <code>16:41:06+07:00</code>, which is true local time - but it is the <em>ingest</em> time, while its filename says <code>0930</code>, the frame time.</p>
+<div class="tw"><table><thead><tr><th>field</th><th>what it actually holds</th></tr></thead><tbody><tr><td><code>mediaDatetime</code>, most sites</td><td>frame time in UTC, labelled <code>+07:00</code></td></tr><tr><td><code>mediaDatetime</code>, rasisalai</td><td>local ingest time, not frame time</td></tr><tr><td><code>filename</code></td><td>frame time in UTC, on all 40 sites</td></tr></tbody></table></div>
+<p><strong>Parse the filename.</strong> It is the only clock that means the same thing at every site.</p>
+<p>A timestamp with an explicit offset reads as self-describing, which is why this one survives: the field that would normally settle the question is the field doing the lying.</p>
+</div>
+<div class="trap">
+<div class="tn">TRAP 23</div>
+<h4>The radar on the map is not Thai</h4>
+<p>The page's layer code is <code>rr</code>, "radar-rain", on a Thai government water portal. The natural reading is TMD or HII radar.</p>
+<p>A browser network capture shows the map painting tiles from <code>tilecache.rainviewer.com</code> - <strong>RainViewer</strong>, a third-party global service, 13 frames at 10-minute spacing. Thai radar exists on the same site but is a different product entirely: 40 individual station images, JPEG and CAPPI PNG, not tiles.</p>
+<p>This matters twice. Anyone asking for "the radar layer this map shows" gets a third-party feed under third-party terms, not HII's. And anyone who assumes the attribution follows the domain will attribute it wrongly.</p>
+<p><strong>Provenance does not inherit from the page it is displayed on.</strong></p>
+</div>
+<div class="trap">
+<div class="tn">TRAP 24</div>
+<h4><code>isActive: true</code>, HTTP 200, and a valid JPEG - all three can be false</h4>
+<p>All 85 cameras in the new API report <code>isActive: true</code>. Following that flag to the pixels:</p>
+<div class="tw"><table><thead><tr><th>stage</th><th>count</th></tr></thead><tbody><tr><td>registered, <code>isActive: true</code> on every one</td><td>85</td></tr><tr><td>carrying a URL</td><td>64</td></tr><tr><td>distinct hostnames</td><td>57</td></tr><tr><td><strong>hostnames that resolve in DNS</strong></td><td><strong>10</strong></td></tr><tr><td>returning a JPEG</td><td>8</td></tr><tr><td><strong>EXIF timestamp matching the wall clock</strong></td><td><strong>4</strong></td></tr></tbody></table></div>
+<p>All 44 <code>dyndns.org</code> hostnames are NXDOMAIN; that whole domain family has lapsed.</p>
+<p>Then the survivors split again. เขื่อนสิรินธร returns HTTP 200 and a structurally perfect JPEG with <strong>15/06/2024</strong> burned into the overlay - a frozen frame more than two years old. เขื่อนรัชชประภา carries EXIF from 2026-07-28. Four cameras carry EXIF within seconds of now and are genuinely live.</p>
+<p>Three defences stack, each catching what the previous one passes: DNS resolution catches the dead host, HTTP 200 catches the dead service, and only the <strong>EXIF timestamp inside the image</strong> catches the live service serving a dead picture.</p>
+<p>Before concluding any of this I proved the tester could detect a success: <code>http://example.com</code> returned 200 and <code>http://portquiz.net:5001</code> returned 200, so plain HTTP and the non-standard port both work from this machine. Without that control, "every camera is unreachable" and "my sandbox blocks this" produce an identical result - and the wrong one of those is a much more comfortable conclusion to reach about someone else's system.</p>
+</div>
+<div class="trap">
+<div class="tn">TRAP 25</div>
+<h4>An error I caused, read back as a property of the system</h4>
+<p>I tested pagination on the new API by sending <code>pagination[page]=2</code> alone and getting <code>400 INVALID_DATA</code>, then <code>page=2</code> alone and getting page 1 back. I wrote down that <code>/v2/cctv/list</code> was hard-capped at ten rows with pagination broken.</p>
+<p>Then a browser capture showed the site issuing:</p>
+<pre><code>/v2/agency?pagination[pageSize]=-1&amp;pagination[page]=1&amp;dataset=weather   -&gt; 200</code></pre>
+<p><strong>Both parameters are required together.</strong> Sent as a pair, <code>/v2/cctv/list</code> returns all 85. There was no cap. There was a malformed request, and I had promoted it to a finding about someone else's API.</p>
+<p>This is trap 3.9's shape in a different domain - there I answered half a ledger because the recommendation was already written; here I described my own error as a limitation because the error arrived first and nothing contradicted it. Both are the same move: treating the absence of a contradiction as evidence.</p>
+<p><code>pageSize=-1</code> is separately unreliable, working on <code>/v2/agency</code> and returning 0 rows on <code>/v2/cctv/list</code> - so the correct advice is an explicit page size, or the map route, which needs no paging at all.</p>
+<p><strong>An error you produced is not a property of the system.</strong> Reproduce the working client's exact call before writing down a limitation.</p>
+</div>
 </section>
 <section>
 <div class="col">
@@ -442,7 +514,7 @@ land       #0B1E2B    land-line #2B5570</code></pre>
 <h3>Where the code is</h3>
 <p><code>leica-oracle/ψ/lab/hii-water-level/</code></p>
 </div>
-<div class="tw"><table><thead><tr><th>File</th><th>What</th></tr></thead><tbody><tr><td><code>hii_pull.py</code></td><td>bulk / pull / year / basins / months / peak - the file corpus</td></tr><tr><td><code>hii_live.py</code></td><td>live / backfill / stations / bounds - Influx line protocol out</td></tr><tr><td><code>waterviz/ingest.py</code></td><td>8-basin ingest to SQLite + page snapshot</td></tr><tr><td><code>waterviz/refresh.sh</code></td><td>cron entry, run lock, live and full modes</td></tr><tr><td><code>waterviz/page.template.html</code></td><td>the page, single file</td></tr><tr><td><code>CURL.md</code></td><td>every endpoint as a runnable curl, all executed</td></tr><tr><td><code>RPRO-INGEST.md</code></td><td>ingest spec written for your side</td></tr><tr><td><code>WATER-APIS.md</code></td><td>the full survey of what exists</td></tr></tbody></table></div>
+<div class="tw"><table><thead><tr><th>File</th><th>What</th></tr></thead><tbody><tr><td><code>hii_pull.py</code></td><td>bulk / pull / year / basins / months / peak - the file corpus</td></tr><tr><td><code>hii_live.py</code></td><td>live / backfill / stations / bounds - Influx line protocol out</td></tr><tr><td><code>waterviz/ingest.py</code></td><td>8-basin ingest to SQLite + page snapshot</td></tr><tr><td><code>waterviz/radar.py</code></td><td>bakes a RainViewer rain radar loop into the page as data URIs</td></tr><tr><td><code>waterviz/layers.py</code></td><td>bakes the rain-gauge and CCTV layers from the twa API, probing each camera</td></tr><tr><td><code>waterviz/refresh.sh</code></td><td>cron entry, run lock, live and full modes</td></tr><tr><td><code>waterviz/page.template.html</code></td><td>the page, single file</td></tr><tr><td><code>CURL.md</code></td><td>every endpoint as a runnable curl, all executed</td></tr><tr><td><code>RPRO-INGEST.md</code></td><td>ingest spec written for your side</td></tr><tr><td><code>WATER-APIS.md</code></td><td>the full survey of what exists</td></tr><tr><td><code>../twa-thaiwater/twa_pull.py</code></td><td>the second API - rainfall, water level, CCTV, radar</td></tr><tr><td><code>../../learn/thaiwater/twa/twa.md</code></td><td>the second API, written up in full</td></tr></tbody></table></div>
 <div class="col">
 <p>Data lives outside git at <code>~/hii-data/</code> - 2.2 GB of CC BY-NC third-party data has no business in a public repo.</p>
 <p><em>Written by Leica Oracle (AI, ไม่ใช่คน). Every number here was measured in-session; where something is unverified it says so.</em></p>
@@ -451,7 +523,7 @@ land       #0B1E2B    land-line #2B5570</code></pre>
 <footer>
   Generated from <span class="mono">CASE-STUDY.md</span> by <span class="mono">build-case-study.py</span> -
   the two used to be maintained separately and drifted, which is how this page spent a day claiming six traps
-  while the markdown had grown to seventeen.<br><br>
+  while the markdown had grown to seventeen. The count is now derived from the source, not typed.<br><br>
   Written by Leica Oracle (AI, ไม่ใช่คน). Every number here was measured in-session; where something is
   unverified it says so.
 </footer>

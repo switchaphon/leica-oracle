@@ -119,9 +119,28 @@ footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--line);color:v
 FIGS = [
     ("878,095", "readings in SQLite"),
     ("518", "stations, 8 basins"),
-    ("17", "silent-failure traps found"),
+    (None, "silent-failure traps found"),   # None = counted from the markdown
     ("~$120", "API-equivalent token cost"),
 ]
+
+WORDS = {
+    6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten", 11: "Eleven",
+    12: "Twelve", 13: "Thirteen", 14: "Fourteen", 15: "Fifteen", 16: "Sixteen",
+    17: "Seventeen", 18: "Eighteen", 19: "Nineteen", 20: "Twenty",
+    21: "Twenty-one", 22: "Twenty-two", 23: "Twenty-three", 24: "Twenty-four",
+    25: "Twenty-five", 26: "Twenty-six", 27: "Twenty-seven", 28: "Twenty-eight",
+}
+
+
+def count_traps(md):
+    """The number of traps is derived, never typed.
+
+    This page once spent a day claiming six while the markdown held seventeen,
+    because the count lived in the renderer and the traps lived in the source.
+    It appeared in four places - h1, <title>, the figure strip and the meta
+    description - so keeping them in step by hand was four chances to drift.
+    """
+    return len(re.findall(r"^### 3\.\d+\s", md, re.M))
 
 
 def inline(t):
@@ -315,11 +334,16 @@ def build():
         if m:
             meta[k] = m.group(1)
     stand = ("One question - \"have we ever pulled from this URL?\" - became a running ingest "
-             "for 518 telemetry stations across the Greater Chao Phraya. Every trap below "
-             "produces output that looks correct.")
+             "for 518 telemetry stations across the Greater Chao Phraya, and then a second "
+             "survey of a second API on a near-identical name. Every trap below produces "
+             "output that looks correct.")
+
+    n = count_traps(md)
+    word = WORDS.get(n, str(n))
 
     figs = "".join(
-        f'<div class="fig"><b class="mono">{v}</b><span>{lbl}</span></div>' for v, lbl in FIGS)
+        f'<div class="fig"><b class="mono">{n if v is None else v}</b>'
+        f'<span>{lbl}</span></div>' for v, lbl in FIGS)
     byline = "".join(f"<span><b>{k}</b> {inline(v)}</span>" for k, v in meta.items())
     links = []
     for label in ("Read as a page", "The dashboard itself"):
@@ -330,14 +354,14 @@ def build():
 
     head = f"""<header class="top">
   <div class="kicker">Field report / rpro-ent-oracle</div>
-  <h1>Seventeen traps in Thailand's public water feed</h1>
+  <h1>{word} traps in Thailand's public water feed</h1>
   <p class="standfirst">{stand}</p>
   <div class="byline">{byline}</div>
   {linkbar}
   <div class="figs">{figs}</div>
 </header>"""
 
-    page = f"""<title>Seventeen Traps in Thailand's Water Feed</title>
+    page = f"""<title>{word} Traps in Thailand's Water Feed</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>{CSS}</style>
 <div class="wrap">
@@ -346,7 +370,7 @@ def build():
 <footer>
   Generated from <span class="mono">CASE-STUDY.md</span> by <span class="mono">build-case-study.py</span> -
   the two used to be maintained separately and drifted, which is how this page spent a day claiming six traps
-  while the markdown had grown to seventeen.<br><br>
+  while the markdown had grown to seventeen. The count is now derived from the source, not typed.<br><br>
   Written by Leica Oracle (AI, ไม่ใช่คน). Every number here was measured in-session; where something is
   unverified it says so.
 </footer>
@@ -357,7 +381,7 @@ def build():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Field report on integrating Thailand's HII water telemetry - seventeen silent-failure traps, the ingest design, WCAG measurements, and cost.">
+<meta name="description" content="Field report on integrating Thailand's HII water telemetry across two separate ThaiWater APIs - {n} silent-failure traps, the ingest design, WCAG measurements, and cost.">
 <meta name="author" content="Leica Oracle">
 {page}
 </body>

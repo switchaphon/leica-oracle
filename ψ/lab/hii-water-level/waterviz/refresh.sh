@@ -48,6 +48,28 @@ else
         --export "$SNAP" --export-days 30 --points 360
 fi
 
+# Rain radar. Baked into the page, so it has to be refreshed before the build.
+# Never fatal: if RainViewer is down or slow, the page ships with the previous
+# radar.json, or with no radar layer at all, rather than losing the water levels.
+if ! "$PY" "$DIR/radar.py" --out "$DATA/radar.json" --frames 10; then
+  echo "radar refresh failed - keeping the previous radar.json"
+fi
+
+# Rain gauges and cameras. Not every cycle: the camera probe opens a connection
+# to 62 third-party cameras, and doing that every 15 minutes is both rude and
+# pointless - a camera that answered a quarter of an hour ago has not changed.
+# Hourly, or whenever the nightly full run goes.
+LAYERS="$DATA/layers.json"
+AGE=99999
+[ -f "$LAYERS" ] && AGE=$(( ($(date +%s) - $(stat -f %m "$LAYERS")) / 60 ))
+if [ "$MODE" = "full" ] || [ "$AGE" -ge 60 ]; then
+  if ! "$PY" "$DIR/layers.py" --out "$LAYERS"; then
+    echo "layers refresh failed - keeping the previous layers.json"
+  fi
+else
+  echo "layers.json is ${AGE} min old, skipping (refreshes hourly)"
+fi
+
 "$PY" "$DIR/build.py" "$SNAP"
 echo "rows: $("$PY" -c "import sqlite3,sys;print(f'{sqlite3.connect(sys.argv[1]).execute(\"SELECT COUNT(*) FROM reading\").fetchone()[0]:,}')" "$DB")"
 echo "done $(date '+%T')"

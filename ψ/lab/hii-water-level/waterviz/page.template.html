@@ -94,6 +94,55 @@ h1{margin:0;font-size:23px;font-weight:600;letter-spacing:-.01em;text-wrap:balan
 .mapctl button:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 16px var(--glow-soft)}
 .scalebar{position:absolute;left:12px;bottom:11px;color:var(--ink-3);font-size:10.5px;letter-spacing:.03em}
 .scalebar div{height:4px;border:1px solid var(--ink-3);border-top:none;margin-bottom:3px}
+
+/* ---------- rain radar ---------- */
+.radarctl{
+  position:absolute;right:10px;bottom:11px;display:flex;align-items:center;gap:7px;
+  background:var(--surface);border:1px solid var(--line);border-radius:8px;
+  padding:6px 9px;box-shadow:var(--shadow);font-size:11.5px;color:var(--ink-2);
+  max-width:calc(100% - 20px);flex-wrap:wrap;row-gap:6px
+}
+.radarctl.off .rplay,.radarctl.off .rtime,.radarctl.off #rscrub{opacity:.32;pointer-events:none}
+.radarctl button{
+  /* Label buttons size to their text. These were 26px squares when they were
+     single glyphs; Thai labels in that box wrapped mid-word and stopped being
+     readable. Mono has no Thai coverage either, so labels use the UI face and
+     only the transport glyph and the clock stay monospaced. */
+  border:1px solid var(--line);background:var(--sunk);color:var(--ink);border-radius:6px;
+  cursor:pointer;font:600 11.5px/1 "IBM Plex Sans Thai","Noto Sans Thai",sans-serif;
+  padding:0 10px;height:26px;white-space:nowrap;flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center
+}
+.radarctl #rplay{font-family:"IBM Plex Mono",monospace;width:28px;padding:0}
+.radarctl button:hover{border-color:var(--accent);color:var(--accent)}
+.lsep{width:1px;height:18px;background:var(--line)}
+
+/* ---------- camera modal ---------- */
+.camwrap{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:rgba(2,8,14,.72);padding:20px}
+.camwrap[data-on="1"]{display:flex}
+.camcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  box-shadow:var(--shadow);max-width:min(920px,94vw);max-height:92vh;overflow:auto;
+  padding:16px 18px 15px}
+.camcard h3{margin:0 0 2px;font-size:16.5px;font-weight:600}
+.camcard .cmeta{font-size:12px;color:var(--ink-3);margin-bottom:11px}
+.camcard img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line);
+  background:var(--sunk)}
+.camcard .cdead{padding:26px 18px;text-align:center;color:var(--ink-3);font-size:13px;
+  background:var(--sunk);border:1px dashed var(--line);border-radius:8px}
+.camfoot{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:11px;font-size:12px}
+.camfoot a{color:var(--accent)}
+.camclose{margin-left:auto;border:1px solid var(--line);background:var(--sunk);color:var(--ink);
+  border-radius:7px;cursor:pointer;font:600 12px/1 "IBM Plex Sans Thai",sans-serif;padding:7px 13px}
+.camclose:hover{border-color:var(--accent);color:var(--accent)}
+.radarctl button[aria-pressed="true"]{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.rtime{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;min-width:38px;text-align:center}
+#rscrub{width:78px;accent-color:var(--accent);cursor:pointer}
+#gRadar image{image-rendering:auto}
+.rkey{display:flex;align-items:center;gap:4px;margin-left:2px}
+.rkey b{display:block;width:9px;height:9px;border-radius:2px}
+@media(max-width:760px){.radarctl{left:12px;right:12px;bottom:34px;justify-content:flex-start}
+  #rscrub{width:100%;flex:1 1 100px}}
 .tip{
   position:absolute;pointer-events:none;z-index:5;opacity:0;transform:translate(-50%,-100%);
   background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
@@ -262,6 +311,15 @@ footer a{color:var(--accent)}
           <button id="zrst" title="กลับค่าเริ่มต้น" aria-label="กลับค่าเริ่มต้น" style="font-size:11px">R</button>
         </div>
         <div class="scalebar"><div id="sbar" style="width:80px"></div><span id="sbtxt" class="mono">-</span></div>
+        <div class="radarctl off" id="radarctl" hidden>
+          <button id="rtog" aria-pressed="false" title="เปิด/ปิดชั้นเรดาร์ฝน" aria-label="เปิดหรือปิดชั้นเรดาร์ฝน">เรดาร์</button>
+          <button id="ltog-rain" aria-pressed="false" title="เปิด/ปิดจุดวัดน้ำฝน" aria-label="เปิดหรือปิดจุดวัดน้ำฝน">น้ำฝน</button>
+          <button id="ltog-cam" aria-pressed="false" title="เปิด/ปิดกล้อง CCTV" aria-label="เปิดหรือปิดกล้องวงจรปิด">กล้อง</button>
+          <span class="lsep" aria-hidden="true"></span>
+          <button class="rplay" id="rplay" title="เล่น/หยุดภาพเรดาร์" aria-label="เล่นหรือหยุดภาพเรดาร์">&#9654;</button>
+          <span class="rtime mono" id="rtime">-</span>
+          <input type="range" id="rscrub" min="0" max="0" value="0" aria-label="เลื่อนดูเฟรมเรดาร์">
+        </div>
       </div>
     </section>
 
@@ -330,6 +388,11 @@ footer a{color:var(--accent)}
             <td>วันละครั้ง ตี 3</td>
           </tr>
           <tr>
+            <td><span class="host">api.rainviewer.com</span><code>/public/weather-maps.json</code></td>
+            <td>ชั้นเรดาร์ฝนบนแผนที่ ดึงภาพ tile ย้อนหลัง 10 เฟรม ห่างกันเฟรมละ 10 นาที แล้วฝังลงหน้าเป็น data URI</td>
+            <td>ตอน build</td>
+          </tr>
+          <tr>
             <td><span class="host">data.hii.or.th</span><code>/api/3/action/datastore_search</code></td>
             <td>บัญชีชุดข้อมูลเปิดของ สสน. และเงื่อนไขสัญญาอนุญาต ใช้ตรวจทะเบียนสถานี</td>
             <td>อ้างอิง</td>
@@ -343,22 +406,37 @@ footer a{color:var(--accent)}
       </table>
       </div>
       <p class="pnote" id="foot-note"></p>
+      <p class="pnote" id="layer-note"></p>
       <p class="pnote">
         เจ้าของข้อมูล สถาบันสารสนเทศทรัพยากรน้ำ (องค์การมหาชน) &#183;
         หน่วยงานเจ้าของสถานี กรมชลประทาน (ชป.), สสน., มูลนิธิอาสาเพื่อนพึ่ง (ภาฯ) ยามยาก สภากาชาดไทย (พพภ)<br>
         สัญญาอนุญาต Creative Commons Attribution Non-Commercial (CC BY-NC) ใช้เพื่อการศึกษาและวิจัย ไม่ใช่เพื่อการค้า &#183;
-        เวลาทั้งหมดเป็นเวลาประเทศไทย &#183; หน่วย ม.รทก. คือเมตรเทียบระดับน้ำทะเลปานกลาง
+        เวลาทั้งหมดเป็นเวลาประเทศไทย &#183; หน่วย ม.รทก. คือเมตรเทียบระดับน้ำทะเลปานกลาง<br>
+        <span id="radar-note"></span>
       </p>
     </section>
   </footer>
 </div>
 
+<div class="camwrap" id="camwrap" data-on="0" role="dialog" aria-modal="true" aria-labelledby="camname">
+  <div class="camcard" id="camcard">
+    <h3 id="camname">-</h3>
+    <div class="cmeta" id="cammeta"></div>
+    <div id="cambody"></div>
+    <div class="camfoot" id="camfoot"></div>
+  </div>
+</div>
+
 <script id="payload" type="application/json">__DATA__</script>
 <script id="geo" type="application/json">__GEO__</script>
+<script id="radar" type="application/json">__RADAR__</script>
+<script id="layers" type="application/json">__LAYERS__</script>
 <script>
 "use strict";
 const DATA = JSON.parse(document.getElementById('payload').textContent);
 const GEO  = JSON.parse(document.getElementById('geo').textContent);
+const RADAR= JSON.parse(document.getElementById('radar').textContent);
+const LAYERS=JSON.parse(document.getElementById('layers').textContent);
 const S = DATA.stations;
 /* Timestamps ship as minutes from DATA.base to keep the payload small.
    Rebuild a label only for the points a viewer actually looks at. */
@@ -455,11 +533,24 @@ function fit(){
 const px=(s)=>[mx(s.lon)*view.s+view.x, my(s.lat)*view.s+view.y];
 
 /* ---------- build the map once, then transform a group ---------- */
-let gLand, gDots, gSel, selRing, selHalo, selLbl, dots=[];
+let gLand, gRadar, gRain, gCam, gDots, gSel, selRing, selHalo, selLbl, dots=[];
 function buildMap(){
   map.innerHTML='';
   const g=document.createElementNS(NS,'g'); g.id='pan'; map.appendChild(g);
   gLand=document.createElementNS(NS,'g'); g.appendChild(gLand);
+  /* Radar goes over the land and under the dots: rain has to read as falling on
+     the country, but a station marker must never be hidden by a rain cell. */
+  gRadar=document.createElementNS(NS,'g'); gRadar.id='gRadar';
+  gRadar.setAttribute('pointer-events','none'); gRadar.setAttribute('opacity','0');
+  g.appendChild(gRadar);
+  /* Rain gauges sit above the radar - a point measurement should be readable
+     against the areal estimate it is checking - and still below the water level
+     dots, which are what this page is for. */
+  gRain=document.createElementNS(NS,'g'); gRain.id='gRain';
+  gRain.setAttribute('pointer-events','none'); gRain.setAttribute('display','none');
+  g.appendChild(gRain);
+  gCam=document.createElementNS(NS,'g'); gCam.id='gCam';
+  gCam.setAttribute('display','none'); g.appendChild(gCam);
   gDots=document.createElementNS(NS,'g'); g.appendChild(gDots);
   gSel =document.createElementNS(NS,'g'); gSel.setAttribute('pointer-events','none'); g.appendChild(gSel);
   selRing=document.createElementNS(NS,'circle');
@@ -507,9 +598,25 @@ function buildMap(){
   });
   applyView();
 }
+let lastSizedScale=null;
+/* Resize the overlay marks for the current zoom.
+   Panning changes only the translate, so re-sizing 1,400 marks on every
+   mousemove would be wasted work and makes the drag stutter; the marks only
+   need touching when the scale actually changes. */
+function sizeOverlays(force){
+  if(!gRain && !gCam) return;
+  if(!force && lastSizedScale===view.s) return;
+  lastSizedScale=view.s;
+  const k=1/view.s;
+  if(gRain) for(const c of gRain.children) c.setAttribute('r',(c._r*k).toFixed(3));
+  if(gCam)  for(const g of gCam.children)
+    g.setAttribute('transform',`translate(${g._cx.toFixed(3)} ${g._cy.toFixed(3)}) scale(${k.toFixed(5)})`);
+}
+
 function applyView(){
   const g=document.getElementById('pan');
   g.setAttribute('transform',`translate(${view.x} ${view.y}) scale(${view.s})`);
+  sizeOverlays(false);
   const dense = S.length>300 ? 0.82 : 1;
   const rr=+(2.0*dense/view.s*Math.min(1.9,Math.max(.55,view.s/home.s))).toFixed(3);
   S.forEach(s=>{
@@ -577,6 +684,11 @@ function showTip(st,cx,cy){
       `<div class="ts mono">${st.lastAt? st.lastAt+' น.' : 'ไม่มีเวลารับค่า'}`+
         `${st.age!=null?` <span style="color:${st.stale?'var(--watch)':'var(--ink-3)'}">${ageText(st.age)}</span>`:''}</div>`;
   }
+  placeTip(cx,cy);
+}
+/* One placement routine for every tooltip. Station and camera tips flip and
+   clamp the same way, and two copies would drift the moment one is tweaked. */
+function placeTip(cx,cy){
   const r=map.getBoundingClientRect();
   const w=tip.offsetWidth||170, h=tip.offsetHeight||110;
   let x=cx-r.left, y=cy-r.top-14;
@@ -585,6 +697,12 @@ function showTip(st,cx,cy){
   else tip.style.transform='translate(-50%,-100%)';
   tip.style.left=x+'px'; tip.style.top=y+'px';
   tip.dataset.on='1'; tip.setAttribute('aria-hidden','false');
+}
+function showRawTip(html,cx,cy){
+  tipFor=null;
+  tip.style.borderLeftColor='var(--accent)';
+  tip.innerHTML=html;
+  placeTip(cx,cy);
 }
 function hideTip(){ tip.dataset.on='0'; tip.setAttribute('aria-hidden','true'); tipFor=null; }
 
@@ -889,8 +1007,223 @@ addEventListener('keydown', e=>{
 });
 
 /* ---------- boot ---------- */
+/* ---------- rain radar: a baked loop, not a live layer ----------
+   RADAR.cells are already in this page's mercator units, because radar.py
+   converts tile (z,X,Y) with the same constant the map uses: the world is 256
+   units wide at scale 1, which is exactly tile z=0. So a tile's top-left is
+   X*256/2^z - 128 and its width is 256/2^z, and it lands on the map without
+   any further transform.
+
+   The frames are embedded as data: URIs. A published artifact runs under a CSP
+   that blocks images from non-allowlisted hosts silently, so pointing this at
+   tilecache.rainviewer.com would work from disk and render nothing once
+   published, with no error to explain it. */
+let radarOn=false, radarFrame=0, radarTimer=null, radarGroups=[];
+function initRadar(){
+  const ctl=$('radarctl');
+  if(!RADAR || !RADAR.frames || !RADAR.frames.length){ return; }   // no loop baked
+  ctl.hidden=false;
+  const n=RADAR.frames.length, span=RADAR.span;
+
+  RADAR.frames.forEach((fr,fi)=>{
+    const fg=document.createElementNS(NS,'g');
+    fg.style.display = fi===n-1 ? '' : 'none';
+    RADAR.cells.forEach((c,ci)=>{
+      const im=document.createElementNS(NS,'image');
+      im.setAttributeNS('http://www.w3.org/1999/xlink','href','data:image/png;base64,'+fr.png[ci]);
+      im.setAttribute('href','data:image/png;base64,'+fr.png[ci]);
+      im.setAttribute('x',c.x); im.setAttribute('y',c.y);
+      /* a hair of overlap: adjacent tiles otherwise show a hairline seam when
+         the view scale lands between device pixels */
+      im.setAttribute('width',span*1.004); im.setAttribute('height',span*1.004);
+      im.setAttribute('preserveAspectRatio','none');
+      fg.appendChild(im);
+    });
+    gRadar.appendChild(fg); radarGroups.push(fg);
+  });
+
+  radarFrame=n-1;
+  const scrub=$('rscrub'); scrub.max=String(n-1); scrub.value=String(radarFrame);
+  showFrame(radarFrame);
+
+  /* Say when the radar is from, separately from when the water levels are from.
+     They are pulled at different moments from different providers, and a single
+     "updated" line covering both would be wrong for one of them. */
+  const f0=RADAR.frames[0], f1=RADAR.frames[n-1];
+  $('radar-note').innerHTML=
+    `ชั้นเรดาร์ฝนมาจาก RainViewer (rainviewer.com) ไม่ใช่ของ สสน. `+
+    `เป็นภาพนิ่งที่ฝังไว้ตอน build ${RADAR.fetchedAt} น. ครอบคลุม ${f0.label} ถึง ${f1.label} `+
+    `ของวันที่ ${f1.date} รวม ${n} เฟรม ห่างกันเฟรมละ 10 นาที &#183; `+
+    `<strong>ไม่อัปเดตตามเวลาจริง</strong> ต่างจากระดับน้ำที่ดึงทุก 15 นาที`;
+
+  $('rtog').addEventListener('click',()=>{
+    radarOn=!radarOn;
+    $('rtog').setAttribute('aria-pressed',String(radarOn));
+    ctl.classList.toggle('off',!radarOn);
+    gRadar.setAttribute('opacity',radarOn?'0.78':'0');
+    if(!radarOn) stopRadar();
+  });
+  $('rplay').addEventListener('click',()=>radarTimer?stopRadar():playRadar());
+  scrub.addEventListener('input',e=>{ stopRadar(); showFrame(+e.target.value); });
+}
+function showFrame(i){
+  const n=RADAR.frames.length; radarFrame=((i%n)+n)%n;
+  radarGroups.forEach((g,k)=>{ g.style.display = k===radarFrame ? '' : 'none'; });
+  const fr=RADAR.frames[radarFrame];
+  $('rtime').textContent=fr.label;
+  $('rscrub').value=String(radarFrame);
+}
+function playRadar(){
+  if(!radarOn) $('rtog').click();
+  $('rplay').innerHTML='&#10073;&#10073;';
+  $('rplay').setAttribute('aria-pressed','true');
+  /* hold the newest frame a beat longer - a loop that wraps instantly makes the
+     last frame the easiest one to miss, and it is the one that matters. This has
+     to be a recursive timeout: setInterval fixes its delay at creation, so the
+     per-frame hold would never fire. */
+  const step=()=>{
+    showFrame(radarFrame+1);
+    const last = radarFrame===RADAR.frames.length-1;
+    radarTimer=setTimeout(step, last?1100:420);
+  };
+  radarTimer=setTimeout(step,420);
+}
+function stopRadar(){
+  clearTimeout(radarTimer); radarTimer=null;
+  $('rplay').innerHTML='&#9654;';
+  $('rplay').setAttribute('aria-pressed','false');
+}
+
+/* ---------- rain gauges and cameras, from the other API ----------
+   These come from twa-api-public.thaiwater.net, not the api-v3 host that
+   supplies the water levels. Different station sets, so a gauge here is not the
+   same object as a level station even where they share a name. Baked at build
+   time for the same CSP reason as the radar. */
+/* ---------- camera modal ----------
+   The frame shown here was captured when the page was built, not when you
+   opened it. A published artifact's CSP blocks <img> from a camera host, so a
+   live image would work while developing and silently show an empty box to
+   every reader. Baked frame plus an explicit "open the live camera" link is the
+   honest version of this, and the capture time is always on screen so the
+   picture is never mistaken for now. */
+let camLastFocus=null;
+function camStateText(cm){
+  return cm.st==='live'   ? 'ตอบสนอง ส่งภาพกลับมาได้'
+       : cm.st==='nodns'  ? 'ชื่อโฮสต์ใช้ไม่ได้แล้ว DNS ไม่รู้จัก'
+       : cm.st==='nourl'  ? 'ทะเบียนไม่มี URL ให้'
+       : cm.st==='notimage' ? 'ตอบกลับมาแต่ไม่ใช่รูปภาพ'
+       : 'ต่อไม่ติดตอนสร้างหน้านี้';
+}
+function openCam(cm){
+  camLastFocus=document.activeElement;
+  $('camname').textContent=cm.n;
+  $('cammeta').innerHTML=
+    (cm.ag?`<b>${hl(cm.ag)}</b> &#183; `:'')+
+    `${hl(camStateText(cm))}`+
+    (cm.ts?` &#183; เวลาในไฟล์ภาพ <span class="mono">${hl(cm.ts)}</span>`:'');
+  const body=$('cambody');
+  if(cm.img){
+    body.innerHTML=`<img alt="ภาพจากกล้อง ${hl(cm.n)}" src="data:image/jpeg;base64,${cm.img}">`;
+  } else if(cm.st==='live'){
+    body.innerHTML=`<div class="cdead">กล้องตัวนี้ส่งภาพได้ แต่ไฟล์ใหญ่เกินโควตาที่ฝังในหน้านี้ กดลิงก์ด้านล่างเพื่อดูภาพสด</div>`;
+  } else {
+    body.innerHTML=`<div class="cdead">ไม่มีภาพให้แสดง - ${hl(camStateText(cm))}</div>`;
+  }
+  $('camfoot').innerHTML=
+    `<span style="color:var(--ink-3)">ภาพนี้ดึงไว้ตอนสร้างหน้า ${hl(LAYERS.fetchedAt)} น. ไม่ใช่ภาพสด</span>`+
+    (cm.url?` <a href="${cm.url}" target="_blank" rel="noopener">เปิดกล้องสด</a>`:'')+
+    `<button class="camclose" id="camclose">ปิด</button>`;
+  $('camclose').addEventListener('click',closeCam);
+  const w=$('camwrap'); w.dataset.on='1';
+  $('camclose').focus();
+}
+function closeCam(){
+  $('camwrap').dataset.on='0';
+  if(camLastFocus&&camLastFocus.focus) camLastFocus.focus();
+}
+
+const RAINSTOPS=[[0,'#2C6E8F'],[10,'#3FA9C9'],[35,'#5BD6B8'],[60,'#FFC466'],[100,'#FF6E80']];
+function rainColor(v){
+  let c=RAINSTOPS[0][1];
+  for(const [t,col] of RAINSTOPS){ if(v>=t) c=col; }
+  return c;
+}
+function initLayers(){
+  if(!LAYERS) return;
+  const rain=LAYERS.rain||[], cams=LAYERS.cctv||[];
+
+  rain.forEach(r=>{
+    const c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',mx(r.lo)); c.setAttribute('cy',my(r.la));
+    /* area, not radius, tracks the reading - a radius ramp makes 100 mm look
+       ten times 10 mm instead of the ten-to-one it is.
+       The radius is a SCREEN size: everything in this group lives inside the
+       panned/scaled #pan transform, so it has to be divided by view.s or a
+       gauge balloons into a blob as you zoom in. sizeRain() does that. */
+    c._r=Math.max(2.2,Math.sqrt(r.v)*1.25);
+    /* Soft translucent discs with no outline: 1,351 outlined dots read as noise
+       over the station markers, while overlapping fills merge into something
+       you can actually see the shape of a storm in. */
+    c.setAttribute('fill',rainColor(r.v)); c.setAttribute('fill-opacity','.34');
+    gRain.appendChild(c);
+  });
+
+  cams.forEach(cm=>{
+    const live=cm.st==='live';
+    const g=document.createElementNS(NS,'g');
+    g._cx=mx(cm.lo); g._cy=my(cm.la);
+    const r=document.createElementNS(NS,'rect');
+    r.setAttribute('x','-3'); r.setAttribute('y','-2.3');
+    r.setAttribute('width','6'); r.setAttribute('height','4.6'); r.setAttribute('rx','1');
+    r.setAttribute('fill',live?'var(--accent)':'none');
+    r.setAttribute('stroke',live?'var(--surface)':'var(--ink-3)');
+    r.setAttribute('stroke-width','.4'); r.setAttribute('vector-effect','non-scaling-stroke');
+    g.appendChild(r);
+    g.style.cursor='pointer';
+    g.setAttribute('tabindex','0'); g.setAttribute('role','button');
+    g.setAttribute('aria-label','กล้อง '+cm.n+(live?' (ภาพใช้ได้)':' (ไม่ตอบสนอง)'));
+    const open=()=>openCam(cm);
+    g.addEventListener('click',e=>{e.stopPropagation();open();});
+    g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});
+    g.addEventListener('mouseenter',e=>{
+      const why = cm.st==='live' ? (cm.ts?('ภาพล่าสุด '+cm.ts):'ภาพใช้ได้ แต่ไม่มีเวลากำกับในไฟล์')
+                : cm.st==='nodns' ? 'ชื่อโฮสต์ใช้ไม่ได้แล้ว (DNS ไม่รู้จัก)'
+                : cm.st==='nourl' ? 'ทะเบียนไม่มี URL ให้'
+                : cm.st==='notimage' ? 'ตอบกลับมาแต่ไม่ใช่รูป'
+                : 'ต่อไม่ติดตอน build';
+      showRawTip(`<b>${hl(cm.n)}</b><br><span style="color:var(--ink-3)">${why}</span>`
+        + (cm.url?'<br><span style="color:var(--ink-3)">กดเพื่อเปิดกล้อง</span>':''), e.clientX, e.clientY);
+    });
+    g.addEventListener('mouseleave',hideTip);
+    gCam.appendChild(g);
+  });
+
+  const ctl=$('radarctl'); if(ctl) ctl.hidden=false;
+  const bind=(id,grp,after)=>{
+    const b=$(id); if(!b) return;
+    b.addEventListener('click',()=>{
+      const on=b.getAttribute('aria-pressed')!=='true';
+      b.setAttribute('aria-pressed',String(on));
+      grp.setAttribute('display',on?'':'none');
+      if(after) after(on);
+    });
+  };
+  bind('ltog-rain',gRain);
+  bind('ltog-cam',gCam);
+  sizeOverlays(true);
+
+  const live=cams.filter(c=>c.st==='live').length;
+  $('layer-note').innerHTML=
+    `จุดวัดน้ำฝน ${rain.length.toLocaleString()} จุด และกล้อง ${cams.length} ตัวในกรอบแผนที่นี้ `+
+    `มาจาก <span class="host">twa-api-public.thaiwater.net</span> ซึ่งเป็น API คนละตัวกับที่ให้ระดับน้ำ `+
+    `ชุดสถานีจึงไม่ตรงกัน &#183; ดึงเมื่อ ${LAYERS.fetchedAt} น. &#183; `+
+    `<strong>กล้องที่ส่งภาพจริงตอน build มี ${live} ตัวจาก ${cams.length} ตัว</strong> `+
+    `ทั้งที่ API แจ้ง isActive เป็นจริงทุกตัว ที่เหลือ DNS ใช้ไม่ได้ ไม่มี URL หรือไม่ตอบ `+
+    `จึงวาดเป็นกรอบโปร่ง ไม่ใช่กรอบทึบ &#183; ไม่ได้ฝังภาพกล้องไว้ในหน้า กดที่กล้องเพื่อเปิดดูเอง`;
+}
+
 function boot(){
-  fit(); buildMap();
+  fit(); buildMap(); initRadar(); initLayers();
   $('gen').textContent='ปรับปรุง '+DATA.generatedAt+' น.';
   $('t-n').textContent=S.length;
   $('t-a').textContent=S.filter(s=>s.k==='alert').length;
@@ -923,5 +1256,7 @@ function boot(){
   select(start.id);
 }
 boot();
+$('camwrap').addEventListener('click',e=>{ if(e.target===$('camwrap')) closeCam(); });
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('camwrap').dataset.on==='1') closeCam(); });
 let rt; addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{fit();applyView();const s=S.find(x=>x.id===sel);if(s)drawChart(s)},180)});
 </script>
