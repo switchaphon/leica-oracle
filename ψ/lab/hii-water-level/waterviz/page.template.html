@@ -1,0 +1,927 @@
+<title>ข้อมูลระดับน้ำจาก สสน. (ThaiWater)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* A single committed dark world - "light blue glow in the dark". No light
+   variant: the glow is the design, and inverting it would just be a different
+   page. Every colour is painted explicitly so the artifact never borrows the
+   host's ground. */
+:root{
+  color-scheme:dark;
+  --ground:#030A11; --surface:#08151F; --surface-2:#0C1E2B;
+  --ink:#F4F8FA; --ink-2:#C8D6DE; --ink-3:#93A6B1;
+  --line:#143142; --line-2:#0E2331;
+  --accent:#5FD6FF; --accent-dim:#2E7E9B; --accent-soft:#0B2B3A;
+  --glow:rgba(95,214,255,.42); --glow-soft:rgba(95,214,255,.14);
+  --safe:#4FE3C6; --watch:#FFC466; --alert:#FF6E80;
+  --land:#0B1E2B; --land-line:#2B5570; --land-hi:#123141;
+  --shadow:0 0 0 1px rgba(95,214,255,.05), 0 10px 34px rgba(0,0,0,.55);
+  --r:10px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; color:var(--ink);
+  background:
+    radial-gradient(1100px 620px at 18% -8%, rgba(95,214,255,.10), transparent 62%),
+    radial-gradient(900px 520px at 92% 4%, rgba(79,227,198,.06), transparent 60%),
+    var(--ground);
+  background-attachment:fixed;
+  font-family:"IBM Plex Sans Thai","IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 20px 40px}
+
+/* ---------- masthead ---------- */
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 28px;padding:4px 0 18px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:23px;font-weight:600;letter-spacing:-.01em;text-wrap:balance;
+   text-shadow:0 0 22px var(--glow-soft)}
+.sub{margin:3px 0 0;color:var(--ink-2);font-size:13px}
+.sub a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
+.sub a:hover{border-bottom-color:var(--accent)}
+.tally{display:flex;gap:22px;margin-left:auto}
+.tally div{text-align:right}
+.tally b{display:block;font-size:22px;font-weight:600;line-height:1.15;text-shadow:0 0 14px currentColor}
+.tally span{font-size:11px;color:var(--ink-3);letter-spacing:.05em;text-transform:uppercase}
+
+/* ---------- filter row ---------- */
+.filterbar{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;padding:15px 0 16px}
+.fgroup{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.flabel{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-right:2px}
+.chip svg{margin-right:5px;vertical-align:-2px;overflow:visible}
+.chip .cnt{opacity:.62;margin-left:5px;font-variant-numeric:tabular-nums}
+.chip{
+  border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
+  padding:5px 12px;border-radius:999px;font:inherit;font-size:12.5px;cursor:pointer;
+}
+.chip:hover:not(:disabled){border-color:var(--accent-dim);color:var(--ink);box-shadow:0 0 12px var(--glow-soft)}
+.chip[aria-pressed="true"]{
+  background:var(--accent-soft);border-color:var(--accent);color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent) inset, 0 0 16px var(--glow-soft)
+}
+.chip:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.spacer{flex:1}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--ink-3);align-items:center;flex-wrap:wrap}
+#statuskey{margin-left:auto}
+@media (max-width:1180px){#statuskey{margin-left:0;flex-basis:100%}}
+#f-basin{max-width:100%}
+.legend i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
+.legend svg{margin-right:5px;vertical-align:-2px}
+
+/* ---------- main grid ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,.85fr);gap:18px;align-items:stretch}
+@media (max-width:960px){.grid{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.panel::after{content:none}
+.panel-h{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line-2)}
+.panel-h h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+
+/* ---------- map ---------- */
+.maparea{position:relative;border-radius:0 0 var(--r) var(--r);overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 0%, #071722 0%, #04101A 70%, #030B12 100%)}
+#map{display:block;width:100%;height:clamp(520px,calc(100vh - 236px),960px);cursor:grab;touch-action:none}
+/* No glow on the markers themselves - at 518 points the halos merged into
+   fog and the dots stopped being readable. Crisp fills with a dark rim
+   separate far better against the land. */
+#map [data-sid]:hover{stroke:var(--accent);stroke-width:2}
+#map [data-sid]:focus-visible{outline:none;stroke:var(--accent);stroke-width:2.5}
+#map.drag{cursor:grabbing}
+.mapctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:5px}
+.mapctl button{
+  width:30px;height:30px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  border-radius:7px;font:600 15px/1 "IBM Plex Mono",monospace;cursor:pointer;box-shadow:var(--shadow)
+}
+.mapctl button:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 16px var(--glow-soft)}
+.scalebar{position:absolute;left:12px;bottom:11px;color:var(--ink-3);font-size:10.5px;letter-spacing:.03em}
+.scalebar div{height:4px;border:1px solid var(--ink-3);border-top:none;margin-bottom:3px}
+.tip{
+  position:absolute;pointer-events:none;z-index:5;opacity:0;transform:translate(-50%,-100%);
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:8px;box-shadow:var(--shadow);padding:8px 11px 9px;min-width:150px;max-width:250px;
+  transition:opacity .09s ease
+}
+.tip[data-on="1"]{opacity:1}
+.tip{box-shadow:var(--shadow),0 0 26px var(--glow-soft)}
+.tip .n{font-size:13px;font-weight:600;line-height:1.3;margin-bottom:3px}
+.tip .m{font-size:10.5px;color:var(--ink-3);display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.tip .m b{font-weight:500;color:var(--accent)}
+.tip .v{font-size:19px;font-weight:600;line-height:1.1}
+.tip .v span{font-size:11px;font-weight:400;color:var(--ink-3);margin-left:4px}
+.tip .g{font-size:11px;margin-top:3px;font-weight:500}
+.tip .ts{font-size:10.5px;color:var(--ink-3);margin-top:5px;padding-top:5px;border-top:1px solid var(--line-2)}
+.hint{position:absolute;left:12px;top:10px;color:var(--ink-3);font-size:11px;background:var(--surface);
+      border:1px solid var(--line);padding:3px 8px;border-radius:6px;pointer-events:none}
+
+/* ---------- detail rail ---------- */
+.rail{display:flex;flex-direction:column;gap:14px;min-height:0}
+/* the list panel absorbs the leftover height and scrolls inside itself */
+.rail > .panel.grow{flex:1 1 0;display:flex;flex-direction:column;min-height:150px;overflow:hidden}
+.rail > .panel.grow > .panel-h{flex:0 0 auto}
+.idblock{padding:14px 16px 15px}
+.stname{margin:0;font-size:18px;font-weight:600;letter-spacing:-.005em;text-wrap:balance}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.tag{font-size:11px;padding:2.5px 8px;border-radius:5px;border:1px solid var(--line);color:var(--ink-2);background:var(--surface-2);white-space:nowrap}
+.tag.ag{border-color:var(--accent-dim);color:var(--accent);background:var(--accent-soft);font-weight:500;
+  box-shadow:0 0 12px var(--glow-soft)}
+.addr{margin:10px 0 0;color:var(--ink-2);font-size:13px}
+.addr .mono{color:var(--ink-3);font-size:11.5px}
+
+.readout{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:baseline;
+         padding:13px 16px;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.bignum{font-size:34px;font-weight:600;line-height:1.05;letter-spacing:-.02em;
+  color:var(--accent);text-shadow:0 0 26px var(--glow)}
+.unit{font-size:13px;color:var(--ink-3);font-weight:400;margin-left:5px}
+.stamp{grid-column:1/-1;color:var(--ink-3);font-size:11.5px;margin-top:2px}
+.state{justify-self:start;align-self:center;font-size:12.5px;padding:4px 10px;border-radius:6px;font-weight:500}
+.s-safe{color:var(--safe);background:color-mix(in srgb,var(--safe) 12%,transparent)}
+.s-watch{color:var(--watch);background:color-mix(in srgb,var(--watch) 14%,transparent)}
+.s-alert{color:var(--alert);background:color-mix(in srgb,var(--alert) 14%,transparent)}
+.s-none{color:var(--ink-3);background:color-mix(in srgb,var(--ink-3) 12%,transparent)}
+
+.chartbox{padding:12px 8px 8px}
+#chart{display:block;width:100%;height:190px;touch-action:none}
+.charthead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 8px 6px;font-size:11px;color:var(--ink-3)}
+.ranges{display:flex;gap:3px}
+.rbtn{border:1px solid var(--line);background:transparent;color:var(--ink-3);
+  font:inherit;font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer}
+.rbtn:hover{color:var(--ink);border-color:var(--accent-dim)}
+.rbtn[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);
+  box-shadow:0 0 14px var(--glow-soft)}
+.rbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.nodata{padding:30px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+
+/* ---------- station list ---------- */
+.searchrow{display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--line-2);flex:0 0 auto}
+.searchrow .sicon{color:var(--ink-3);flex:0 0 auto}
+.searchrow input{
+  flex:1 1 auto;min-width:0;background:transparent;border:none;outline:none;
+  color:var(--ink);font:inherit;font-size:13px;padding:2px 0
+}
+.searchrow input::placeholder{color:var(--ink-3)}
+.searchrow input::-webkit-search-cancel-button{display:none}
+.searchrow:focus-within .sicon{color:var(--accent)}
+.searchrow:focus-within{box-shadow:inset 0 -1px 0 var(--accent)}
+#qclear{
+  flex:0 0 auto;border:none;background:none;color:var(--ink-3);cursor:pointer;
+  font-size:17px;line-height:1;padding:0 2px;border-radius:4px
+}
+#qclear:hover{color:var(--ink)}
+#qclear:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#listcount{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+.strow mark{background:var(--accent-soft);color:var(--accent);border-radius:2px;padding:0 1px}
+.emptylist{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+.listbox{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+/* stacked on a narrow screen there is no map to match, so cap it instead */
+@media (max-width:960px){
+  .rail > .panel.grow{flex:0 0 auto;overflow:visible}
+  .listbox{flex:0 0 auto;max-height:420px}
+}
+.strow{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;
+       width:100%;text-align:left;padding:8px 14px;background:none;border:none;border-bottom:1px solid var(--line-2);
+       color:var(--ink);font:inherit;cursor:pointer}
+.strow:hover{background:var(--surface-2)}
+.strow[aria-current="true"]{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
+.strow .nm{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strow .nm small{display:block;color:var(--ink-3);font-size:10.5px}
+.strow .val{font-size:13px}
+.dot{width:11px;height:11px}
+
+footer{margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+footer a{color:var(--accent)}
+.prov h2{margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.apitab-wrap{overflow-x:auto}
+.apitab{width:100%;border-collapse:collapse;font-size:12px}
+.apitab th{
+  text-align:left;font-weight:500;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--ink-3);padding:0 14px 6px 0;border-bottom:1px solid var(--line);white-space:nowrap
+}
+.apitab th:last-child,.apitab td:last-child{padding-right:0;text-align:right;white-space:nowrap}
+.apitab td{padding:9px 14px 9px 0;border-bottom:1px solid var(--line-2);color:var(--ink-2);vertical-align:top}
+.apitab td:first-child{width:33%;min-width:250px}
+.apitab .host{display:block;color:var(--ink-3);font-size:10.5px;letter-spacing:.02em}
+.apitab code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11.5px;color:var(--ink);
+  word-break:break-all;line-height:1.45
+}
+.pnote{margin:12px 0 0;color:var(--ink-3);font-size:11.5px;line-height:1.75}
+@media (max-width:700px){
+  .apitab thead{display:none}
+  .apitab tr{display:block;padding:10px 0;border-bottom:1px solid var(--line-2)}
+  .apitab td{display:block;border:none;padding:2px 0}
+  .apitab td:first-child{width:auto;min-width:0}
+  .apitab td:last-child{text-align:left;color:var(--accent);font-size:11px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>ระดับน้ำ ลุ่มน้ำเจ้าพระยาใหญ่</h1>
+      <p class="sub" id="subline">ปิง วัง ยม น่าน สะแกกรัง ป่าสัก ท่าจีน และเจ้าพระยา หน่วยเป็น ม.รทก.
+        ข้อมูลจาก <a href="https://www.thaiwater.net/" target="_blank" rel="noopener">สสน. ThaiWater</a>
+        <span id="gen" class="mono"></span></p>
+    </div>
+    <div class="tally">
+      <div><b class="mono" id="t-n">-</b><span>สถานี</span></div>
+      <div><b class="mono" id="t-a" style="color:var(--alert)">-</b><span>ล้นตลิ่ง</span></div>
+      <div><b class="mono" id="t-w" style="color:var(--watch)">-</b><span>เฝ้าระวัง</span></div>
+      <div><b class="mono" id="t-u" style="color:var(--ink-3)">-</b><span>ไม่มีตลิ่งอ้างอิง</span></div>
+      <div><b class="mono" id="t-s" style="color:var(--watch)">-</b><span>ค่าค้างเกิน 3 ชม.</span></div>
+    </div>
+  </header>
+
+  <div class="filterbar">
+    <div class="fgroup" id="f-basin" data-dim="basin">
+      <span class="flabel">ลุ่มน้ำ</span>
+      <button class="chip" data-v="*" aria-pressed="true">ทั้งหมด</button>
+    </div>
+    <div class="fgroup" id="f-agency" data-dim="agency">
+      <span class="flabel">แหล่งข้อมูล</span>
+      <button class="chip" data-v="*" aria-pressed="true">ทั้งหมด</button>
+    </div>
+    <div class="legend" id="statuskey">
+      <span><i style="background:var(--alert)"></i>ล้นตลิ่ง</span>
+      <span><i style="background:var(--watch)"></i>ต่ำกว่าตลิ่ง &lt; 1 ม.</span>
+      <span><i style="background:var(--safe)"></i>ปกติ</span>
+      <span><i style="background:var(--ink-3)"></i>ไม่มีระดับตลิ่งอ้างอิง</span>
+      <span><svg width="10" height="10" viewBox="-1.3 -1.3 2.6 2.6" aria-hidden="true"><circle r="1" fill="none" stroke="var(--ink-2)" stroke-width=".38"></circle></svg>วงกลวง = ค่าค้างเกิน 3 ชม.</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="panel-h"><h2>แผนที่สถานี</h2><span class="mono" id="mapcount" style="margin-left:auto;font-size:11.5px;color:var(--ink-3)"></span></div>
+      <div class="maparea">
+        <svg id="map" role="img" aria-label="แผนที่สถานีวัดระดับน้ำ"></svg>
+        <div class="hint">ลากเพื่อเลื่อน สกรอลล์เพื่อซูม กดที่จุดเพื่อดูรายละเอียด</div>
+        <div class="tip" id="tip" role="tooltip" aria-hidden="true"></div>
+        <div class="mapctl">
+          <button id="zin" title="ซูมเข้า" aria-label="ซูมเข้า">+</button>
+          <button id="zout" title="ซูมออก" aria-label="ซูมออก">-</button>
+          <button id="zrst" title="กลับค่าเริ่มต้น" aria-label="กลับค่าเริ่มต้น" style="font-size:11px">R</button>
+        </div>
+        <div class="scalebar"><div id="sbar" style="width:80px"></div><span id="sbtxt" class="mono">-</span></div>
+      </div>
+    </section>
+
+    <aside class="rail">
+      <section class="panel">
+        <div class="idblock">
+          <h2 class="stname" id="d-name">-</h2>
+          <div class="tagrow" id="d-tags"></div>
+          <p class="addr" id="d-addr"></p>
+        </div>
+        <div class="readout">
+          <div><span class="bignum mono" id="d-val">-</span><span class="unit">ม.รทก.</span></div>
+          <div class="state" id="d-state">-</div>
+          <div class="stamp" id="d-stamp"></div>
+        </div>
+        <div class="chartbox">
+          <div class="charthead">
+            <div class="ranges" id="ranges" role="group" aria-label="ช่วงเวลาของกราฟ">
+              <button class="rbtn" data-h="24"  aria-pressed="true">24 ชม.</button>
+              <button class="rbtn" data-h="168" aria-pressed="false">7 วัน</button>
+              <button class="rbtn" data-h="720" aria-pressed="false">30 วัน</button>
+            </div>
+            <span id="c-hover" class="mono"></span>
+          </div>
+          <div class="charthead"><span id="c-range"></span></div>
+          <svg id="chart" role="img" aria-label="กราฟระดับน้ำย้อนหลัง"></svg>
+        </div>
+      </section>
+
+      <section class="panel grow">
+        <div class="panel-h">
+          <h2>รายการสถานี</h2>
+          <span class="mono" id="listcount"></span>
+        </div>
+        <div class="searchrow">
+          <svg class="sicon" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"></circle>
+            <path d="M15.5 15.5 L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+          </svg>
+          <input id="q" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="ค้นหาชื่อสถานี รหัส จังหวัด อำเภอ แม่น้ำ" aria-label="ค้นหาสถานี">
+          <button id="qclear" type="button" aria-label="ล้างคำค้น" hidden>&#215;</button>
+        </div>
+        <div class="listbox" id="list"></div>
+      </section>
+    </aside>
+  </div>
+
+  <footer>
+    <section class="prov">
+      <h2>API ที่ใช้ดึงข้อมูลหน้านี้</h2>
+      <div class="apitab-wrap">
+      <table class="apitab">
+        <thead>
+          <tr><th>Endpoint</th><th>ให้อะไร</th><th>ความถี่ที่เราเรียก</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="host">api-v3.thaiwater.net</span><code>/api/v1/thaiwater30/public/waterlevel_load</code></td>
+            <td>ค่าระดับน้ำล่าสุดของทุกสถานี ชื่อ พิกัด ลุ่มน้ำ หน่วยงาน ที่อยู่ และระยะถึงตลิ่ง ครบใน request เดียว</td>
+            <td>ทุก 15 นาที</td>
+          </tr>
+          <tr>
+            <td><span class="host">api-v3.thaiwater.net</span><code>/api/v1/thaiwater30/public/waterlevel_graph</code></td>
+            <td>อนุกรมเวลาย้อนหลังราย 10 นาที ทีละสถานี พร้อมระดับตลิ่งและระดับท้องน้ำ ใช้ทำเส้นกราฟ</td>
+            <td>วันละครั้ง ตี 3</td>
+          </tr>
+          <tr>
+            <td><span class="host">data.hii.or.th</span><code>/api/3/action/datastore_search</code></td>
+            <td>บัญชีชุดข้อมูลเปิดของ สสน. และเงื่อนไขสัญญาอนุญาต ใช้ตรวจทะเบียนสถานี</td>
+            <td>อ้างอิง</td>
+          </tr>
+          <tr>
+            <td><span class="host">tiservice.hii.or.th</span><code>/opendata/data_catalog/water_level/</code></td>
+            <td>แฟ้มย้อนหลังทั้งชุด ปี 2012 ถึง 2026 ราย 10 นาที สำหรับดึงเป็นก้อน</td>
+            <td>ตามต้องการ</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="pnote" id="foot-note"></p>
+      <p class="pnote">
+        เจ้าของข้อมูล สถาบันสารสนเทศทรัพยากรน้ำ (องค์การมหาชน) &#183;
+        หน่วยงานเจ้าของสถานี กรมชลประทาน (ชป.), สสน., มูลนิธิอาสาเพื่อนพึ่ง (ภาฯ) ยามยาก สภากาชาดไทย (พพภ)<br>
+        สัญญาอนุญาต Creative Commons Attribution Non-Commercial (CC BY-NC) ใช้เพื่อการศึกษาและวิจัย ไม่ใช่เพื่อการค้า &#183;
+        เวลาทั้งหมดเป็นเวลาประเทศไทย &#183; หน่วย ม.รทก. คือเมตรเทียบระดับน้ำทะเลปานกลาง
+      </p>
+    </section>
+  </footer>
+</div>
+
+<script id="payload" type="application/json">__DATA__</script>
+<script id="geo" type="application/json">__GEO__</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById('payload').textContent);
+const GEO  = JSON.parse(document.getElementById('geo').textContent);
+const S = DATA.stations;
+/* Timestamps ship as minutes from DATA.base to keep the payload small.
+   Rebuild a label only for the points a viewer actually looks at. */
+const BASE = (()=>{const [d,t]=DATA.base.split(' ');const [Y,M,D]=d.split('-').map(Number);
+  const [h,m]=t.split(':').map(Number); return new Date(Y,M-1,D,h,m);})();
+const pad2 = n => String(n).padStart(2,'0');
+function tsOf(min){
+  const d=new Date(BASE.getTime()+min*60000);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} `+
+         `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+const dayOf = min => tsOf(min).slice(5,10);
+const hmOf  = min => tsOf(min).slice(11,16);
+
+/* ---------- status from distance below bank, the way Thai reports phrase it ---------- */
+function status(st){
+  if(st.last==null)  return 'none';
+  if(st.bank==null)  return 'nobank';       // no reference to judge against
+  const d = st.bank - st.last;              // metres below bank
+  if(d<=0) return 'alert';
+  if(d<1)  return 'watch';
+  return 'safe';
+}
+const COLOR = {alert:'--alert', watch:'--watch', safe:'--safe', nobank:'--ink-3', none:'--ink-3'};
+function cvar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function statColor(k){return cvar(COLOR[k])}
+const NOW = (()=>{const [d,t]=DATA.generatedAt.split(' ');const [Y,M,D]=d.split('-').map(Number);
+  const [h,m]=t.split(':').map(Number); return new Date(Y,M-1,D,h,m);})();
+function ageHours(st){
+  if(!st.lastAt) return null;
+  const [d,t]=st.lastAt.split(' '); const [Y,M,D]=d.split('-').map(Number);
+  const [h,m]=t.split(':').map(Number);
+  return (NOW - new Date(Y,M-1,D,h,m))/3600000;
+}
+function ageText(h){
+  if(h==null) return 'ไม่มีเวลารับค่า';
+  if(h<1.5)  return 'ล่าสุด';
+  if(h<48)   return `เก่า ${Math.round(h)} ชม.`;
+  return `เก่า ${Math.round(h/24)} วัน`;
+}
+/* A station can sit in the feed for a day with the same timestamp. Marking it
+   stale is the difference between "the river is calm" and "nobody has heard
+   from this gauge since yesterday". */
+const STALE_H = 3;
+S.forEach(s=>{
+  s.k = status(s);
+  s.gap = (s.bank!=null&&s.last!=null)? s.bank-s.last : null;
+  s.age = ageHours(s);
+  s.stale = s.age!=null && s.age >= STALE_H;
+  s.hist = (s.t24&&s.t24.length>1)||(s.t&&s.t.length>1);
+});
+
+/* ---------- marker shape carries the operating agency ----------
+   Colour already encodes how close the water is to the bank, so the shape is
+   free to carry who runs the station. Unit shapes centred on the origin with
+   radius 1; the marker is placed and sized entirely by its transform, so a
+   zoom only rewrites one attribute per marker. */
+const SHAPE = {
+  'สสน.'  : {d:'M0,-1A1,1 0 1,1 0,1A1,1 0 1,1 0,-1Z', label:'วงกลม'},
+  'ชป.'   : {d:'M-.86,-.86H.86V.86H-.86Z',            label:'สี่เหลี่ยม'},
+  'พพภ'   : {d:'M0,-1.16L1.05,.66H-1.05Z',            label:'สามเหลี่ยม'}
+};
+const FALLBACK_SHAPE = {d:'M0,-1L1,0L0,1L-1,0Z', label:'ข้าวหลามตัด'};
+const shapeOf = a => SHAPE[a] || FALLBACK_SHAPE;
+
+/* ---------- Web Mercator, same projection a tile map uses ---------- */
+const R = 128/Math.PI;
+function mx(lon){return R*(lon*Math.PI/180)}
+function my(lat){const p=Math.max(-85,Math.min(85,lat))*Math.PI/180; return -R*Math.log(Math.tan(Math.PI/4+p/2))}
+
+const map = document.getElementById('map');
+const NS='http://www.w3.org/2000/svg';
+let view={x:0,y:0,s:1}, box={w:0,h:0}, home=null;
+
+/* extent: the stations, padded */
+const ext=(()=>{
+  const X=S.map(s=>mx(s.lon)), Y=S.map(s=>my(s.lat));
+  const pad=0.035;
+  let x0=Math.min(...X),x1=Math.max(...X),y0=Math.min(...Y),y1=Math.max(...Y);
+  const dx=(x1-x0)*pad, dy=(y1-y0)*pad;
+  return {x0:x0-dx,x1:x1+dx,y0:y0-dy,y1:y1+dy};
+})();
+
+/* Fit the station extent, then push in a little further. The stations cluster
+   along the rivers, so a strict bounding-box fit leaves a lot of empty land at
+   the edges; ZOOM_IN trades a sliver of the outermost margin for legibility. */
+const ZOOM_IN=1.18;
+function fit(){
+  const r=map.getBoundingClientRect(); box={w:r.width,h:r.height};
+  const s=Math.min(box.w/(ext.x1-ext.x0), box.h/(ext.y1-ext.y0))*ZOOM_IN;
+  home={s, x:(box.w-(ext.x1-ext.x0)*s)/2 - ext.x0*s, y:(box.h-(ext.y1-ext.y0)*s)/2 - ext.y0*s};
+  view={...home};
+}
+const px=(s)=>[mx(s.lon)*view.s+view.x, my(s.lat)*view.s+view.y];
+
+/* ---------- build the map once, then transform a group ---------- */
+let gLand, gDots, gSel, selRing, selHalo, selLbl, dots=[];
+function buildMap(){
+  map.innerHTML='';
+  const g=document.createElementNS(NS,'g'); g.id='pan'; map.appendChild(g);
+  gLand=document.createElementNS(NS,'g'); g.appendChild(gLand);
+  gDots=document.createElementNS(NS,'g'); g.appendChild(gDots);
+  gSel =document.createElementNS(NS,'g'); gSel.setAttribute('pointer-events','none'); g.appendChild(gSel);
+  selRing=document.createElementNS(NS,'circle');
+  selRing.setAttribute('fill','none'); selRing.setAttribute('stroke','var(--accent)');
+  selRing.setAttribute('vector-effect','non-scaling-stroke'); selRing.setAttribute('opacity','0');
+  selHalo=document.createElementNS(NS,'circle');
+  selHalo.setAttribute('fill','var(--accent)'); selHalo.setAttribute('opacity','0');
+  selLbl=document.createElementNS(NS,'text');
+  selLbl.setAttribute('text-anchor','middle'); selLbl.setAttribute('paint-order','stroke');
+  selLbl.setAttribute('stroke','var(--surface)'); selLbl.setAttribute('stroke-width','3.5');
+  selLbl.setAttribute('stroke-linejoin','round'); selLbl.setAttribute('fill','var(--ink)');
+  selLbl.setAttribute('font-weight','600'); selLbl.setAttribute('opacity','0');
+  gSel.appendChild(selHalo); gSel.appendChild(selRing); gSel.appendChild(selLbl);
+
+  const inBasin=new Set(S.map(s=>s.province));
+  GEO.forEach(p=>{
+    p.r.forEach(ring=>{
+      const d='M'+ring.map(c=>mx(c[0]).toFixed(2)+','+my(c[1]).toFixed(2)).join('L')+'Z';
+      const path=document.createElementNS(NS,'path');
+      path.setAttribute('d',d);
+      path.setAttribute('fill','var(--land)');
+      path.setAttribute('stroke','var(--land-line)');
+      path.setAttribute('stroke-width','0.9');
+      path.setAttribute('vector-effect','non-scaling-stroke');
+      gLand.appendChild(path);
+    });
+  });
+
+  dots=S.map(s=>{
+    const c=document.createElementNS(NS,'path');
+    c.setAttribute('d',shapeOf(s.agency).d);
+    c._cx=mx(s.lon); c._cy=my(s.lat);
+    c.setAttribute('stroke','#03080D');
+    c.setAttribute('stroke-width','0.9'); c.setAttribute('vector-effect','non-scaling-stroke');
+    c.setAttribute('stroke-linejoin','round');
+    if(s.stale){ c.setAttribute('fill','none'); c.setAttribute('stroke',statColor(s.k));
+                 c.setAttribute('stroke-width','1.4'); }
+    else c.setAttribute('fill',statColor(s.k));
+    c.style.cursor='pointer';
+    c.setAttribute('data-sid',s.id);
+    c.setAttribute('tabindex','0'); c.setAttribute('role','button');
+    c.setAttribute('aria-label',s.name+' '+(s.agency||''));
+    c.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(s.id);}});
+    gDots.appendChild(c); s._el=c; return c;
+  });
+  applyView();
+}
+function applyView(){
+  const g=document.getElementById('pan');
+  g.setAttribute('transform',`translate(${view.x} ${view.y}) scale(${view.s})`);
+  const dense = S.length>300 ? 0.82 : 1;
+  const rr=+(2.0*dense/view.s*Math.min(1.9,Math.max(.55,view.s/home.s))).toFixed(3);
+  S.forEach(s=>{
+    const k=(s.id===sel? rr*1.5 : rr);
+    s._el.setAttribute('transform',`translate(${s._el._cx.toFixed(3)} ${s._el._cy.toFixed(3)}) scale(${k.toFixed(4)})`);
+  });
+  const cur=S.find(x=>x.id===sel);
+  if(cur && selRing){
+    const cx=mx(cur.lon), cy=my(cur.lat);
+    selHalo.setAttribute('cx',cx); selHalo.setAttribute('cy',cy);
+    selHalo.setAttribute('r',(rr*3.4).toFixed(3)); selHalo.setAttribute('opacity','.16');
+    selRing.setAttribute('cx',cx); selRing.setAttribute('cy',cy);
+    selRing.setAttribute('r',(rr*2.5).toFixed(3)); selRing.setAttribute('stroke-width','2');
+    selRing.setAttribute('opacity','1');
+    selLbl.setAttribute('x',cx); selLbl.setAttribute('y',(cy-rr*3.9).toFixed(3));
+    selLbl.setAttribute('font-size',(11/view.s).toFixed(3));
+    selLbl.setAttribute('stroke-width',(3.5/view.s).toFixed(3));
+    selLbl.textContent=cur.name;
+    selLbl.setAttribute('opacity','1');
+  } else if(selRing){
+    selHalo.setAttribute('opacity','0'); selRing.setAttribute('opacity','0'); selLbl.setAttribute('opacity','0');
+  }
+  scalebar();
+}
+function scalebar(){
+  // 256 px at scale 1 == 360 deg of longitude at the equator
+  const degPerPx = 360/(256*view.s);
+  const midLat = (S.reduce((a,s)=>a+s.lat,0)/S.length)*Math.PI/180;
+  const kmPerPx = degPerPx*111.32*Math.cos(midLat);
+  const targets=[500,200,100,50,20,10,5,2,1];
+  const t=targets.find(v=>v/kmPerPx<=110)||1;
+  document.getElementById('sbar').style.width=(t/kmPerPx).toFixed(0)+'px';
+  document.getElementById('sbtxt').textContent=t+' กม.';
+}
+
+/* ---------- pan and zoom ---------- */
+/* Capturing the pointer on pointerdown steals the click from the marker, so
+   hold off until the pointer has actually travelled a few pixels. Under that
+   threshold the gesture is a tap and we select whatever sits under it. */
+let drag=null;
+const DRAG_PX=4;
+map.addEventListener('pointerdown',e=>{
+  drag={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y,moved:false,id:e.pointerId,
+        hit:e.target.closest?e.target.closest('[data-sid]'):null};
+});
+const tip=document.getElementById('tip');
+let tipFor=null;
+function showTip(st,cx,cy){
+  if(tipFor!==st.id){
+    tipFor=st.id;
+    const gapTxt = st.k==='none' ? 'ไม่มีค่า'
+      : st.k==='nobank' ? 'ไม่มีระดับตลิ่งอ้างอิง'
+      : st.gap<=0 ? 'สูงกว่าตลิ่ง '+(-st.gap).toFixed(2)+' ม.'
+      : 'ต่ำกว่าตลิ่ง '+st.gap.toFixed(2)+' ม.';
+    const col = st.k==='alert'?'var(--alert)':st.k==='watch'?'var(--watch)'
+              :st.k==='safe'?'var(--safe)':'var(--ink-3)';
+    tip.style.borderLeftColor=col;
+    tip.innerHTML =
+      `<div class="n"><svg width="10" height="10" viewBox="-1.3 -1.3 2.6 2.6" aria-hidden="true" style="overflow:visible;margin-right:5px">`+
+        `<path d="${shapeOf(st.agency).d}" fill="${col}" stroke="var(--surface)" stroke-width="0.25"></path></svg>${st.name}</div>`+
+      `<div class="m">${st.agency?`<b>${st.agency}</b>`:''}${st.code?`<span class="mono">${st.code}</span>`:''}`+
+        `${st.amphoe?`<span>อ.${st.amphoe}</span>`:''}</div>`+
+      `<div class="v mono">${st.last==null?'-':st.last.toFixed(2)}<span>ม.รทก.</span></div>`+
+      `<div class="g" style="color:${col}">${gapTxt}</div>`+
+      `<div class="ts mono">${st.lastAt? st.lastAt+' น.' : 'ไม่มีเวลารับค่า'}`+
+        `${st.age!=null?` <span style="color:${st.stale?'var(--watch)':'var(--ink-3)'}">${ageText(st.age)}</span>`:''}</div>`;
+  }
+  const r=map.getBoundingClientRect();
+  const w=tip.offsetWidth||170, h=tip.offsetHeight||110;
+  let x=cx-r.left, y=cy-r.top-14;
+  x=Math.max(w/2+6,Math.min(r.width-w/2-6,x));
+  if(y-h<4){ tip.style.transform='translate(-50%,0)'; y=cy-r.top+18; }
+  else tip.style.transform='translate(-50%,-100%)';
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+  tip.dataset.on='1'; tip.setAttribute('aria-hidden','false');
+}
+function hideTip(){ tip.dataset.on='0'; tip.setAttribute('aria-hidden','true'); tipFor=null; }
+
+map.addEventListener('pointermove',e=>{
+  if(!drag || !drag.moved){
+    const el=e.target.closest?e.target.closest('[data-sid]'):null;
+    if(el){ const st=S.find(x=>x.id===+el.dataset.sid); if(st) showTip(st,e.clientX,e.clientY); }
+    else hideTip();
+  }
+  if(!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  if(!drag.moved && Math.hypot(dx,dy)<DRAG_PX) return;
+  if(!drag.moved){ drag.moved=true; hideTip(); map.classList.add('drag');
+    try{map.setPointerCapture(drag.id)}catch(_){} }
+  view.x=drag.vx+dx; view.y=drag.vy+dy; applyView();
+});
+map.addEventListener('pointerup',e=>{
+  if(drag && !drag.moved){
+    const el=drag.hit || (document.elementFromPoint(e.clientX,e.clientY)||{}).closest?.('[data-sid]');
+    if(el) select(+el.dataset.sid);
+  }
+  if(drag&&drag.moved){ try{map.releasePointerCapture(drag.id)}catch(_){} }
+  drag=null; map.classList.remove('drag');
+});
+map.addEventListener('pointercancel',()=>{drag=null;map.classList.remove('drag');hideTip()});
+map.addEventListener('pointerleave',hideTip);
+// keyboard focus on a marker shows the same card
+map.addEventListener('focusin',e=>{
+  const el=e.target.closest?e.target.closest('[data-sid]'):null;
+  if(!el) return;
+  const st=S.find(x=>x.id===+el.dataset.sid); if(!st) return;
+  const r=map.getBoundingClientRect(), [x,y]=px(st);
+  showTip(st,r.left+x,r.top+y);
+});
+map.addEventListener('focusout',hideTip);
+map.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,Math.pow(1.0015,-e.deltaY))},{passive:false});
+function zoomAt(cx,cy,f){
+  const r=map.getBoundingClientRect(), x=cx-r.left, y=cy-r.top;
+  const ns=Math.max(home.s*0.55,Math.min(home.s*46,view.s*f));
+  const k=ns/view.s;
+  view.x=x-(x-view.x)*k; view.y=y-(y-view.y)*k; view.s=ns; applyView();
+}
+document.getElementById('zin').onclick =()=>zoomAt(map.getBoundingClientRect().left+box.w/2,map.getBoundingClientRect().top+box.h/2,1.6);
+document.getElementById('zout').onclick=()=>zoomAt(map.getBoundingClientRect().left+box.w/2,map.getBoundingClientRect().top+box.h/2,1/1.6);
+document.getElementById('zrst').onclick=()=>{view={...home};applyView()};
+
+/* ---------- selection and detail rail ---------- */
+let sel=null;
+const filter={basin:'*', agency:'*', q:''};
+/* Search every field a person might reach for by name, not just the title -
+   somebody looking for "อยุธยา" or "C.13" should land on the same station. */
+const haystack = s => [s.name, s.code, s.province, s.amphoe, s.tambon, s.river, s.basin, s.agency]
+                        .filter(Boolean).join(' ').toLowerCase();
+S.forEach(s=>{ s._hay = haystack(s); });
+const matches = s => (filter.basin==='*'  || s.basin===filter.basin)
+                  && (filter.agency==='*' || (s.agency||'ไม่ระบุ')===filter.agency)
+                  && (!filter.q || s._hay.includes(filter.q));
+const $=(id)=>document.getElementById(id);
+function fmt(v,n){return v==null?'-':Number(v).toFixed(n==null?2:n)}
+
+function select(id){
+  sel=id; const s=S.find(x=>x.id===id); if(!s) return;
+  $('d-name').textContent=s.name;
+  const tags=[];
+  if(s.agency) tags.push(`<span class="tag ag" title="${s.agencyFull||''}">${s.agency}</span>`);
+  if(s.code)   tags.push(`<span class="tag mono">${s.code}</span>`);
+  if(s.basin)  tags.push(`<span class="tag">${s.basin}</span>`);
+  if(s.river)  tags.push(`<span class="tag">${s.river}</span>`);
+  $('d-tags').innerHTML=tags.join('');
+  const bits=[s.tambon&&('ต.'+s.tambon), s.amphoe&&('อ.'+s.amphoe), s.province&&('จ.'+s.province)].filter(Boolean);
+  $('d-addr').innerHTML = (bits.join(' ')||'ไม่ระบุที่อยู่') +
+    `<br><span class="mono">${fmt(s.lat,5)}, ${fmt(s.lon,5)}</span>`;
+  $('d-val').textContent = s.last==null?'-':fmt(s.last);
+  $('d-stamp').innerHTML = s.lastAt
+    ? `รับค่าเมื่อ ${s.lastAt} น. <span style="color:${s.stale?'var(--watch)':'var(--ink-3)'}">(${ageText(s.age)})</span>`
+      + (s.hist ? '' : ' <span style="color:var(--ink-3)">&#183; สถานีนี้ส่งเฉพาะค่าล่าสุด ไม่เปิดย้อนหลัง</span>')
+    : 'ไม่มีข้อมูลล่าสุด';
+  const st=$('d-state');
+  st.className='state '+(s.k==='alert'?'s-alert':s.k==='watch'?'s-watch':s.k==='safe'?'s-safe':'s-none');
+  st.textContent = s.k==='none' ? 'ไม่มีค่า'
+    : s.k==='nobank' ? 'ไม่มีระดับตลิ่งอ้างอิง'
+    : s.gap<=0 ? 'สูงกว่าตลิ่ง '+fmt(-s.gap)+' ม.'
+    : 'ต่ำกว่าตลิ่ง '+fmt(s.gap)+' ม.';
+  drawChart(s);
+  ensureVisible(s);
+  applyView();
+  [...$('list').children].forEach(b=>b.setAttribute('aria-current', b.dataset.id==String(id)));
+}
+
+function ensureVisible(s){
+  if(!home) return;
+  const [x,y]=px(s), pad=44;
+  let dx=0,dy=0;
+  if(x<pad) dx=pad-x; else if(x>box.w-pad) dx=box.w-pad-x;
+  if(y<pad) dy=pad-y; else if(y>box.h-pad) dy=box.h-pad-y;
+  if(dx||dy){ view.x+=dx; view.y+=dy; }
+}
+
+/* ---------- line chart with hover ---------- */
+const chart=$('chart'); let CH=null, rangeH=24;
+
+/* 24 h comes from the untouched fine series; the longer views slice the
+   downsampled one. Mixing them would change the line's texture mid-zoom. */
+function seriesFor(st,hours){
+  if(hours<=24) return {t:st.t24||[], v:st.v24||[]};
+  const t=st.t||[], v=st.v||[];
+  if(!t.length) return {t:[],v:[]};
+  const cut=t[t.length-1]-hours*60;
+  let i=0; while(i<t.length && t[i]<cut) i++;
+  return {t:t.slice(i), v:v.slice(i)};
+}
+
+function drawChart(s){
+  chart.innerHTML=''; CH=null;
+  const ser=seriesFor(s,rangeH);
+  const hasAny=(s.t&&s.t.length>1)||(s.t24&&s.t24.length>1);
+  if(ser.t.length<2){
+    const msg = hasAny ? 'ไม่มีข้อมูลในช่วงเวลานี้' : 'สถานีนี้ไม่เปิดข้อมูลย้อนหลัง';
+    const sub = hasAny ? 'ลองเลือกช่วงที่ยาวกว่านี้' : 'ThaiWater ส่งช่วงเวลามาครบแต่ค่าเป็น null ทุกจุด';
+    chart.innerHTML=
+      `<text x="50%" y="42%" text-anchor="middle" fill="${cvar('--ink-2')}" font-size="12.5">${msg}</text>`+
+      `<text x="50%" y="60%" text-anchor="middle" fill="${cvar('--ink-3')}" font-size="11">${sub}</text>`;
+    $('c-hover').textContent=''; $('c-range').textContent=''; return;
+  }
+  if(false){
+    chart.innerHTML=
+      `<text x="50%" y="42%" text-anchor="middle" fill="${cvar('--ink-2')}" font-size="12.5">สถานีนี้ไม่เปิดข้อมูลย้อนหลัง</text>`+
+      `<text x="50%" y="60%" text-anchor="middle" fill="${cvar('--ink-3')}" font-size="11">ThaiWater ส่งช่วงเวลามาครบแต่ค่าเป็น null ทุกจุด</text>`;
+    $('c-hover').textContent=''; $('c-range').textContent='มีเฉพาะค่าล่าสุด'; return;
+  }
+  $('c-range').textContent=`${ser.t.length} จุด  ${tsOf(ser.t[0])} ถึง ${tsOf(ser.t[ser.t.length-1])}`;
+  const r=chart.getBoundingClientRect(), W=r.width||420, H=r.height||190;
+  const m={t:12,r:12,b:22,l:44};
+  const iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const v=ser.v, n=v.length;
+  let lo=Math.min(...v), hi=Math.max(...v);
+  if(s.bank!=null && s.bank<hi+ (hi-lo||1)*1.6) { lo=Math.min(lo,s.bank); hi=Math.max(hi,s.bank); }
+  if(hi-lo<0.2){const c=(hi+lo)/2; lo=c-0.1; hi=c+0.1;}
+  const pd=(hi-lo)*0.12; lo-=pd; hi+=pd;
+  const X=i=>m.l+(n===1?iw/2:i/(n-1)*iw);
+  const Y=y=>m.t+ih-(y-lo)/(hi-lo)*ih;
+
+  const add=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);chart.appendChild(e);return e};
+  chart.setAttribute('viewBox',`0 0 ${W} ${H}`);
+
+  // grid + y labels
+  for(let i=0;i<=3;i++){
+    const y=m.t+ih*i/3, val=hi-(hi-lo)*i/3;
+    add('line',{x1:m.l,x2:W-m.r,y1:y.toFixed(1),y2:y.toFixed(1),stroke:cvar('--line-2'),'stroke-width':1});
+    const tx=add('text',{x:m.l-7,y:(y+3.5).toFixed(1),'text-anchor':'end','font-size':10,fill:cvar('--ink-3')});
+    tx.setAttribute('font-family','IBM Plex Mono, monospace'); tx.textContent=val.toFixed(2);
+  }
+  // bank reference - the number Thai flood reporting is built around
+  if(s.bank!=null && s.bank>=lo && s.bank<=hi){
+    const yb=Y(s.bank);
+    add('line',{x1:m.l,x2:W-m.r,y1:yb.toFixed(1),y2:yb.toFixed(1),stroke:cvar('--alert'),'stroke-width':1.2,'stroke-dasharray':'5 4'});
+    const lb=add('text',{x:W-m.r,y:(yb-5).toFixed(1),'text-anchor':'end','font-size':9.5,fill:cvar('--alert')});
+    lb.textContent='ระดับตลิ่ง '+s.bank.toFixed(2);
+  }
+  // area + line
+  const pts=v.map((y,i)=>X(i).toFixed(1)+','+Y(y).toFixed(1)).join(' ');
+  add('polygon',{points:`${m.l},${m.t+ih} ${pts} ${(m.l+iw).toFixed(1)},${m.t+ih}`,fill:cvar('--accent'),'fill-opacity':.10,stroke:'none'});
+  const ln=add('polyline',{points:pts,fill:'none',stroke:cvar('--accent'),'stroke-width':1.7,
+                           'stroke-linejoin':'round','stroke-linecap':'round'});
+  ln.style.filter='drop-shadow(0 0 5px '+cvar('--accent')+')';
+  const cap=add('circle',{cx:X(n-1).toFixed(1),cy:Y(v[n-1]).toFixed(1),r:3,fill:cvar('--accent'),
+                          stroke:cvar('--surface'),'stroke-width':1.5});
+  cap.style.filter='drop-shadow(0 0 7px '+cvar('--accent')+')';
+
+  // x labels
+  [0,n-1].forEach((i,j)=>{
+    const tx=add('text',{x:j?W-m.r:m.l,y:H-6,'text-anchor':j?'end':'start','font-size':10,fill:cvar('--ink-3')});
+    tx.setAttribute('font-family','IBM Plex Mono, monospace');
+    tx.textContent = rangeH<=24 ? hmOf(ser.t[i]) : dayOf(ser.t[i]);
+  });
+
+  const cross=add('line',{x1:0,x2:0,y1:m.t,y2:m.t+ih,stroke:cvar('--ink-3'),'stroke-width':1,'stroke-dasharray':'3 3',opacity:0});
+  const knob =add('circle',{r:4,fill:cvar('--accent'),stroke:cvar('--surface'),'stroke-width':1.5,opacity:0});
+  const hit=add('rect',{x:m.l,y:m.t,width:iw,height:ih,fill:'transparent'});
+  CH={s,ser,X,Y,n,m,iw,ih,cross,knob};
+  hit.style.cursor='crosshair';
+  hit.addEventListener('pointermove',onHover);
+  hit.addEventListener('pointerleave',()=>{cross.setAttribute('opacity',0);knob.setAttribute('opacity',0);$('c-hover').textContent=''});
+}
+function onHover(e){
+  if(!CH) return;
+  const r=chart.getBoundingClientRect();
+  const sx=(e.clientX-r.left)*(chart.viewBox.baseVal.width/r.width);
+  let i=Math.round((sx-CH.m.l)/CH.iw*(CH.n-1));
+  i=Math.max(0,Math.min(CH.n-1,i));
+  const x=CH.X(i), y=CH.Y(CH.s.v[i]);
+  CH.cross.setAttribute('x1',x);CH.cross.setAttribute('x2',x);CH.cross.setAttribute('opacity',.8);
+  CH.knob.setAttribute('cx',x);CH.knob.setAttribute('cy',y);CH.knob.setAttribute('opacity',1);
+  $('c-hover').textContent=tsOf(CH.ser.t[i])+' น.   '+CH.ser.v[i].toFixed(2)+' ม.รทก.';
+}
+
+$('ranges').addEventListener('click',e=>{
+  const b=e.target.closest('.rbtn'); if(!b) return;
+  rangeH=+b.dataset.h;
+  $('ranges').querySelectorAll('.rbtn').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  const st=S.find(x=>x.id===sel); if(st) drawChart(st);
+});
+
+/* ---------- station list ---------- */
+function hl(text){
+  if(!filter.q || !text) return text||'';
+  const i=text.toLowerCase().indexOf(filter.q);
+  if(i<0) return text;
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+filter.q.length))+'</mark>'+esc(text.slice(i+filter.q.length));
+}
+
+function renderList(){
+  const rows=S.filter(matches)
+              .sort((a,b)=>(a.gap==null)-(b.gap==null)||((a.gap??9e9)-(b.gap??9e9)));
+  $('list').innerHTML=rows.map(s=>`
+    <button class="strow" data-id="${s.id}" aria-current="${s.id===sel}">
+      <span class="nm">${hl(s.name)}<small>${hl([s.code,s.amphoe&&('อ.'+s.amphoe),s.province&&('จ.'+s.province)].filter(Boolean).join(' '))}</small></span>
+      <span class="val mono">${s.last==null?'-':s.last.toFixed(2)}${((!s.t||s.t.length<2)&&(!s.t24||s.t24.length<2))?'<sup title="ไม่มีข้อมูลย้อนหลัง" style="color:var(--ink-3);font-size:9px">&#9679;</sup>':''}</span>
+      <svg class="dot" width="11" height="11" viewBox="-1.3 -1.3 2.6 2.6" aria-hidden="true" style="background:none;overflow:visible">
+        <path d="${shapeOf(s.agency).d}" fill="${s.stale?'none':statColor(s.k)}" stroke="${s.stale?statColor(s.k):'var(--surface)'}" stroke-width="${s.stale?0.34:0.22}"></path></svg>
+    </button>`).join('');
+  if(!rows.length){
+    $('list').innerHTML=`<div class="emptylist">ไม่พบสถานีที่ตรงกับ "${filter.q}"<br>`+
+      `<span style="font-size:11.5px">ลองคำที่สั้นลง หรือล้างตัวกรองลุ่มน้ำและแหล่งข้อมูล</span></div>`;
+  }
+  [...$('list').querySelectorAll('.strow')].forEach(b=>b.onclick=()=>select(+b.dataset.id));
+  $('listcount').textContent = rows.length===S.length ? `${S.length}` : `${rows.length} / ${S.length}`;
+  $('mapcount').textContent = rows.length===S.length
+      ? S.length+' สถานี'
+      : rows.length+' จาก '+S.length+' สถานี';
+  S.forEach(s=>{ s._el.style.display = matches(s) ? '' : 'none' });
+  if(!rows.some(r=>r.id===sel) && rows.length) select(rows[0].id);
+  $('list').setAttribute('aria-live','polite');
+  chipCounts();
+}
+
+/* ---------- filters: basin and source, applied together ---------- */
+function addChips(host, values, withShape){
+  values.forEach(v=>{
+    const btn=document.createElement('button');
+    btn.className='chip'; btn.dataset.v=v; btn.setAttribute('aria-pressed','false');
+    const glyph = withShape
+      ? `<svg width="10" height="10" viewBox="-1.3 -1.3 2.6 2.6" aria-hidden="true"><path d="${shapeOf(v).d}" fill="currentColor"></path></svg>`
+      : '';
+    btn.innerHTML = glyph + v + '<span class="cnt"></span>';
+    if(withShape){
+      const full=(S.find(x=>(x.agency||'ไม่ระบุ')===v)||{}).agencyFull;
+      if(full) btn.title=full;
+    }
+    host.appendChild(btn);
+  });
+}
+addChips($('f-basin'),  [...new Set(S.map(s=>s.basin))].sort(), false);
+addChips($('f-agency'), [...new Set(S.map(s=>s.agency||'ไม่ระบุ'))]
+                          .sort((a,b)=>S.filter(x=>(x.agency||'ไม่ระบุ')===b).length
+                                      -S.filter(x=>(x.agency||'ไม่ระบุ')===a).length), true);
+
+/* counts react to the other dimension, so a chip never promises an empty result */
+function chipCounts(){
+  document.querySelectorAll('.fgroup').forEach(g=>{
+    const dim=g.dataset.dim;
+    g.querySelectorAll('.chip').forEach(c=>{
+      const v=c.dataset.v;
+      const n = S.filter(s=>{
+        const other = dim==='basin'
+          ? (filter.agency==='*' || (s.agency||'ไม่ระบุ')===filter.agency)
+          : (filter.basin==='*'  || s.basin===filter.basin);
+        const mine = v==='*' || (dim==='basin' ? s.basin===v : (s.agency||'ไม่ระบุ')===v);
+        return other && mine;
+      }).length;
+      const slot=c.querySelector('.cnt');
+      if(slot) slot.textContent=n;
+      c.disabled = n===0 && v!=='*';
+      c.style.opacity = c.disabled ? .4 : 1;
+    });
+  });
+}
+
+document.querySelector('.filterbar').addEventListener('click',e=>{
+  const b=e.target.closest('.chip'); if(!b||b.disabled) return;
+  const g=b.closest('.fgroup'); if(!g) return;
+  filter[g.dataset.dim]=b.dataset.v;
+  g.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',String(c===b)));
+  renderList();
+});
+
+const qBox=$('q'), qClear=$('qclear');
+function applyQuery(v){
+  filter.q=v.trim().toLowerCase();
+  qClear.hidden = !filter.q;
+  renderList();
+}
+qBox.addEventListener('input', e=>applyQuery(e.target.value));
+qBox.addEventListener('keydown', e=>{ if(e.key==='Escape'){ qBox.value=''; applyQuery(''); } });
+qClear.addEventListener('click', ()=>{ qBox.value=''; applyQuery(''); qBox.focus(); });
+/* "/" focuses search, the way every list on the web behaves */
+addEventListener('keydown', e=>{
+  if(e.key==='/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){
+    e.preventDefault(); qBox.focus(); qBox.select();
+  }
+});
+
+/* ---------- boot ---------- */
+function boot(){
+  fit(); buildMap();
+  $('gen').textContent='ปรับปรุง '+DATA.generatedAt+' น.';
+  $('t-n').textContent=S.length;
+  $('t-a').textContent=S.filter(s=>s.k==='alert').length;
+  $('t-w').textContent=S.filter(s=>s.k==='watch').length;
+  $('t-u').textContent=S.filter(s=>s.k==='nobank'||s.k==='none').length;
+  $('t-s').textContent=S.filter(s=>s.stale).length;
+  const withHist=S.filter(s=>(s.t&&s.t.length>1)||(s.t24&&s.t24.length>1)).length;
+  const banked=S.filter(s=>s.bank!=null).length;
+  const src=DATA.bySource||{};
+  const srcTxt=Object.entries(src).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{
+    const lbl = k==='graph' ? 'ดึงย้อนหลังยกชุด (waterlevel_graph)'
+              : k==='live'  ? 'เก็บสดทุก 15 นาที (waterlevel_load)'
+              : 'ไม่ระบุ (แถวที่เขียนก่อนมีคอลัมน์ source)';
+    return `${lbl} ${v.toLocaleString()}`;
+  }).join(' &#183; ');
+  $('foot-note').innerHTML=
+    `เราเก็บค่าที่ดึงมาไว้เองใน SQLite ${(DATA.dbRows||0).toLocaleString()} แถว ตั้งแต่ ${DATA.dbFrom||'-'} `+
+    `แล้วย่อจุดลงเหลือ ${S.reduce((a,s)=>a+(s.t?s.t.length:0),0).toLocaleString()} จุดสำหรับวาดกราฟหน้านี้ &#183; `+
+    `มีกราฟย้อนหลัง ${withHist} สถานี &#183; อีก ${S.length-withHist} สถานีไม่มีกราฟ `+
+    `เพราะ waterlevel_graph คืนช่วงเวลามาครบแต่ค่าเป็น null ทุกจุด ส่วนใหญ่เป็นรหัส ridhydro ของกรมชลประทาน `+
+    `ซึ่งส่งค่าเข้าฟีดวันละครั้งสองครั้ง เราจึงเก็บได้แถวเดียวและวาดเส้นไม่ได้ `+
+    `&#183; ตอนนี้ค่าค้างเกิน 3 ชม. ${S.filter(x=>x.stale).length} สถานี แสดงเป็นวงกลวง<br>`+
+    `ระดับตลิ่งใช้ได้ ${banked} สถานี อีก ${S.length-banked} สถานี API ส่ง diff_wl_bank `+
+    `เท่ากับระดับน้ำพอดี ซึ่งเป็นค่าแทนที่ไม่ใช่ระยะจริง จึงไม่นำมาคำนวณและไม่จัดสถานะ`+
+    (srcTxt ? `<br>ที่มาของแต่ละแถวในฐานข้อมูล: ${srcTxt}` : '');
+  renderList();
+  const hasSeries = s => (s.t24&&s.t24.length>1)||(s.t&&s.t.length>1);
+  const start=[...S].filter(s=>s.gap!=null && hasSeries(s)).sort((a,b)=>a.gap-b.gap)[0]
+             || [...S].filter(hasSeries)[0] || S[0];
+  select(start.id);
+}
+boot();
+let rt; addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{fit();applyView();const s=S.find(x=>x.id===sel);if(s)drawChart(s)},180)});
+</script>
