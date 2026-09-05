@@ -89,3 +89,55 @@ answers with nothing in the log.
 
 When adding a validity check, ask what a *partial* or *empty* instance of the
 valid thing looks like through it.
+
+---
+
+## ADDENDUM 09:20 - the gitleaks triage came back, and one finding is real
+
+Triaged before closing. Result changes the priority written above.
+
+| Finding | Verdict |
+|---|---|
+| `ψ/learn/_POPs_/vets-hub/.../1735_QUICK-REFERENCE.md` x2 | **False positive.** Postgres URI at `localhost:5432`, Docker image default user and password. Grants nothing remotely. |
+| `ψ/learn/Soul-Brews-Studio/maw-js/.../2120_ARCHITECTURE.md` | **False positive.** Fabricated placeholder; the "value" is an English phrase describing the field's length limit. |
+| `ψ/writing/2026-06-16_oracle-school-netbird-zenoh-cheat-sheet.md` x2 | **REAL, and third-party.** A NetBird setup key for Nat's class VM, under a heading reading "Admin Credentials (วันนี้)". Public since 2026-06-18, about 2.5 months. |
+
+**Two things the scan did not report, and they matter more than what it did.**
+
+One line above the flagged key, in the same block, is a plaintext admin dashboard
+password - short, dictionary-style - with the admin email above it and the
+dashboard URL above that. No rule fires on any of the three. A URL plus an email
+plus a weak password outranks a setup key, which is typically single-use or
+expires in thirty days.
+
+And the flagged key appears on **four** lines in that file, not the two gitleaks
+reported. Remediating only what the scanner named would leave half of it.
+
+The host answered on 443 today. That is not proof the credentials work; it is
+proof the question is not hypothetical.
+
+**Not ours to rotate.** It is Nat's machine. Editing our markdown stops us
+re-publishing it and revokes nothing. The control is Nat revoking the key and
+changing that password.
+
+### Order, when someone picks this up
+
+1. Tell Nat out of band **before** touching the repo. Lead with the password, not
+   the key gitleaks flagged. Ask: is the class stack still up, is the setup key
+   consumed or expired, has the dashboard password changed since 16 June.
+2. Then redact in one commit - all four key occurrences, the password, the admin
+   email - in the masking style already used elsewhere in the repo so the file
+   still works as teaching material. Leave the host IP; it is in the retro and is
+   public-facing anyway.
+3. **Do not rewrite history.** Public repo, 2.5 months, forks and cache. Matches
+   the repo's own governance: rotate and accept, never force-push.
+4. Separately, as scanner quality rather than security: `.gitleaks.toml` already
+   enumerates placeholder passwords and just omits service-name-as-password.
+
+### Mechanical finding worth carrying
+
+Our `.gitleaksignore` uses the 3-part `path:ruleid:line` fingerprint that
+`gitleaks dir` emits. A `gitleaks git` history scan emits a 4-part form including
+the commit, **so not one existing entry would suppress anything in a history
+scan.** With the line-pinning that already drifted today (`layers.py:44` now at
+`:54`), the suppression file is less durable than it looks.
