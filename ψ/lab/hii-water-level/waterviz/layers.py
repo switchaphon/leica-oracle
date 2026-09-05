@@ -33,7 +33,7 @@ baked like the radar.
 
 Only the handful that actually respond get baked, and IMAGE_BUDGET caps the
 total, because there is no image library here to downscale with and the frames
-run 200-500 KB each.
+run 200-500 KB each, and IMAGE_READ_CAP bounds a single read.
 """
 
 import argparse
@@ -63,6 +63,14 @@ RAIN_WINDOW = 1440  # cumulative minutes; the token is c<minutes>, 1440 = 24 h
 # library here to downscale with), so this is the only thing keeping four
 # 500 KB JPEGs from doubling the page.
 IMAGE_BUDGET = 2_200_000
+
+# Per-frame read cap. This was 400_000 and it was NOT a safety margin - three of
+# four baked frames came back at exactly 400,000 bytes, i.e. truncated, and the
+# published page served three half-rendered JPEGs. Nothing reported it, because
+# the only validity check was the two-byte start magic, which a truncated file
+# still has. Raised, and now paired with a terminator check: a JPEG that does not
+# end in FFD9 is incomplete and is refused rather than baked.
+IMAGE_READ_CAP = 1_500_000
 
 # Layer 4's poll gap. MEASURED, not chosen: the EGAT feeds refresh at exactly
 # 60 s (EXIF stepping 23:15:12 / 23:16:12 / 23:17:12 with the bytes changing in
@@ -182,12 +190,17 @@ def probe(cam, timeout=8, second_poll=True):
         # certificate should fail the probe rather than be waved through.
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            blob = r.read(400_000)
+            blob = r.read(IMAGE_READ_CAP)
     except Exception:
         return "noanswer", None, None, None
 
     if blob[:2] != b"\xff\xd8":
         return "notimage", None, None, None
+    # Start magic survives truncation; the terminator does not. Without this a
+    # frame clipped at the read cap is indistinguishable from a whole one, and
+    # gets embedded half-rendered with nothing in the log.
+    if not blob.rstrip(b"\r\n").endswith(b"\xff\xd9"):
+        return "truncated", None, None, None
     # Axis cameras carry the capture time in EXIF. A valid JPEG is not proof the
     # picture is current: one camera in this feed serves a 2024 frame under a
     # perfectly good HTTP 200, so record the stamp and let the page show it.
@@ -203,7 +216,7 @@ def probe(cam, timeout=8, second_poll=True):
         req2 = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0",
                                                     "Cache-Control": "no-cache"})
         with urllib.request.urlopen(req2, timeout=timeout) as r2:
-            blob2 = r2.read(400_000)
+            blob2 = r2.read(IMAGE_READ_CAP)
         frozen = hashlib.sha256(blob).digest() == hashlib.sha256(blob2).digest()
     except Exception:
         frozen = None          # could not ask twice; do not claim either way
