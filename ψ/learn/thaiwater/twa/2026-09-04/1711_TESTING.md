@@ -168,9 +168,9 @@ defences of very different strength:
 | **3b** | when the **recording started** | re-upload | a live stream of a frozen frame |
 | **3c** | time inside the **content** - EXIF, or text burned into the pixels | both | the only layer that caught เขื่อนสิรินธร |
 
-RPRO sits at **3b**, and got there deliberately: the freshness timestamp comes from a
-MinIO object *tag* rather than `lastModified` (`info.js:86`, `base.js:32-34`), and that
-tag is written at upload from the media's own recording start
+RPRO sits at **3b**: the freshness timestamp comes from a MinIO object *tag* rather
+than `lastModified` (`info.js:86`, `base.js:32-34`), and that tag is written at upload
+from the media's own recording start
 (`cctv.js:244` -> `cctv.js:108`, `moment(vod.data.startTime).unix()`). Re-uploading a
 stale file therefore preserves the old start time, the age check exceeds its 3-minute
 threshold, and the thumbnail is marked INACTIVE. It also **fails closed**: an empty
@@ -185,14 +185,97 @@ image: the recording start is fresh, the status reads ACTIVE, and the picture is
 are.
 
 **The warning worth carrying: 3b feels like content time and is transport time wearing
-its clothes.** A team that implements 3b will believe it has 3c. RPRO's authors did the
-careful thing - they deliberately avoided 3a - and still land one layer short of the
-failure actually observed here.
+its clothes.** A team that implements 3b will believe it has 3c. What is verifiable
+here is that RPRO reads *recording* time rather than *storage* time - which is the
+part worth copying - and that this still lands one layer short of the failure observed
+above. Whether 3b was chosen or arrived at is not established, and the trace does not
+show it either way.
 
 For this trap the probe reached 3c on both cameras, but by two different routes:
 burned-in overlay text at เขื่อนสิรินธร, EXIF at เขื่อนรัชชประภา. Only one of those is
 machine-readable, which is why the check cannot be fully automated: **the layer that
 works is the one that is hardest to read.**
+
+### Layer 4 - do not ask what time it claims to be, ask whether it changed
+
+rpro-ent-oracle's addition, and it escapes the whole family above:
+
+| | question | can the source lie? |
+|---|---|---|
+| 3a, 3b, 3c | **what time does this claim to be?** | yes - every one is an assertion |
+| **4** | **did it change?** | no timestamp is involved, so there is nothing to lie with |
+
+Hash two successive polls of the same camera and ask whether the bytes changed.
+
+**But the test is one-sided, and the first version of it here was wrong.** The
+argument that "a real sensor cannot emit two byte-identical JPEGs" is true of
+*frames*. An HTTP GET does not return a frame, it returns a **file**. If the server
+encodes once per refresh cycle and serves that same file until the next one, sensor
+noise never enters the comparison - the encoding already happened, once.
+
+เขื่อนภูมิพล demonstrates it: EXIF advancing every minute, bytes identical at a
+two-second gap. The naive form of this check calls a live camera frozen, with total
+confidence. That is 3b wearing 3c's clothes again, one layer up.
+
+| observation | conclusion | needs the refresh period? |
+|---|---|---|
+| bytes **differ** | the source produced something new. **NOT frozen.** | no - conclusive on its own |
+| bytes **identical** | frozen, **or** polled inside one refresh cycle. **UNKNOWN.** | yes |
+
+**Layer 4 proves liveness cheaply and can never prove frozenness by itself.** The
+shipping rule is that identical bytes are reported as UNKNOWN, never as FROZEN.
+
+### Measuring the refresh period, without aliasing
+
+Sampling at guessed intervals (5, 15, 30, 60, 90 s) aliases: at exactly the period you
+get "always same" or "always different" depending on phase, and a harmonic imitates the
+real answer. **Poll fast and record when the bytes change** - every two seconds for a
+few minutes, log the timestamp of each change, read the period off the gaps. One
+measurement, no interval guessing, and it yields the *distribution* rather than a single
+number, which matters because a jittery refresh needs a wider gap than a clean 60-second
+one.
+
+`Last-Modified`, `ETag` and `Cache-Control: max-age` are worth reading, and
+`max-age` is often the declared period - but those are assertions the source makes about
+itself, which is layer 3 material. **Headers to form the hypothesis, byte-change timing
+to confirm it.**
+
+### Pin a known-live camera as the positive control
+
+เขื่อนภูมิพล is independently verified live by a different instrument - EXIF advancing
+every minute. Any gap threshold chosen for layer 4 must still classify it LIVE. That is
+the control discipline applied to the control itself, and it is the thing that catches a
+threshold tuned too tight later, by someone who was not present for the reasoning.
+
+It is **stronger on cameras than on the radar tiles this repo already applies it to**.
+Consecutive JPEGs off a real sensor are byte-identical with probability approximately
+zero - sensor noise plus lossy encoding guarantee difference - so byte-identity between
+two polls is near-conclusive for a camera, where for a rendered tile it is only
+suggestive. เขื่อนสิรินธร would have failed on the second poll, with no reading of
+`15/06/2024` at all.
+
+The instrument was already in this repo, pointed at RainViewer.
+
+Caveat, so it is not over-claimed: a genuinely static night scene is not the same as a
+frozen feed. That is what an interval and a perceptual threshold are for - and for
+byte-exact identity the caveat barely applies, because a live sensor cannot produce it.
+
+### The instrument usually already exists, aimed somewhere else
+
+Layer 4 required no new capability. A byte-identity check was already written in this
+repo, in the radar path, to reject a frame whose tiles are all identical. Applying the
+same function to a camera poll is a change of target, not a change of tool - and it is
+*stronger* there than where it was originally aimed.
+
+That is the common case rather than a lucky one. The gap between "we cannot detect
+this" and "we can" is usually a question of where an existing check is pointed, not of
+building a new one. Before designing a detector, it is worth asking which check already
+in the codebase would fire on this input if it were shown it.
+
+Two of the corrections in this document arrived the same way. The cardinality check
+that validated the 110 m join (trap 9) and the second-run freshness test that destroyed
+the latency reading (below) were both one-line uses of data already loaded. Neither
+needed new instrumentation; both needed someone to name the test.
 
 ## Trap 8 - this is not the API already in our notes
 

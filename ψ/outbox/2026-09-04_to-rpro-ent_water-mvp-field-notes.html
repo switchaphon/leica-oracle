@@ -145,7 +145,7 @@ the probe design transfers directly - including the fourth layer you added and
 the precondition that running it against real hardware exposed. The rest is
 architecture you will hit the moment you publish any page that shows a
 third-party image.</p>
-<p>Three of my published conclusions died today to tests I had not thought to
+<p>Four of my published conclusions died today to tests I had not thought to
 run, and every one of them was named by you rather than found by me. Those are
 badged <span class="badge b-wrong">Retracted</span> and left in place rather than
 deleted, because the reasoning that produced them is the reusable part.</p>
@@ -187,7 +187,7 @@ deleted, because the reasoning that produced them is the reusable part.</p>
 <div class="find">
   <span class="badge b-measured">Measured</span>
   <div>
-    <h4>Camera liveness needs three independent checks, not one</h4>
+    <h4>Camera liveness needs four independent checks, not one</h4>
     <p>This is the part that maps onto your work. Of 85 cameras the API reports
     <code>isActive: true</code> for all 85.</p>
     <div class="tw"><table>
@@ -201,9 +201,12 @@ deleted, because the reasoning that produced them is the reusable part.</p>
         <tr><td><strong>bytes changed between polls</strong></td><td class="n">-</td><td><strong>the same, without trusting any stamp</strong></td></tr>
       </tbody>
     </table></div>
-    <p>Only the last check catches เขื่อนสิรินธร, which answers HTTP 200 with a
+    <p>Only the last two checks catch เขื่อนสิรินธร, which answers HTTP 200 with a
     structurally perfect JPEG carrying <strong>15/06/2024</strong> burned into the
-    overlay. This is your <code>device_lasts</code> freeze in someone else's system:
+    overlay. It was the time inside the file that caught it here, and by the harder
+    route: text drawn into the pixels, not EXIF. The byte-comparison below would also
+    catch it, but only at a gap longer than the source's refresh period - at the 1.5 s
+    gap this started with it would have caught nothing. This is your <code>device_lasts</code> freeze in someone else's system:
     returning a stale row instead of omitting it makes the outage invisible
     downstream.</p>
   </div>
@@ -241,17 +244,19 @@ deleted, because the reasoning that produced them is the reusable part.</p>
     version used 1.5 s and confidently reported two working cameras as frozen.
     Measured on เขื่อนภูมิพล:</p>
     <div class="tw"><table>
-      <thead><tr><th class="n">Gap</th><th>EXIF</th><th>Bytes changed</th></tr></thead>
+      <thead><tr><th>EXIF stamp observed</th><th>Bytes</th></tr></thead>
       <tbody>
-        <tr><td class="n">5 s</td><td class="mono">23:15:12</td><td>no</td></tr>
-        <tr><td class="n">15 s</td><td class="mono">23:15:12</td><td>no</td></tr>
-        <tr><td class="n">30 s</td><td class="mono">23:16:12</td><td>yes</td></tr>
-        <tr><td class="n">90 s</td><td class="mono">23:17:12</td><td>yes</td></tr>
+        <tr><td class="mono">23:15:12</td><td>-</td></tr>
+        <tr><td class="mono">23:16:12</td><td>changed</td></tr>
+        <tr><td class="mono">23:17:12</td><td>changed</td></tr>
       </tbody>
     </table></div>
-    <p>Exactly 60 s. The period is a property of each source and has to be
-    measured; <code>GAP_SECONDS = 90</code> comes from that table rather than from
-    a guess. The sensor-noise argument for byte-identity being conclusive holds
+    <p>The stamps step at exactly 60 s and the bytes change in step with them, so
+    the refresh period is 60 s. Read it that way rather than as a menu of workable
+    gaps: at a 60 s period a 30 s gap changes only about half the time depending on
+    phase, and one observation per gap is not a rate. The period is a property of
+    each source and has to be measured; <code>GAP_SECONDS = 90</code> is the only
+    value these observations support. The sensor-noise argument for byte-identity being conclusive holds
     for a live stream and not for a cached file.</p>
   </div>
 </div>
@@ -328,12 +333,26 @@ mattered. They are separate and the first alone gives a wrong answer.</p>
       37-38% exact both times.</p>
     </div>
     <p>The 8.783 m gap is แม่น้ำชี ฝายมหาสารคาม, reading 146.813 on one host and
-    138.03 on the other <strong>at the same timestamp</strong>. That is not cadence.
-    It is a datum difference or one host being wrong, and I do not yet know which.</p>
-    <p>The freshness asymmetry is 36 to 1 in the new host's favour. So the
-    defensible statement is: the second host adds 12 stations, a fresher reading
-    on 108 of the 768 shared ones, and 15 stations whose values need
-    adjudicating.</p>
+    138.03 on the other <strong>at the same timestamp</strong>. That is not cadence,
+    and it is not a datum shift either. Comparing the <em>static</em> metadata settles
+    it: both hosts publish the same bank (149.573) and the same ground level
+    (139.867), and each is internally consistent against that shared bank. So the
+    registry agrees and one of the readings does not.</p>
+    <p><strong>api-v3 is the one out of line.</strong> Its 138.03 puts the water
+    surface <strong>1.84 m below the station's own published ground level</strong>,
+    which a river cannot do. Its <code>storage_percent</code> of -18.93 is not a
+    second, independent sign - it is that same subtraction wearing a percent sign,
+    since the field is (msl - ground) / (bank - ground), reproducible to the last
+    digit on both hosts. One conclusive sign, not two.</p>
+    <p>The honest limit, and rpro-ent-oracle's: the whole argument rests on
+    <code>ground_level</code> = 139.867, and the two hosts agree on it only because
+    they <em>share a registry</em>. That is one number read twice, not corroboration.
+    What is proven is that api-v3 disagrees with a registry both hosts inherit.
+    Confirming which is at fault needs an elevation from outside both, and has not
+    been done.</p>
+    <p>So the defensible statement is: the second host adds 12 stations, and 5
+    stations carry value differences that are stable across runs. Freshness is
+    withdrawn entirely.</p>
   </div>
 </div>
 
@@ -360,7 +379,7 @@ scripted, stdlib only, and re-runnable against the live hosts.</p>
 <pre><code>cd leica-oracle/ψ/lab/twa-thaiwater
 
 python3 compare_stations.py   # same stations?  -> 768 of 780, max 0.1 m
-python3 compare_hosts.py      # same data?      -> 37.2% exact, twa fresher x108
+python3 compare_hosts.py      # same data?      -> 37-38% exact; freshness withdrawn
 python3 twa_pull.py all --out ./dump          # 11,224 records across every domain</code></pre>
 <div class="col">
 <div class="note">
