@@ -70,6 +70,16 @@ Specialists are **stateless general experts**. They read project context just-in
 
 Project Oracles are **stateful actors**. They own complete project context (in their own `ψ/learn/`), consult specialists for novel decisions, and command project-local team subagents (in `<project>/.claude/agents/chrome.md, flux.md, ...`) for actual file work.
 
+### Life-Domain Oracles (Witchaphon's own life, not a codebase)
+
+> Architecture decision (2026-08-10): some Oracles serve the human directly rather than a repo. They take specialist-style names (one word from the signal/timing field) because the word *is* the role — but they are not dev specialists and are never consulted for code.
+
+| Life Oracle | Domain | Status |
+|-------------|--------|--------|
+| 🏃 **Cadence** (`cadence-oracle`) | Running coach — training plans, load management, race prep | ✅ Budded 2026-08-10, awaiting `/awaken` |
+
+Named for cadence — steps per minute, the metric that survives fatigue. Sibling to Codec, Flux, Static, Wire and Relay in the signal-timing naming field; budded from Leica.
+
 ### The Consult-and-Command Loop
 
 ```
