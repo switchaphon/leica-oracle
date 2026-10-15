@@ -14,6 +14,7 @@ docs/*.pdf
 ψ/writing/*.pdf
 ψ/writing/workshop-01-maw-plugin
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 .playwright-mcp/
 screenshot-chronicle-ui.png
 workshop-02-voice-bot
