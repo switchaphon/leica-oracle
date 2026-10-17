@@ -21,6 +21,8 @@ python3 check.py "$RUN"
 | T6 | oracle repo, Thai session | prompt and commit subject in Thai, prompt still names "Next Session" |
 
 Re-run after any `/forward` update: step 2 depends on its `--only` mode.
+Nested sessions run with `--permission-mode auto --strict-mcp-config`: the classifier denies risky actions
+(kept in `results.json` as `denials`) and no MCP servers load, so they get no Jira, Figma or Discord tools.
 `nclaude.sh` reloads leica-oracle's `.envrc` for the token (the harness strips it from Bash); see the
 nested-claude-p-token memory. Test transcripts land in `~/.claude/projects/*handover-run*`; exclude them from
 skill-usage counts.

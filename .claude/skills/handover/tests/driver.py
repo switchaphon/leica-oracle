@@ -67,7 +67,9 @@ def install_skill(repo):
 
 
 def claude(cwd, prompt, sid=None, resume=None, timeout=1200):
-    args = [NCLAUDE, "-p", prompt, "--output-format", "json", "--permission-mode", "bypassPermissions"]
+    # auto: the classifier allows routine git/file work and denies risky actions (reported in permission_denials);
+    # strict-mcp-config: no MCP servers, so nested sessions get no Jira/Figma/Discord tools.
+    args = [NCLAUDE, "-p", prompt, "--output-format", "json", "--permission-mode", "auto", "--strict-mcp-config"]
     args += ["--session-id", sid] if sid else []
     args += ["--resume", resume] if resume else []
     t = time.time()
@@ -144,7 +146,7 @@ def scen_oracle(name, second_prompt, rerun=False, work=WORK_ORACLE):
     sid2 = r2.get("session_id") or sid
     docs = ls(f"{repo}/{PSI}/inbox/handoff")
     out = {
-        "r1_ok": not r1.get("is_error"), "r2_reply": r2.get("result"), "secs": [r1["_secs"], r2["_secs"]],
+        "r1_ok": not r1.get("is_error"), "r2_reply": r2.get("result"), "denials": (r1.get("permission_denials") or []) + (r2.get("permission_denials") or []), "secs": [r1["_secs"], r2["_secs"]],
         "model": list((r2.get("modelUsage") or {}).keys()), "same_sid_on_resume": sid2 == sid,
         "psi_docs": docs, "claude_handovers": ls(f"{repo}/.claude/handovers"),
         "doc_headings": headings(f"{repo}/{PSI}/inbox/handoff/{docs[-1]}") if docs else [],
@@ -174,7 +176,7 @@ def scen_symlink(name):
     sid2 = r2.get("session_id") or sid
     docs = ls(f"{oracle}/{PSI}/inbox/handoff")
     return {
-        "r1_ok": not r1.get("is_error"), "r2_reply": r2.get("result"), "secs": [r1["_secs"], r2["_secs"]],
+        "r1_ok": not r1.get("is_error"), "r2_reply": r2.get("result"), "denials": (r1.get("permission_denials") or []) + (r2.get("permission_denials") or []), "secs": [r1["_secs"], r2["_secs"]],
         "oracle_psi_docs": docs, "product_claude_handovers": ls(f"{prod}/.claude/handovers"),
         "doc_headings": headings(f"{oracle}/{PSI}/inbox/handoff/{docs[-1]}") if docs else [],
         "oracle_state": repo_state(oracle, oremote), "product_state": repo_state(prod, premote),
@@ -194,7 +196,7 @@ def scen_no_psi(name):
     sid2 = r2.get("session_id") or sid
     hv = ls(f"{prod}/.claude/handovers")
     return {
-        "r1_ok": not r1.get("is_error"), "r2_reply": r2.get("result"), "secs": [r1["_secs"], r2["_secs"]],
+        "r1_ok": not r1.get("is_error"), "r2_reply": r2.get("result"), "denials": (r1.get("permission_denials") or []) + (r2.get("permission_denials") or []), "secs": [r1["_secs"], r2["_secs"]],
         "claude_handovers": hv, "psi_created": os.path.exists(f"{prod}/{PSI}"),
         "doc_headings": headings(f"{prod}/.claude/handovers/{hv[-1]}") if hv else [],
         "state": repo_state(prod, premote), "tools": tools_after_last(sid2, INVOKE),
