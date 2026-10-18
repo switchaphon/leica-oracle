@@ -1,6 +1,6 @@
 # Discord threads per tmux window - design
 
-Date: 2026-10-17, updated 2026-10-18. Status: draft for Un's approval. First oracle: pops-vet.
+Date: 2026-10-17, updated 2026-10-18. Status: approved by Un 2026-10-18. First oracle: pops-vet.
 
 This repo is public. The document names no Discord IDs and quotes no project content. Those live
 in the oracle's own `.discord-state/`, which git ignores.
