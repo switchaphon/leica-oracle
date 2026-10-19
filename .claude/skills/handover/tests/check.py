@@ -72,6 +72,18 @@ if "T6" in R and "crash" not in R["T6"]:
     ok("T6", "Thai session: prompt keeps the heading name Next Session", "Next Session" in rep, rep[:200])
     ok("T6", "Thai session: commit subject in Thai", has_th(subj), subj)
 
+for S in ("T7", "T8"):
+    if S not in R or "crash" in R[S]:
+        continue
+    t = R[S]
+    st, rep = t["state"], (t["r2_reply"] or "")
+    ok(S, "handoff committed locally", st["head"].split(" ", 1)[1].startswith("handoff"), st["head"])
+    if S == "T7":
+        ok(S, "PUBLIC + extra commit: push held (bare repo untouched)", st.get("remote_head_equals_local") is False)
+        ok(S, "reply says the push is held", any(w in rep.lower() for w in ("held", "hold", "not pushed")), rep[:200])
+    else:
+        ok(S, "PRIVATE: pushed as before", st.get("remote_head_equals_local") is True)
+
 if "T2" in R and "crash" not in R["T2"]:
     t = R["T2"]
     docs = t["oracle_psi_docs"]

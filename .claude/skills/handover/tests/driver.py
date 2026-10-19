@@ -4,7 +4,7 @@
 usage: driver.py <run_dir> <skill_src|-> <scenario,...>
   skill_src '-'  -> baseline: invoke the personal /handover (v1 command), no project skill
   scenarios      -> B0 (baseline layout), T1/T1b (oracle repo, T1 incl. T4 re-run), T2 (ψ symlink), T3 (no ψ),
-                    T5 (long phrase), T6 (Thai session)
+                    T5 (long phrase), T6 (Thai session), T7/T8 (public/private GitHub origin, extra unpushed commit)
 """
 import concurrent.futures as cf, glob, json, os, re, subprocess, sys, time, uuid
 
@@ -40,7 +40,7 @@ def sh(cmd, cwd=None, check=True):
     return r.stdout.rstrip()
 
 
-def git_init(path, remote=None, psi=True, claude_md=None, exclude=(".claude/skills/",)):
+def git_init(path, remote=None, psi=True, claude_md=None, exclude=(".claude/skills/",), fetch_url=None):
     os.makedirs(path)
     sh("git init -q -b main && git config user.name 'Test User' && git config user.email test@example.invalid", cwd=path)
     if claude_md:
@@ -56,6 +56,8 @@ def git_init(path, remote=None, psi=True, claude_md=None, exclude=(".claude/skil
     if remote:
         sh(f"git init -q --bare -b main {remote}")
         sh(f"git remote add origin {remote} && git push -q -u origin main", cwd=path)
+        if fetch_url:  # gh reads visibility from the fetch URL; pushurl keeps every push in the local bare repo
+            sh(f"git remote set-url origin {fetch_url} && git remote set-url --push origin {remote}", cwd=path)
 
 
 def install_skill(repo):
@@ -131,11 +133,11 @@ def headings(path):
     return [l.strip() for l in open(path, errors="ignore") if l.startswith("#")] if os.path.isfile(path) else []
 
 
-def scen_oracle(name, second_prompt, rerun=False, work=WORK_ORACLE):
+def scen_oracle(name, second_prompt, rerun=False, work=WORK_ORACLE, fetch_url=None):
     base = f"{RUN}/{name}"
     repo, remote = f"{base}/test-oracle", f"{base}/remote.git"
     os.makedirs(base)
-    git_init(repo, remote=remote, claude_md=ORACLE_MD)
+    git_init(repo, remote=remote, claude_md=ORACLE_MD, fetch_url=fetch_url)
     install_skill(repo)
     sid = str(uuid.uuid4())
     r1 = claude(repo, work, sid=sid)
@@ -208,6 +210,8 @@ JOBS = {
     "T1": lambda: scen_oracle("T1", INVOKE, rerun=True),
     "T1b": lambda: scen_oracle("T1b", INVOKE),
     "T6": lambda: scen_oracle("T6", INVOKE, work=WORK_ORACLE_TH),
+    "T7": lambda: scen_oracle("T7", INVOKE, fetch_url="https://github.com/switchaphon/leica-oracle"),     # PUBLIC
+    "T8": lambda: scen_oracle("T8", INVOKE, fetch_url="https://github.com/switchaphon/pops-vet-oracle"),  # PRIVATE
     "T2": lambda: scen_symlink("T2"),
     "T3": lambda: scen_no_psi("T3"),
     "T5": lambda: scen_oracle("T5", PHRASE),

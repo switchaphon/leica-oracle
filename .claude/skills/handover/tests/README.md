@@ -19,6 +19,8 @@ python3 check.py "$RUN"
 | T3 | product repo without ψ | doc in `.claude/handovers/`, no commit, /forward not called |
 | T5 | oracle repo, "let's handoff here and forward ..." | routes to /handover, no /handoff, no plan mode |
 | T6 | oracle repo, Thai session | prompt and commit subject in Thai, prompt still names "Next Session" |
+| T7 | origin URL = PUBLIC github repo (push URL = local bare), an extra unpushed commit | handoff committed, push **held**, reply says so |
+| T8 | origin URL = PRIVATE github repo (push URL = local bare), an extra unpushed commit | pushed as before |
 
 Re-run after any `/forward` update: step 2 depends on its `--only` mode.
 Nested sessions run with `--permission-mode auto --strict-mcp-config`: the classifier denies risky actions

@@ -51,19 +51,23 @@ In the repo that holds the real ψ (`git -C <dirname of psi>`):
 1. Stage by explicit path: the handoff file plus ψ files this session wrote and has not committed. Files this session did not write belong to other windows and stay unstaged.
 2. Scan the staged files with the Grep tool or `rtk proxy grep` (plain grep through RTK can report a false clean) for `(ghp_|github_pat_|glpat-|sk-ant-|sk-proj-|xox[abp]-)[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY`. On a match: unstage, tell the user, stop.
 3. Commit only those paths: subject `handoff: <state in one line>` in the session's language, message ending with the Rule 8 signature. Already committed by /forward: skip to the push.
-4. `git push`. Rejected: no force, no rebase; say so in the prompt's last line.
+4. Push. When `git rev-list --count @{u}..HEAD` is more than 1 and origin is a github.com URL, the push would also publish commits this handoff did not make, so first run `gh repo view --json visibility -q .visibility` in that repo:
+   - `PRIVATE`: push.
+   - `PUBLIC`, or gh gives no answer: list those commits (`git log --oneline @{u}..HEAD~1`) and ask the user with AskUserQuestion whether to push them now. Nothing is pushed until the user says push; step 4 reports `push held` with the count.
+
+   Every other case: push. A rejected push: no force, no rebase; it goes in the prompt's last line.
 
 ## 4. Reply
 
 The whole reply is two parts:
 
-1. One status line: file path, commit SHA, pushed or not (`not committed: product repo` when `psi: none`).
+1. One status line: file path, commit SHA, and pushed, `push held: <N> other commits` (step 3), or `not committed: product repo` (`psi: none`).
 2. The paste prompt in a code block, in the session's language:
 
 ```
 Continue: <objective> (<N> steps left, branch <branch>).
 Read <handoff file path, relative to the repo root> first, then do "Next Session" in order.
-<only when needed: uncommitted WIP / waiting on X / push failed>
+<only when needed: uncommitted WIP / waiting on X / push failed or held>
 ```
 
 A window with its own role (worker or sub window, ticket owner) starts the prompt with one role line, e.g. `You are the ENT worker for RPRO-16099 in tmux 05-rpro-ent:6.`
