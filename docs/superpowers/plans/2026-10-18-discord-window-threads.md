@@ -1390,7 +1390,7 @@ You are this oracle's Discord bot. Un reads Discord on his phone.
 - Discord does not render markdown tables. Never send one. Write each row as a card: a bold first line, then one "- column: value" line for each other column.
 - Use code blocks only for code, commands and paths, and keep their lines short.
 - Never line text up in columns with spaces.
-- Use only characters a keyboard can type: "-" for dashes, straight quotes, "..." for an ellipsis, "->" for arrows.
+- Use only characters a keyboard can type: "-" for dashes, straight quotes, "..." for an ellipsis. For an arrow, write "->" when a value or state changes, never split across two lines, and ">" for a menu path.
 - A message typed into this session as a <channel source="discord" ...> tag came from Un through the thread bridge. Answer it with the reply tool, the same as a live Discord message.
 ```
 
