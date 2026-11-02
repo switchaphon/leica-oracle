@@ -31,6 +31,7 @@ $CW done <run-id>                 # remove the worktree; the branch is always ke
 ## WP-1: short title
 - Goal: what done looks like
 - Files owned: add.py, src/lib/**          (required; comma separated, globs allowed, no overlap with other WPs)
+- Ignore: dist-test/                        (optional: generated paths the repo's own test script leaves behind; never committed, not a violation)
 - Context: interfaces and conventions the worker needs, nothing else
 - Constraints: style, allowed dependencies
 - Acceptance criteria: checkable list
@@ -89,7 +90,8 @@ Keep the feedback precise; after two rounds the spec is the problem, not the wor
 `codex-wp follow [run-id]` is a read-only live view made for a tmux pane: the commands the worker runs with their exit codes, its
 edits, what it says, and the final token line. It replays what exists, follows new events, and ends by itself when the run reaches
 a final status (`--no-wait` replays and exits). It does not change how the lead dispatches: the lead still runs `codex-wp run` in
-the background, and a person opens `follow` wherever they want to watch.
+the background, and a person opens `follow` wherever they want to watch. When `codex-wp run` is itself started in a tmux pane, its
+stdout is a terminal and the same live view prints in that pane by default (`--no-follow` turns it off; `--follow` forces it).
 
 `codex-wp done <run-id>` removes the worktree and keeps the branch. It used to refuse a worktree whose only untracked content was
 a symlink made by `--setup` (typically `node_modules`). Now symlinks and generated junk do not block it (a link's target is never
@@ -118,6 +120,11 @@ window could dispatch. Nothing told the lead. After any Codex upgrade, run `code
 - `verify` runs worker-written code outside the sandbox. Read the diff first. `--verify-now` is for trusted repos only.
 - No `omx` or `maw team` engine. `codex exec` directly is the default; see the learnings note for why.
 - `/dig` does not read Codex rollouts (`~/.codex/sessions`) yet.
+- Codex has a built-in command policy. It screens the commands the worker types, not what a script it runs does: `rm -rf` typed by
+  the worker is rejected (and the whole compound command with it), while the repo's own `pnpm test`, which starts with `rm -rf dist-test`,
+  runs fine. Found on pops-655: the worker could not delete the folder its tests create, so it moved it to /tmp to satisfy the old rule
+  "leave nothing behind". Since 0.1.3 the preamble says: delete what you can; if the sandbox refuses, leave it, name it in the report,
+  never move or hide it. The lead declares such paths with `Ignore:` in the WP (and should add them to the repo's `.gitignore`).
 - Workers on Codex CLI 0.166.0 read skills from `~/.agents/skills` (45 on this machine) on their own initiative, for example
   `test-driven-development`. `--ignore-user-config` does not stop that and `codex features list` has no switch for it. The
   WP and the repo's AGENTS.md should carry what matters; `events.jsonl` (or `follow`) shows when a skill was read. Open question:

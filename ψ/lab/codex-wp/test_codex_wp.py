@@ -68,6 +68,15 @@ class ParseWP(unittest.TestCase):
         wp = cw.parse_wp("## WP-6: n\n- Files owned: src/my-file.test.ts, app/[id]/page.tsx, docs/\n")
         self.assertEqual(wp.owned, ["src/my-file.test.ts", "app/[id]/page.tsx", "docs/"])
 
+    def test_ignore_lists_the_generated_paths_the_lead_expects(self):
+        wp = cw.parse_wp("## WP-7: n\n- Files owned: a.ts\n- Ignore: dist-test/, coverage/\n")
+        self.assertEqual(wp.ignore, ["dist-test/", "coverage/"])
+        self.assertEqual(cw.parse_wp(WP_TEXT).ignore, [])
+
+    def test_a_note_glued_to_an_ignore_path_is_refused_too(self):
+        with self.assertRaises(cw.WPError):
+            cw.parse_wp("## WP-8: n\n- Files owned: a.ts\n- Ignore: dist-test/ (made by pnpm test)\n")
+
 
 class Owned(unittest.TestCase):
     def test_exact(self):
@@ -129,6 +138,41 @@ class Assess(unittest.TestCase):
         a = cw.assess_changes(committed=["__pycache__/a.pyc"], dirty=[], owned=["**"])
         self.assertEqual(a.committed_junk, ["__pycache__/a.pyc"])
         self.assertEqual(a.owned_changed, [])
+
+
+class AssessIgnore(unittest.TestCase):
+    """pops-655, 2026-11-02: the repo's own `pnpm test` leaves dist-test/ behind. The worker could not delete it (the
+    sandbox rejects recursive rm), so it hid it in /tmp to satisfy rule 6. The lead declares such paths up front instead."""
+
+    def test_declared_generated_paths_are_a_warning_not_a_violation(self):
+        a = cw.assess_changes(committed=["add.py"], dirty=["dist-test/test/x.js"], owned=["add.py"],
+                              ignore=["dist-test/"])
+        self.assertTrue(a.clean)
+        self.assertEqual(a.dirty_junk, ["dist-test/test/x.js"])
+
+    def test_without_the_declaration_they_are_a_violation(self):
+        a = cw.assess_changes(committed=["add.py"], dirty=["dist-test/test/x.js"], owned=["add.py"])
+        self.assertEqual(a.violations, ["dist-test/test/x.js"])
+
+    def test_a_declared_path_that_was_committed_is_still_flagged(self):
+        a = cw.assess_changes(committed=["add.py", "dist-test/x.js"], dirty=[], owned=["add.py"], ignore=["dist-test/"])
+        self.assertEqual(a.committed_junk, ["dist-test/x.js"])
+        self.assertFalse(a.clean)
+
+
+class CommitIgnore(unittest.TestCase):
+    def test_declared_paths_are_never_committed_even_when_a_glob_owns_them(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = make_repo(d)
+            wt = Path(d, "wt")
+            base = cw.make_worktree(repo, "HEAD", "wp/i1", wt)
+            (wt / "src").mkdir()
+            (wt / "src" / "a.ts").write_text("export const a = 1\n")
+            (wt / "dist-test").mkdir()
+            (wt / "dist-test" / "x.js").write_text("y")
+            self.assertTrue(cw.commit_owned(wt, ["**"], "wp: t", ignore=["dist-test/"]))
+            self.assertEqual(cw.committed_paths(wt, base), ["src/a.ts"])
+            self.assertEqual(cw.dirty_paths(wt), ["dist-test/x.js"])
 
 
 class Decide(unittest.TestCase):
@@ -359,6 +403,12 @@ class Prompt(unittest.TestCase):
                        "Never hide or work around a failure", "AGENTS.md"):
             self.assertIn(needle, p)
         self.assertTrue(p.endswith(WP_TEXT))
+
+    def test_preamble_does_not_push_the_worker_to_hide_files_it_cannot_delete(self):
+        """2026-11-02: rule 6 said 'leave nothing behind'. The sandbox rejected rm -rf, so the worker moved dist-test to /tmp."""
+        p = cw.compose_prompt(WP_TEXT)
+        self.assertIn("Never move, rename or hide", p)
+        self.assertNotIn("Leave no generated files behind", p)
 
 
 class Slots(unittest.TestCase):
@@ -619,6 +669,46 @@ class FollowTail(unittest.TestCase):
             self.assertEqual(list(cw.follow_lines(Path(d, "nope.jsonl"), lambda: True, poll=0.01)), [])
 
 
+class PrintLive(unittest.TestCase):
+    """The same printer serves `follow` and `run --follow`, where it runs in a thread beside the worker."""
+
+    def test_prints_timestamped_human_lines_and_skips_noise(self):
+        import io
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "events.jsonl")
+            p.write_text("\n".join(json.dumps(o) for o in [
+                {"type": "thread.started", "thread_id": "t"},
+                {"type": "item.started", "item": {"type": "command_execution", "command": '/bin/zsh -lc "pnpm test"'}},
+                {"type": "item.completed", "item": {"type": "command_execution", "exit_code": 0}},
+                {"type": "turn.completed", "usage": {"input_tokens": 5, "cached_input_tokens": 4, "output_tokens": 1}},
+            ]) + "\nnot json\n")
+            out = io.StringIO()
+            cw.print_live(p, lambda: True, out=out, poll=0.01)
+            lines = out.getvalue().splitlines()
+            self.assertEqual(len(lines), 3)
+            self.assertTrue(all(ln[2] == ":" for ln in lines))  # HH:MM:SS prefix
+            self.assertIn("$ pnpm test", lines[0])
+            self.assertIn("exit 0", lines[1])
+            self.assertIn("turn completed", lines[2])
+
+    def test_can_run_in_a_thread_next_to_a_worker(self):
+        import io
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "events.jsonl")
+            p.write_text("")
+            out = io.StringIO()
+            done = threading.Event()
+            t = threading.Thread(target=cw.print_live, args=(p, done.is_set), kwargs={"out": out, "poll": 0.01})
+            t.start()
+            with open(p, "a") as f:
+                f.write(json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "hello"}}) + "\n")
+            time.sleep(0.1)
+            done.set()
+            t.join(timeout=3)
+            self.assertFalse(t.is_alive())
+            self.assertIn("agent: hello", out.getvalue())
+
+
 class DoneTolerance(unittest.TestCase):
     """pops-658, 2026-11-02: `done` refused a worktree whose only untracked content was the node_modules symlink its own
     --setup had created. Links and junk are not work; a real untracked file is."""
@@ -660,6 +750,12 @@ class DoneTolerance(unittest.TestCase):
         self.assertFalse(self.wt.exists())
         self.assertTrue((self.target / "pkg").exists())
         self.assertIn("wp/d1", sh(self.repo, "git", "branch", "--list", "wp/d1"))
+
+    def test_declared_generated_paths_do_not_block_done(self):
+        (self.wt / "dist-test").mkdir()
+        (self.wt / "dist-test" / "x.js").write_text("y")
+        self.assertFalse(cw.only_links_and_junk(self.wt))
+        self.assertTrue(cw.only_links_and_junk(self.wt, extra=["dist-test/"]))
 
     def test_done_still_refuses_real_work(self):
         (self.wt / "notes.txt").write_text("keep me")

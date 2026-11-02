@@ -29,10 +29,11 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import time
 from pathlib import Path
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 DEFAULT_MODEL = os.environ.get("CODEX_WP_MODEL", "gpt-5.6-sol")
 STATE_DIR = Path(os.environ.get("CODEX_WP_HOME", str(Path.home() / ".codex-wp")))
 MAX_SLOTS = int(os.environ.get("CODEX_WP_SLOTS", "3"))
@@ -54,7 +55,9 @@ These rules apply to every work package and win over AGENTS.md where they confli
 3. No network is available. If a step needs it, stop and say so. Do not work around it.
 4. Run the "Verify with" commands and put their full output in your final report.
 5. If any command fails, report the exact output. Never hide or work around a failure.
-6. Leave no generated files behind (caches, build output, logs) unless they are listed under "Files owned".
+6. Delete generated files you create (caches, build output, logs) when you can. The sandbox rejects recursive rm: if it
+   refuses a deletion, leave the files where they are and name them in your report. Never move, rename or hide files to
+   get rid of them.
 Otherwise follow AGENTS.md in this repo if there is one.
 Final report: files changed, key decisions, verify output, unresolved items.
 """
@@ -76,9 +79,10 @@ class WP:
     owned: list
     verify: list
     text: str
+    ignore: list = dataclasses.field(default_factory=list)  # generated paths the lead expects the worker to leave behind
 
 
-_KEY = re.compile(r"^\s*[-*]\s*\**\s*(files owned|verify with)\s*\**\s*:\s*\**\s*(.*)$", re.I)
+_KEY = re.compile(r"^\s*[-*]\s*\**\s*(files owned|verify with|ignore)\s*\**\s*:\s*\**\s*(.*)$", re.I)
 _SUB = re.compile(r"^\s{2,}[-*]\s+(.*)$")
 _HEAD = re.compile(r"^\s*#{1,6}\s*(?:WP-?\d*\s*[:.\-]\s*)?(.+?)\s*$")
 
@@ -98,7 +102,7 @@ def parse_wp(text: str) -> WP:
         if m:
             title = m.group(1)
             break
-    fields = {"files owned": [], "verify with": []}
+    fields = {"files owned": [], "verify with": [], "ignore": []}
     i = 0
     while i < len(lines):
         m = _KEY.match(lines[i])
@@ -125,10 +129,18 @@ def parse_wp(text: str) -> WP:
                               "Put notes on their own line: a note glued to a path fails every ownership check.")
             if p:
                 owned.append(p)
+    ignore = []
+    for v in fields["ignore"]:
+        for part in re.split(r"[;,]", v):
+            p = _unwrap(part)
+            if re.search(r"\s(#|\()", p):
+                raise WPError(f"'Ignore' item {p!r} looks like a path followed by a note. Put notes on their own line.")
+            if p:
+                ignore.append(p)
     verify = [c for c in (_unwrap(v) for v in fields["verify with"]) if c]
     if not owned:
         raise WPError("the WP has no 'Files owned:' line. Refusing to dispatch without disjoint file ownership.")
-    return WP(title, owned, verify, text)
+    return WP(title, owned, verify, text, ignore)
 
 
 # --------------------------------------------------------------------------- ownership
@@ -194,11 +206,11 @@ class Assessment:
         return bool(self.owned_changed) and not self.violations and not self.committed_junk
 
 
-def assess_changes(committed, dirty, owned) -> Assessment:
+def assess_changes(committed, dirty, owned, ignore=()) -> Assessment:
     cset = set(committed)
     owned_changed, violations, committed_junk, dirty_junk = [], [], [], []
     for p in sorted(cset | set(dirty)):
-        if is_junk(p):
+        if is_junk(p) or match_owned(p, ignore):
             (committed_junk if p in cset else dirty_junk).append(p)
         elif match_owned(p, owned):
             owned_changed.append(p)
@@ -265,9 +277,9 @@ def make_worktree(repo, base_ref, branch, dest) -> str:
     return sha
 
 
-def commit_owned(wt, owned, message):
+def commit_owned(wt, owned, message, ignore=()):
     """Stage and commit ONLY dirty paths that are owned and not junk. Returns the short sha or None."""
-    todo = [p for p in dirty_paths(wt) if not is_junk(p) and match_owned(p, owned)]
+    todo = [p for p in dirty_paths(wt) if not is_junk(p) and match_owned(p, owned) and not match_owned(p, ignore)]
     if not todo:
         return None
     git(["--literal-pathspecs", "add", "-A", "--", *todo], wt)
@@ -728,9 +740,10 @@ def base_check(repo, base_ref, verify_cmds, run_id, setup=None):
                   f"first failure: {why}")
 
 
-def only_links_and_junk(wt) -> bool:
-    """True when everything git calls dirty in the worktree is a symlink or generated junk: nothing worth keeping."""
-    return all(is_junk(p) or (Path(wt) / p).is_symlink() for p in dirty_paths(wt))
+def only_links_and_junk(wt, extra=()) -> bool:
+    """True when everything git calls dirty in the worktree is a symlink, generated junk or a path the WP declared as
+    generated (extra): nothing worth keeping."""
+    return all(is_junk(p) or match_owned(p, extra) or (Path(wt) / p).is_symlink() for p in dirty_paths(wt))
 
 
 def _clip(s, n):
@@ -805,6 +818,19 @@ def follow_lines(path, is_finished, poll=0.4):
         time.sleep(poll)
 
 
+def print_live(events_path, is_done, strip=None, out=None, poll=0.4):
+    """Print the human view of an events file as it grows. Serves `follow` and, in a thread beside the worker,
+    `run --follow`."""
+    out = out or sys.stdout
+    for raw in follow_lines(events_path, is_done, poll=poll):
+        try:
+            ev = json.loads(raw)
+        except ValueError:
+            continue
+        for line in format_event(ev, strip=strip):
+            print(f"{time.strftime('%H:%M:%S')}  {line}", file=out, flush=True)
+
+
 FINAL_STATUSES = {"PASS", "REVISE", "FAIL", "PRECONDITION"}
 
 
@@ -825,13 +851,7 @@ def cmd_follow(a):
     finished = (lambda: True) if a.no_wait else (lambda: read_meta().get("status") in FINAL_STATUSES)
     strip = (read_meta().get("worktree") or "") + "/" if read_meta().get("worktree") else None
     print(f"following {run_dir.name}   (read-only, Ctrl-C to stop)", flush=True)
-    for raw in follow_lines(run_dir / "events.jsonl", finished):
-        try:
-            ev = json.loads(raw)
-        except ValueError:
-            continue
-        for line in format_event(ev, strip=strip):
-            print(f"{time.strftime('%H:%M:%S')}  {line}", flush=True)
+    print_live(run_dir / "events.jsonl", finished, strip=strip)
     m = read_meta()
     print(f"-- {m.get('status') or 'still running'}: {run_dir.name}"
           + (f"  ({'; '.join(m.get('reasons') or [])})" if m.get("reasons") else ""))
@@ -882,7 +902,7 @@ def _run_locked(a, wp, repo, slot):
     run_dir = STATE_DIR / "runs" / run_id
     run_dir.mkdir(parents=True)
     (run_dir / "wp.md").write_text(wp.text)
-    meta = {"run_id": run_id, "title": wp.title, "repo": str(repo), "owned": wp.owned,
+    meta = {"run_id": run_id, "title": wp.title, "repo": str(repo), "owned": wp.owned, "ignore": wp.ignore,
             "verify_cmds": wp.verify, "model": a.model, "started": time.time(),
             "tool_version": VERSION, "status": "STARTING"}
 
@@ -923,6 +943,7 @@ def _run_locked(a, wp, repo, slot):
     report, events, err = run_dir / "report.md", run_dir / "events.jsonl", run_dir / "stderr.txt"
     t0 = time.time()
     rc = None
+    show_live = a.follow if a.follow is not None else sys.stdout.isatty()
     if not failures:
         ran = True
         argv = build_exec_argv(codex_bin=codex_bin(), worktree=wt, model=a.model, sandbox="workspace-write",
@@ -930,11 +951,18 @@ def _run_locked(a, wp, repo, slot):
         with open(events, "w") as fo, open(err, "w") as fe:
             proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=fo, stderr=fe, text=True,
                                     cwd=str(wt), start_new_session=True)
+            follower = None
+            if show_live:  # a person is watching (a tty, or --follow): print the live view while the worker runs
+                follower = threading.Thread(target=print_live, args=(events, lambda: proc.poll() is not None),
+                                            kwargs={"strip": f"{wt}/"}, daemon=True)
+                follower.start()
             try:
                 proc.communicate(prompt, timeout=a.timeout)
             except subprocess.TimeoutExpired:
                 kill_group(proc)
                 failures.append(f"timeout after {a.timeout}s")
+            if follower:
+                follower.join(timeout=5)
         rc = proc.returncode
         if rc not in (0, None) and not failures:
             failures.append(f"codex exit {rc}")
@@ -952,8 +980,8 @@ def _run_locked(a, wp, repo, slot):
     worker_commits = int(git(["rev-list", "--count", f"{base_sha}..HEAD"], wt).stdout.strip() or 0)
     wrapper_commit = None
     if not failures:
-        wrapper_commit = commit_owned(wt, wp.owned, f"wp: {wp.title}")
-    assess = assess_changes(committed_paths(wt, base_sha), dirty_paths(wt), wp.owned)
+        wrapper_commit = commit_owned(wt, wp.owned, f"wp: {wp.title}", ignore=wp.ignore)
+    assess = assess_changes(committed_paths(wt, base_sha), dirty_paths(wt), wp.owned, ignore=wp.ignore)
     status, reasons = decide(failures, assess)
 
     verify_results = None
@@ -1011,7 +1039,8 @@ def cmd_verify(a):
 def cmd_review(a):
     meta, _ = load_meta(a.run)
     wt = Path(meta["worktree"])
-    assess = assess_changes(committed_paths(wt, meta["base"]), dirty_paths(wt), meta["owned"])
+    assess = assess_changes(committed_paths(wt, meta["base"]), dirty_paths(wt), meta["owned"],
+                            ignore=meta.get("ignore") or [])
     status, reasons = decide([], assess)
     print(f"REVIEW  {meta['run_id']}: {status}" + (f"  ({'; '.join(reasons)})" if reasons else ""))
     print(f"  owned changed  {', '.join(assess.owned_changed) or '-'}")
@@ -1046,7 +1075,7 @@ def cmd_done(a):
         return EXIT_PASS
     r = git(["worktree", "remove", *(["--force"] if a.force else []), str(wt)], repo, check=False)
     note = ""
-    if r.returncode != 0 and not a.force and only_links_and_junk(wt):
+    if r.returncode != 0 and not a.force and only_links_and_junk(wt, extra=meta.get("ignore") or []):
         # git refuses any untracked content. A symlink (--setup often links node_modules) or generated junk is not work.
         r = git(["worktree", "remove", "--force", str(wt)], repo, check=False)
         note = " (only symlinks and generated junk were untracked there; link targets are untouched)"
@@ -1092,7 +1121,7 @@ def cmd_selftest(a):
     wp = d / "wp.md"
     wp.write_text(SELFTEST_WP)
     argv = [sys.executable, str(Path(__file__).resolve()), "run", str(wp), "--repo", str(repo),
-            "--tdd", "--setup", "true", "--verify-now", "--model", a.model]  # "true" walks the setup path end to end
+            "--tdd", "--setup", "true", "--follow", "--verify-now", "--model", a.model]  # setup and follow walked end to end
     print(f"selftest dir: {d}\nrunning: {' '.join(argv)}\n"
           "(spends roughly 150k tokens, a small fraction of one percent of a weekly window)\n", flush=True)
     r = subprocess.run(argv, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_S)
@@ -1171,6 +1200,9 @@ def build_parser():
     r.add_argument("--verify-now", action="store_true", help="run the WP's verify commands right after the worker (they execute worker-written code outside the sandbox: only for trusted repos, otherwise read the diff first and use `codex-wp verify`)")
     r.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S)
     r.add_argument("--force-pace", metavar="REASON", help="send this WP although the quota is ahead of pace (needs a reason, it is logged)")
+    r.add_argument("--follow", action=argparse.BooleanOptionalAction, default=None,
+                   help="print the live view (commands, edits, agent messages) while the worker runs; default: on when "
+                        "stdout is a terminal (a tmux pane), off when the lead runs it in the background")
     r.set_defaults(func=cmd_run)
 
     v = sub.add_parser("verify", help="run a finished run's 'Verify with:' commands in its worktree (after you read the diff)")
