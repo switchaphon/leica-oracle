@@ -8,7 +8,7 @@ This tool never judges the work. It only does what a script can prove:
   log      the event stream shows turn.completed (an exit code alone proved nothing on 2026-10-07)
   changes  every changed path is inside "Files owned"; no junk was committed (checked against base..HEAD)
 
-Commands: check | run | verify | review | status | done | selftest      (codex-wp <command> -h)
+Commands: check | run | follow | verify | review | status | done | selftest      (codex-wp <command> -h)
 Exit codes: 0 pass/go | 2 usage | 10 HOLD (over pace) | 11 BUSY | 12 UNAVAILABLE | 14 PRECONDITION
             20 REVISE | 30 FAIL
 HOLD and UNAVAILABLE mean: do not pretend. Wait, or fall back to a Claude subagent labelled FALLBACK.
@@ -32,7 +32,7 @@ import textwrap
 import time
 from pathlib import Path
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 DEFAULT_MODEL = os.environ.get("CODEX_WP_MODEL", "gpt-5.6-sol")
 STATE_DIR = Path(os.environ.get("CODEX_WP_HOME", str(Path.home() / ".codex-wp")))
 MAX_SLOTS = int(os.environ.get("CODEX_WP_SLOTS", "3"))
@@ -666,7 +666,8 @@ def new_run_id(title: str) -> str:
     return f"{time.strftime('%Y%m%d-%H%M%S')}-{slug}-{os.urandom(2).hex()}"
 
 
-def load_meta(run_id: str):
+def resolve_run_dir(run_id: str) -> Path:
+    """A run directory by exact id or by unique prefix. Does not need meta.json (a run may have only just started)."""
     root = STATE_DIR / "runs"
     cand = root / run_id
     if not cand.is_dir():
@@ -674,24 +675,167 @@ def load_meta(run_id: str):
         if len(matches) != 1:
             raise WPError(f"no unique run matching {run_id!r} under {root}")
         cand = matches[0]
+    return cand
+
+
+def newest_run_dir():
+    root = STATE_DIR / "runs"
+    dirs = sorted(p for p in root.glob("*") if p.is_dir()) if root.is_dir() else []
+    return dirs[-1] if dirs else None
+
+
+def load_meta(run_id: str):
+    cand = resolve_run_dir(run_id)
     return json.loads((cand / "meta.json").read_text()), cand
 
 
-def base_check(repo, base_ref, verify_cmds, run_id):
-    """TDD precondition: at least one verify command must FAIL on the base commit."""
+def run_setup(cmd, cwd, timeout=1800):
+    """Run the lead's --setup command (a dependency install, a node_modules link). Returns (ok, detail)."""
+    try:
+        # shell=True on purpose: --setup is typed by the lead (e.g. a dependency install), never by the worker.
+        r = subprocess.run(cmd, shell=True, cwd=str(cwd), capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return False, f"setup timed out after {timeout}s"
+    if r.returncode != 0:
+        return False, f"setup failed (exit {r.returncode}): {(r.stderr or r.stdout).strip()[-200:]}"
+    return True, ""
+
+
+def base_check(repo, base_ref, verify_cmds, run_id, setup=None):
+    """TDD precondition: at least one verify command must FAIL on the base commit. It runs in the same environment the
+    worker gets (so --setup runs here too; without it a verify that needs node_modules fails for the wrong reason and
+    the red is fake) and says why it failed, so the lead can judge whether it is the right red."""
     tmp = STATE_DIR / "worktrees" / f"{Path(repo).name}-{run_id}-basecheck"
     sha = git(["rev-parse", "--verify", f"{base_ref}^{{commit}}"], repo).stdout.strip()
     tmp.parent.mkdir(parents=True, exist_ok=True)
     git(["worktree", "add", "-q", "--detach", str(tmp), sha], repo)
     try:
+        if setup:
+            ok_setup, detail_setup = run_setup(setup, tmp)
+            if not ok_setup:
+                return False, (f"{detail_setup}; the base worktree needs the same setup as the worker, "
+                               "so a red here cannot be trusted")
         results = run_commands(verify_cmds, tmp)
     finally:
         git(["worktree", "remove", "--force", str(tmp)], repo, check=False)
-    failing = [c for c, rc, _ in results if rc != 0]
+    failing = [(c, rc, tail) for c, rc, tail in results if rc != 0]
     if not failing:
         return False, ("every Verify command already PASSES on the base commit, so passing afterwards proves "
                        "nothing. Write the test so it fails first.")
-    return True, f"{len(failing)} of {len(results)} verify command(s) fail on base, as they should"
+    last = [ln for ln in failing[0][2].splitlines() if ln.strip()]
+    why = _clip(last[-1], 110) if last else f"exit {failing[0][1]}"
+    return True, (f"{len(failing)} of {len(results)} verify command(s) fail on base, as they should; "
+                  f"first failure: {why}")
+
+
+def only_links_and_junk(wt) -> bool:
+    """True when everything git calls dirty in the worktree is a symlink or generated junk: nothing worth keeping."""
+    return all(is_junk(p) or (Path(wt) / p).is_symlink() for p in dirty_paths(wt))
+
+
+def _clip(s, n):
+    s = " ".join(str(s).split())
+    return s if len(s) <= n else s[: n - 3] + "..."
+
+
+_SHELL_WRAP = re.compile(r'^(?:/bin/)?(?:zsh|bash|sh) -lc "(.*)"$', re.S)
+
+
+def format_event(o, strip=None) -> list:
+    """One codex exec --json event as zero or more short lines for a human watching a tmux pane."""
+    t = o.get("type")
+    item = o.get("item") or {}
+    kind = item.get("type")
+    if t == "item.started" and kind == "command_execution":
+        cmd = str(item.get("command") or "")
+        m = _SHELL_WRAP.match(cmd)
+        return ["$ " + _clip(m.group(1) if m else cmd, 146)]
+    if t == "item.completed" and kind == "command_execution":
+        code = item.get("exit_code")
+        if code is None:
+            return []
+        if code == 0:
+            return ["  exit 0"]
+        last = [ln for ln in str(item.get("aggregated_output") or "").splitlines() if ln.strip()]
+        return [f"  exit {code}" + (f": {_clip(last[-1], 110)}" if last else "")]
+    if t == "item.completed" and kind == "agent_message":
+        return ["agent: " + _clip(item.get("text") or "", 300)]
+    if t == "item.completed" and kind == "file_change":
+        lines = []
+        for c in item.get("changes") or []:
+            if isinstance(c, dict):
+                path = str(c.get("path") or "?")
+                if strip and path.startswith(strip):
+                    path = path[len(strip):]
+                lines.append(f"edit {c.get('kind') or c.get('type') or '?'} {path}")
+            else:
+                lines.append("edit " + _clip(c, 120))
+        return lines
+    if t == "turn.completed":
+        u = o.get("usage") or {}
+        return [f"turn completed: tokens in {u.get('input_tokens')} (cached {u.get('cached_input_tokens')}) "
+                f"out {u.get('output_tokens')}"]
+    if t in ("turn.failed", "error"):
+        err = o.get("error")
+        msg = err.get("message") if isinstance(err, dict) else err
+        return ["ERROR: " + _clip(msg or o.get("message") or "", 200)]
+    return []
+
+
+def follow_lines(path, is_finished, poll=0.4):
+    """Yield the complete lines of a file that is still being written, never a half-written one. Ends once
+    is_finished() is true AND everything written before that moment has been read."""
+    pos, buf = 0, b""
+    while True:
+        done = is_finished()  # sampled BEFORE the read: whatever was written before it finished is read below
+        try:
+            with open(path, "rb") as f:
+                f.seek(pos)
+                chunk = f.read()
+                pos += len(chunk)
+        except OSError:
+            chunk = b""
+        buf += chunk
+        while b"\n" in buf:
+            line, buf = buf.split(b"\n", 1)
+            if line.strip():
+                yield line.decode("utf-8", "replace")
+        if done:
+            return
+        time.sleep(poll)
+
+
+FINAL_STATUSES = {"PASS", "REVISE", "FAIL", "PRECONDITION"}
+
+
+def cmd_follow(a):
+    """Read-only live view of a run: open it in a tmux pane. Works while the lead runs the WP in the background."""
+    run_dir = resolve_run_dir(a.run) if a.run else newest_run_dir()
+    if run_dir is None:
+        print("no runs yet")
+        return EXIT_USAGE
+    meta_path = run_dir / "meta.json"
+
+    def read_meta():
+        try:
+            return json.loads(meta_path.read_text())
+        except (OSError, ValueError):
+            return {}
+
+    finished = (lambda: True) if a.no_wait else (lambda: read_meta().get("status") in FINAL_STATUSES)
+    strip = (read_meta().get("worktree") or "") + "/" if read_meta().get("worktree") else None
+    print(f"following {run_dir.name}   (read-only, Ctrl-C to stop)", flush=True)
+    for raw in follow_lines(run_dir / "events.jsonl", finished):
+        try:
+            ev = json.loads(raw)
+        except ValueError:
+            continue
+        for line in format_event(ev, strip=strip):
+            print(f"{time.strftime('%H:%M:%S')}  {line}", flush=True)
+    m = read_meta()
+    print(f"-- {m.get('status') or 'still running'}: {run_dir.name}"
+          + (f"  ({'; '.join(m.get('reasons') or [])})" if m.get("reasons") else ""))
+    return EXIT_PASS
 
 
 def cmd_check(a):
@@ -751,7 +895,7 @@ def _run_locked(a, wp, repo, slot):
         if not wp.verify:
             print("USAGE: --tdd needs a 'Verify with:' line in the WP", file=sys.stderr)
             return EXIT_USAGE
-        ok, detail = base_check(repo, a.base, wp.verify, run_id)
+        ok, detail = base_check(repo, a.base, wp.verify, run_id, setup=a.setup)
         meta["tdd"] = {"ok": ok, "detail": detail}
         print(("TDD     " if ok else "TDD CHECK FAILED  ") + detail)
         if not ok:
@@ -770,13 +914,9 @@ def _run_locked(a, wp, repo, slot):
     failures = []
     ran = False
     if a.setup:
-        try:
-            # shell=True on purpose: --setup is typed by the lead (e.g. a dependency install), never by the worker.
-            r = subprocess.run(a.setup, shell=True, cwd=str(wt), capture_output=True, text=True, timeout=1800)
-            if r.returncode != 0:
-                failures.append(f"setup failed (exit {r.returncode}): {(r.stderr or r.stdout).strip()[-200:]}")
-        except subprocess.TimeoutExpired:
-            failures.append("setup timed out after 1800s")
+        ok_setup, detail_setup = run_setup(a.setup, wt)
+        if not ok_setup:
+            failures.append(detail_setup)
 
     prompt = compose_prompt(wp.text)
     (run_dir / "prompt.md").write_text(prompt)
@@ -905,11 +1045,16 @@ def cmd_done(a):
         print("worktree already gone")
         return EXIT_PASS
     r = git(["worktree", "remove", *(["--force"] if a.force else []), str(wt)], repo, check=False)
+    note = ""
+    if r.returncode != 0 and not a.force and only_links_and_junk(wt):
+        # git refuses any untracked content. A symlink (--setup often links node_modules) or generated junk is not work.
+        r = git(["worktree", "remove", "--force", str(wt)], repo, check=False)
+        note = " (only symlinks and generated junk were untracked there; link targets are untouched)"
     if r.returncode != 0:
         print(f"not removed: {(r.stderr or r.stdout).strip()}\n"
               "read what is in it, then use --force. The branch is kept either way.")
         return EXIT_REVISE
-    print(f"worktree removed; branch {meta['branch']} is kept (nothing is deleted)")
+    print(f"worktree removed{note}; branch {meta['branch']} is kept (nothing is deleted)")
     return EXIT_PASS
 
 
@@ -947,7 +1092,7 @@ def cmd_selftest(a):
     wp = d / "wp.md"
     wp.write_text(SELFTEST_WP)
     argv = [sys.executable, str(Path(__file__).resolve()), "run", str(wp), "--repo", str(repo),
-            "--tdd", "--verify-now", "--model", a.model]
+            "--tdd", "--setup", "true", "--verify-now", "--model", a.model]  # "true" walks the setup path end to end
     print(f"selftest dir: {d}\nrunning: {' '.join(argv)}\n"
           "(spends roughly 150k tokens, a small fraction of one percent of a weekly window)\n", flush=True)
     r = subprocess.run(argv, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_S)
@@ -1046,6 +1191,11 @@ def build_parser():
     d.add_argument("run")
     d.add_argument("--force", action="store_true")
     d.set_defaults(func=cmd_done)
+
+    fo = sub.add_parser("follow", help="watch a run live (commands, edits, agent messages); read-only, made for a tmux pane")
+    fo.add_argument("run", nargs="?", help="run id or unique prefix; default: the newest run")
+    fo.add_argument("--no-wait", action="store_true", help="replay what exists and exit")
+    fo.set_defaults(func=cmd_follow)
 
     t = sub.add_parser("selftest", help="end-to-end positive control with a real Codex call (~150k tokens)")
     t.add_argument("--model", default=DEFAULT_MODEL)

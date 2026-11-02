@@ -8,11 +8,14 @@ Every test here encodes something that went wrong, or nearly did, on 2026-11-02 
   - an exit code of 0 hid a dead login -> success needs turn.completed in the event log
   - the quota is a weekly window with no credits -> pace the burst, hard stop near the cap
 """
+import argparse
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -525,6 +528,177 @@ class SelftestRecord(unittest.TestCase):
             self.assertEqual(cw.read_selftest_record(p), self.REC)
             p.write_text("{not json")
             self.assertIsNone(cw.read_selftest_record(p))      # a corrupt record reads as no record
+
+
+class FormatEvent(unittest.TestCase):
+    """`follow` is for a human watching a tmux pane: commands, edits, what the agent says, and nothing else."""
+
+    @staticmethod
+    def cmd_started(command):
+        return {"type": "item.started", "item": {"type": "command_execution", "command": command, "status": "in_progress"}}
+
+    def test_command_started_strips_the_shell_wrapper(self):
+        self.assertEqual(cw.format_event(self.cmd_started('/bin/zsh -lc "pwd && ls -la"')), ["$ pwd && ls -la"])
+
+    def test_long_commands_are_truncated(self):
+        line = cw.format_event(self.cmd_started("echo " + "x" * 400))[0]
+        self.assertLessEqual(len(line), 150)
+        self.assertTrue(line.endswith("..."))
+
+    def test_command_completed_shows_the_exit_code(self):
+        ok = {"type": "item.completed", "item": {"type": "command_execution", "exit_code": 0, "aggregated_output": "fine\n"}}
+        self.assertEqual(cw.format_event(ok), ["  exit 0"])
+
+    def test_failed_command_shows_the_last_output_line(self):
+        bad = {"type": "item.completed", "item": {"type": "command_execution", "exit_code": 2,
+                                                  "aggregated_output": "a\nb\nboom: no such file\n"}}
+        self.assertEqual(cw.format_event(bad), ["  exit 2: boom: no such file"])
+
+    def test_agent_message_is_collapsed_and_cut(self):
+        o = {"type": "item.completed", "item": {"type": "agent_message", "text": "I will\n  do   it. " + "y" * 500}}
+        line = cw.format_event(o)[0]
+        self.assertTrue(line.startswith("agent: I will do it."))
+        self.assertLessEqual(len(line), 320)
+
+    def test_file_changes_list_paths_relative_to_the_worktree(self):
+        o = {"type": "item.completed", "item": {"type": "file_change", "changes": [
+            {"path": "/wt/src/a.ts", "kind": "update"}, {"path": "/wt/b.ts", "kind": "add"}]}}
+        self.assertEqual(cw.format_event(o, strip="/wt/"), ["edit update src/a.ts", "edit add b.ts"])
+
+    def test_a_file_change_is_shown_once_not_on_start_and_completion(self):
+        o = {"type": "item.started", "item": {"type": "file_change", "changes": [{"path": "a", "kind": "update"}]}}
+        self.assertEqual(cw.format_event(o), [])
+
+    def test_turn_completed_shows_usage(self):
+        o = {"type": "turn.completed", "usage": {"input_tokens": 1000, "cached_input_tokens": 800, "output_tokens": 50}}
+        self.assertEqual(cw.format_event(o), ["turn completed: tokens in 1000 (cached 800) out 50"])
+
+    def test_failure_is_shown(self):
+        self.assertEqual(cw.format_event({"type": "turn.failed", "error": {"message": "401 Missing bearer"}}),
+                         ["ERROR: 401 Missing bearer"])
+
+    def test_noise_is_skipped(self):
+        for o in ({"type": "turn.started"}, {"type": "thread.started", "thread_id": "x"},
+                  {"type": "item.started", "item": {"type": "agent_message"}}, {"nonsense": 1}):
+            self.assertEqual(cw.format_event(o), [])
+
+
+class FollowTail(unittest.TestCase):
+    def test_yields_lines_as_they_arrive_and_never_a_half_written_one(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "events.jsonl")
+            finished = threading.Event()
+
+            def writer():
+                with open(p, "a") as f:
+                    f.write(json.dumps({"n": 1}) + "\n")
+                    f.flush()
+                    time.sleep(0.15)
+                    f.write('{"n": 2')              # half a line: must not be yielded yet
+                    f.flush()
+                    time.sleep(0.15)
+                    f.write("}\n" + json.dumps({"n": 3}) + "\n")
+                    f.flush()
+                    time.sleep(0.1)
+                finished.set()
+
+            t = threading.Thread(target=writer)
+            t.start()
+            got = [json.loads(x) for x in cw.follow_lines(p, finished.is_set, poll=0.03)]
+            t.join()
+            self.assertEqual([g["n"] for g in got], [1, 2, 3])
+
+    def test_data_written_just_before_the_run_finishes_is_not_lost(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "events.jsonl")
+            p.write_text(json.dumps({"n": 1}) + "\n" + json.dumps({"n": 2}) + "\n")
+            self.assertEqual(len(list(cw.follow_lines(p, lambda: True, poll=0.01))), 2)
+
+    def test_a_file_that_never_appears_ends_when_finished(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(list(cw.follow_lines(Path(d, "nope.jsonl"), lambda: True, poll=0.01)), [])
+
+
+class DoneTolerance(unittest.TestCase):
+    """pops-658, 2026-11-02: `done` refused a worktree whose only untracked content was the node_modules symlink its own
+    --setup had created. Links and junk are not work; a real untracked file is."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = self.tmp.name
+        self.old_state = cw.STATE_DIR
+        cw.STATE_DIR = Path(self.d, "state")
+        self.repo = make_repo(self.d)
+        self.wt = Path(self.d, "wt")
+        cw.make_worktree(self.repo, "HEAD", "wp/d1", self.wt)
+        self.target = Path(self.d, "shared_node_modules")
+        self.target.mkdir()
+        run = cw.STATE_DIR / "runs" / "r1"
+        run.mkdir(parents=True)
+        (run / "meta.json").write_text(json.dumps(
+            {"run_id": "r1", "worktree": str(self.wt), "repo": str(self.repo), "branch": "wp/d1"}))
+
+    def tearDown(self):
+        cw.STATE_DIR = self.old_state
+        self.tmp.cleanup()
+
+    def test_links_and_junk_only(self):
+        os.symlink(self.target, self.wt / "node_modules")
+        (self.wt / "__pycache__").mkdir()
+        (self.wt / "__pycache__" / "a.pyc").write_bytes(b"\0")
+        self.assertTrue(cw.only_links_and_junk(self.wt))
+
+    def test_a_real_untracked_file_is_not_junk(self):
+        os.symlink(self.target, self.wt / "node_modules")
+        (self.wt / "notes.txt").write_text("keep me")
+        self.assertFalse(cw.only_links_and_junk(self.wt))
+
+    def test_done_removes_it_keeps_the_branch_and_never_touches_the_link_target(self):
+        os.symlink(self.target, self.wt / "node_modules")
+        (self.target / "pkg").write_text("x")
+        self.assertEqual(cw.cmd_done(argparse.Namespace(run="r1", force=False)), cw.EXIT_PASS)
+        self.assertFalse(self.wt.exists())
+        self.assertTrue((self.target / "pkg").exists())
+        self.assertIn("wp/d1", sh(self.repo, "git", "branch", "--list", "wp/d1"))
+
+    def test_done_still_refuses_real_work(self):
+        (self.wt / "notes.txt").write_text("keep me")
+        self.assertEqual(cw.cmd_done(argparse.Namespace(run="r1", force=False)), cw.EXIT_REVISE)
+        self.assertTrue((self.wt / "notes.txt").exists())
+
+
+class BaseCheck(unittest.TestCase):
+    """pops-658, 2026-11-02: --tdd ran `Verify with:` in a fresh worktree WITHOUT --setup, so a verify command that needs
+    node_modules failed for the wrong reason and the red was fake."""
+
+    def check(self, verify, setup=None):
+        with tempfile.TemporaryDirectory() as d:
+            repo = make_repo(d)
+            old = cw.STATE_DIR
+            cw.STATE_DIR = Path(d, "state")
+            try:
+                return cw.base_check(repo, "HEAD", verify, "rid", setup=setup)
+            finally:
+                cw.STATE_DIR = old
+
+    def test_a_red_says_why_it_is_red(self):
+        ok, detail = self.check(["echo 'missing feature' >&2; exit 1"])
+        self.assertTrue(ok)
+        self.assertIn("missing feature", detail)
+
+    def test_already_green_is_refused(self):
+        ok, detail = self.check(["true"])
+        self.assertFalse(ok)
+        self.assertIn("already PASSES", detail)
+
+    def test_setup_runs_in_the_base_worktree_before_verify(self):
+        ok, _ = self.check(["test -f ready.flag"], setup="touch ready.flag")
+        self.assertFalse(ok)  # with the setup the worker gets, this verify passes on base, so it proves nothing
+
+    def test_a_failing_setup_makes_the_red_untrustworthy(self):
+        ok, detail = self.check(["false"], setup="exit 3")
+        self.assertFalse(ok)
+        self.assertIn("setup failed", detail)
 
 
 if __name__ == "__main__":

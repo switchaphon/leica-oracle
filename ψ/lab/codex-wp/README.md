@@ -19,6 +19,7 @@ Built 2026-11-02 (v0.1.1) for the "Opus leads, Codex works" setup. Stdlib Python
 CW=~/.claude/bin/codex-wp
 $CW check                         # login, weekly pace, free slots (no model call)
 $CW run wp-1.md --repo . --tdd    # dispatch; use Bash run_in_background for WPs longer than a few minutes
+$CW follow                        # in a tmux pane: watch the newest run live (commands, edits, agent messages); read-only
 git -C <worktree> diff <base>..HEAD   # READ THE DIFF (run prints the exact command)
 $CW verify <run-id>               # after you read it: run the WP's "Verify with:" commands
 $CW done <run-id>                 # remove the worktree; the branch is always kept
@@ -43,6 +44,9 @@ A WP without `Files owned:` is refused. Ambiguity belongs to the lead; never sen
 
 1. `check`: login valid, quota on pace, a free slot (3 fleet-wide). Otherwise it stops with an exit code and says what to do.
 2. `--tdd` (use it for new behaviour): the `Verify with:` command must **fail** on the base commit. A test that cannot fail proves nothing.
+   It runs in a worktree that got the same `--setup` as the worker (without it a verify that needs `node_modules` fails for the
+   wrong reason and the red is fake; found by pops-658 on the first pilot run), and the output ends with the first failure line:
+   read it and check it is the right red.
 3. Cuts `wp/<run-id>` in a worktree under `~/.codex-wp/worktrees/`, from `--base` (default `HEAD`).
 4. Runs `codex exec -s workspace-write --json --ignore-user-config -c shell_environment_policy.inherit=core`, prompt on stdin.
    Never a bypass flag (the code refuses `danger-full-access`). The worker has no network.
@@ -80,6 +84,17 @@ The subscription has a weekly window and no credits. The quota is read from the 
 A revision is a new WP based on the previous branch: `codex-wp run wp-1b.md --base wp/<previous-run-id>`.
 Keep the feedback precise; after two rounds the spec is the problem, not the worker.
 
+## Watching a run, and cleaning up
+
+`codex-wp follow [run-id]` is a read-only live view made for a tmux pane: the commands the worker runs with their exit codes, its
+edits, what it says, and the final token line. It replays what exists, follows new events, and ends by itself when the run reaches
+a final status (`--no-wait` replays and exits). It does not change how the lead dispatches: the lead still runs `codex-wp run` in
+the background, and a person opens `follow` wherever they want to watch.
+
+`codex-wp done <run-id>` removes the worktree and keeps the branch. It used to refuse a worktree whose only untracked content was
+a symlink made by `--setup` (typically `node_modules`). Now symlinks and generated junk do not block it (a link's target is never
+touched); any real untracked file still does.
+
 ## Install and test
 
 ```bash
@@ -103,4 +118,8 @@ window could dispatch. Nothing told the lead. After any Codex upgrade, run `code
 - `verify` runs worker-written code outside the sandbox. Read the diff first. `--verify-now` is for trusted repos only.
 - No `omx` or `maw team` engine. `codex exec` directly is the default; see the learnings note for why.
 - `/dig` does not read Codex rollouts (`~/.codex/sessions`) yet.
+- Workers on Codex CLI 0.166.0 read skills from `~/.agents/skills` (45 on this machine) on their own initiative, for example
+  `test-driven-development`. `--ignore-user-config` does not stop that and `codex features list` has no switch for it. The
+  WP and the repo's AGENTS.md should carry what matters; `events.jsonl` (or `follow`) shows when a skill was read. Open question:
+  forbid it in the preamble? Changing the preamble changes worker behaviour, so not done mid-pilot.
 - Local commits made by this tool are intermediate. The lead squashes or amends and adds the Rule 8 signature before any push.
