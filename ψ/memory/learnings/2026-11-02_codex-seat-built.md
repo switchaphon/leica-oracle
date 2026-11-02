@@ -29,8 +29,16 @@ The review has to diff `base..HEAD`.
 
 `ψ/lab/codex-wp/` (stdlib Python, installed to `~/.claude/bin/codex-wp`): seat check, weekly pace, slots, worktree per WP,
 sandboxed `codex exec`, success only on `turn.completed`, ownership and junk checks against `base..HEAD`, `--tdd`, `selftest`.
-62 unit tests; 12 deliberate bugs were injected and all 12 were caught. `selftest` passed end to end.
+71 unit tests (62 at first); 12 deliberate bugs were injected and all 12 were caught. `selftest` passed end to end.
 The agent-team skill's `scripts/dispatch_external.sh` is now a shim for it (original kept as `.orig-2026-11-02`).
+
+## After the pilot started (16:36 to 16:45): a pin is not a control
+
+Planned: "pin Codex 0.144.1 through the pilot". What happened: at 16:36 someone upgraded the bun-installed CLI to 0.166.0
+(nobody was calling Codex at the time; the homebrew copy and the app's copy stayed on other versions, PATH picks bun's).
+`codex-wp status` showed the new version only because it prints it. The selftest was re-run on 0.166.0 and passed.
+Lesson: a pass covers only the version it ran on, and a pin nobody enforces is a wish. codex-wp 0.1.1 records the version
+and model of the last passing selftest and warns in `check` and `run` when they change.
 
 ## What /learn of maw-codex-team-kit added (docs in ψ/learn/Soul-Brews-Studio/maw-codex-team-kit/)
 

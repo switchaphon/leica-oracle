@@ -486,5 +486,46 @@ class Commands(unittest.TestCase):
             self.assertIn("boom", res[1][2])
 
 
+class SelftestRecord(unittest.TestCase):
+    """2026-11-02 16:36: someone upgraded the Codex CLI from 0.144.1 to 0.166.0, silently, 50 minutes after the only
+    selftest. A pass proves only the version it ran on, so `check` must say when that version (or the model) changed."""
+    REC = {"codex_version": "codex-cli 0.166.0", "model": "gpt-5.6-sol", "ts": 1_000_000.0, "result": "PASS"}
+
+    def status(self, rec, version="codex-cli 0.166.0", model="gpt-5.6-sol", later=3600.0):
+        return cw.selftest_status(rec, version, model, 1_000_000.0 + later)
+
+    def test_same_version_is_ok(self):
+        kind, text = self.status(self.REC)
+        self.assertEqual(kind, "OK")
+        self.assertIn("0.166.0", text)
+
+    def test_no_record(self):
+        self.assertEqual(self.status(None)[0], "NONE")
+
+    def test_an_upgrade_is_visible(self):
+        kind, text = self.status(self.REC, version="codex-cli 0.170.0")
+        self.assertEqual(kind, "DIFFERENT")
+        self.assertIn("0.166.0", text)
+        self.assertIn("0.170.0", text)
+
+    def test_a_model_change_is_visible(self):
+        self.assertEqual(self.status(self.REC, model="gpt-6.1-sol")[0], "DIFFERENT")
+
+    def test_a_failed_selftest_is_not_a_pass(self):
+        self.assertEqual(self.status(dict(self.REC, result="FAIL"))[0], "FAILED")
+
+    def test_an_old_pass_is_stale(self):
+        self.assertEqual(self.status(self.REC, later=4 * 86400.0)[0], "STALE")
+
+    def test_record_round_trip_and_corruption(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "selftest.json")
+            self.assertIsNone(cw.read_selftest_record(p))      # missing file
+            cw.write_selftest_record(p, self.REC)
+            self.assertEqual(cw.read_selftest_record(p), self.REC)
+            p.write_text("{not json")
+            self.assertIsNone(cw.read_selftest_record(p))      # a corrupt record reads as no record
+
+
 if __name__ == "__main__":
     unittest.main()

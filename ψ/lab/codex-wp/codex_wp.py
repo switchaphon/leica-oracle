@@ -32,7 +32,7 @@ import textwrap
 import time
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 DEFAULT_MODEL = os.environ.get("CODEX_WP_MODEL", "gpt-5.6-sol")
 STATE_DIR = Path(os.environ.get("CODEX_WP_HOME", str(Path.home() / ".codex-wp")))
 MAX_SLOTS = int(os.environ.get("CODEX_WP_SLOTS", "3"))
@@ -40,6 +40,8 @@ PACE_SLACK = 10.0  # percentage points a long window may run ahead of a straight
 PACE_CAP = 85.0    # above this: HOLD, whatever the clock says
 HARD_STOP = 90.0   # at or above this: FALLBACK
 DEFAULT_TIMEOUT_S = 40 * 60
+SELFTEST_FILE = STATE_DIR / "selftest.json"
+SELFTEST_STALE_S = 3 * 86400  # a passing selftest older than this is reported as stale
 
 EXIT_PASS, EXIT_USAGE, EXIT_HOLD, EXIT_BUSY, EXIT_UNAVAILABLE = 0, 2, 10, 11, 12
 EXIT_PRECONDITION, EXIT_REVISE, EXIT_FAIL = 14, 20, 30
@@ -559,6 +561,38 @@ def login_status(binary):
     return r.returncode == 0, (text[0] if text else "")
 
 
+def read_selftest_record(path):
+    """The record of the last selftest, or None when it is missing or unreadable."""
+    try:
+        d = json.loads(Path(path).read_text())
+    except (OSError, ValueError):
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def write_selftest_record(path, record):
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(record, indent=2))
+    os.replace(tmp, p)
+
+
+def selftest_status(record, codex_version, model, now):
+    """A pass proves only the Codex version and model it ran on. Says whether it still covers today's seat."""
+    if not record:
+        return "NONE", f"no selftest on record for {codex_version}: run `codex-wp selftest` before the first WP"
+    if record.get("result") != "PASS":
+        return "FAILED", f"the last selftest FAILED on {record.get('codex_version')}: do not dispatch until it passes"
+    if record.get("codex_version") != codex_version or record.get("model") != model:
+        return "DIFFERENT", (f"the last passing selftest was on {record.get('codex_version')} / {record.get('model')}, "
+                             f"this is {codex_version} / {model}: run `codex-wp selftest`")
+    age = now - float(record.get("ts") or 0)
+    if age > SELFTEST_STALE_S:
+        return "STALE", f"selftest PASS on {codex_version} but {int(age / 86400)} days ago: re-run `codex-wp selftest`"
+    return "OK", f"PASS on {codex_version} ({int(age / 3600)}h ago)"
+
+
 def fmt_local(ts):
     return time.strftime("%a %d %b %H:%M", time.localtime(ts)) if ts else "?"
 
@@ -594,6 +628,8 @@ def seat_check(probe=False, now=None, model=DEFAULT_MODEL):
     lines = [f"codex   {binary} ({ver})",
              f"login   {msg or 'unknown'}" + (f" | plan {plan}" if plan else ""),
              f"model   {model} (pinned)"]
+    st_kind, st_text = selftest_status(read_selftest_record(SELFTEST_FILE), ver, model, now)
+    lines.append(f"selftest {st_text}" if st_kind == "OK" else f"selftest WARN ({st_kind}) {st_text}")
     if not ok:
         lines.append("UNAVAILABLE: not logged in. Run `codex login`. Do not call Codex dead until `codex-wp selftest` fails.")
         return EXIT_UNAVAILABLE, lines
@@ -957,6 +993,13 @@ def cmd_selftest(a):
         tag = "ok  " if ok else ("FAIL" if hard else "warn")
         print(f"  {tag} {name}" + (f"  [{detail}]" if detail and not ok else ""))
     passed = all(ok for _, ok, hard, _ in checks if hard)
+    try:
+        ver = subprocess.run([codex_bin() or "codex", "--version"], capture_output=True, text=True).stdout.strip()
+    except OSError:
+        ver = "unknown"
+    write_selftest_record(SELFTEST_FILE, {"codex_version": ver, "model": a.model, "ts": time.time(),
+                                          "result": "PASS" if passed else "FAIL", "tool_version": VERSION,
+                                          "run": meta.get("run_id") if meta else None})
     print("SELFTEST " + ("PASS" if passed else "FAIL") + f"   (scratch repo kept at {d})")
     return EXIT_PASS if passed else EXIT_FAIL
 

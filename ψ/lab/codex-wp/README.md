@@ -1,7 +1,7 @@
 # codex-wp
 
 Hand one work package (WP) to a Codex worker, then check mechanically what came back.
-Built 2026-11-02 (v0.1.0) for the "Opus leads, Codex works" setup. Stdlib Python 3, no dependencies.
+Built 2026-11-02 (v0.1.1) for the "Opus leads, Codex works" setup. Stdlib Python 3, no dependencies.
 
 ## The contract
 
@@ -89,6 +89,14 @@ codex-wp selftest                  # one real Codex call; a claim that "Codex is
 ```
 
 The unit tests were mutation-checked on 2026-11-02: 12 deliberate bugs, all caught.
+
+### Version drift
+
+A passing selftest proves only the Codex version and model it ran on. `selftest` writes them to `~/.codex-wp/selftest.json`.
+`check` and `run` print a `selftest WARN` line when the Codex CLI or the pinned model is not the one that passed, when the last
+selftest failed, or when the pass is older than three days. It is a warning, not a block. Why it exists: on 2026-11-02 at 16:36
+someone upgraded the CLI from 0.144.1 to 0.166.0, fifty minutes after the only selftest and minutes before the first pilot
+window could dispatch. Nothing told the lead. After any Codex upgrade, run `codex-wp selftest` before the next WP.
 
 ## Not done yet (v0.1)
 
