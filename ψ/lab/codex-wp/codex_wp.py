@@ -34,7 +34,7 @@ import time
 import unicodedata
 from pathlib import Path
 
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 DEFAULT_MODEL = os.environ.get("CODEX_WP_MODEL", "gpt-5.6-sol")
 STATE_DIR = Path(os.environ.get("CODEX_WP_HOME", str(Path.home() / ".codex-wp")))
 MAX_SLOTS = int(os.environ.get("CODEX_WP_SLOTS", "3"))
@@ -384,6 +384,11 @@ def gitleaks_bin():
 def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None) -> dict:
     result = {"blocking": [], "noted": [], "error": None}
     errors = []
+    ignore_path = wt / ".gitleaksignore"
+    ignored = set()
+    if ignore_path.is_file():
+        ignored = {line.strip() for line in ignore_path.read_text(encoding="utf-8").splitlines()
+                   if line.strip() and not line.lstrip().startswith("#")}
 
     def scan(target, source):
         scanned = run_gitleaks(target, gitleaks)
@@ -396,10 +401,17 @@ def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None) -> dict:
         result["blocking"].extend({"source": source, **finding} for finding in scanned.findings)
 
     def urls(text, source, file):
+        lines = text.split("\n")
         for hit in url_credentials(text):
             entry = {"source": source, "rule": "url-credential", "file": file, "line": hit.line}
-            if hit.kind == "note":
-                result["noted"].append({**entry, "why": hit.why})
+            why = hit.why
+            if hit.kind == "block":
+                if "gitleaks:allow" in lines[hit.line - 1]:
+                    why = "gitleaks:allow marker"
+                elif source == "worktree" and f"{file}:url-credential:{hit.line}" in ignored:
+                    why = ".gitleaksignore"
+            if why:
+                result["noted"].append({**entry, "why": why})
             else:
                 result["blocking"].append(entry)
 
@@ -1122,7 +1134,9 @@ def _run_locked(a, wp, repo, slot):
                 print(f"SECRETS blocked: {hit['rule']} {hit['source']}:{hit['file']}:{hit['line']}")
             if scanned["error"]:
                 print(f"SECRETS scan failed: {scanned['error']}")
-            print(f"  next     codex-wp done {run_id}; review secrets, or dispatch with --no-secret-scan REASON")
+            print(f"  next     codex-wp done {run_id}. A false positive: the repo owner adds gitleaks:allow "
+                  "to the line, or <file>:<rule>:<line> to .gitleaksignore. "
+                  "--no-secret-scan REASON is for a human: auto mode refuses it.")
             meta.update(status="PRECONDITION", reasons=["secret preflight blocked dispatch"])
             save()
             return EXIT_PRECONDITION

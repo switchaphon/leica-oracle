@@ -13,18 +13,23 @@ Built 2026-11-02 (v0.1.1) for the "Opus leads, Codex works" setup. Stdlib Python
 
 `codex-wp` never judges the work. A PASS means "nothing mechanical is wrong", not "this is good".
 
-## 0.1.4
+## 0.1.5
 
 Before setup, the secret preflight scans the base checkout's tracked files and the WP text.
 It runs gitleaks from each scan directory so the worktree's `.gitleaks.toml` and
-`.gitleaksignore` apply there, and checks URLs for embedded credentials. The URL check skips
+`.gitleaksignore` apply there, and checks URLs for embedded credentials. Like gitleaks findings,
+`url-credential` findings honour `gitleaks:allow` on the source line (including in WP text)
+and `.gitleaksignore` fingerprints `<file>:url-credential:<line>` for worktree files.
+The URL check skips
 tracked files larger than 1,000,000 bytes and files with a NUL byte in the first 8192 bytes.
 Loopback, placeholder and default URL credentials are noted, not blocked. Findings show
 only their source, rule, file and line, never credential values. Missing or broken gitleaks
 fails closed with PRECONDITION before setup or the worker starts. Install it with
-`brew install gitleaks`, or set `CODEX_WP_GITLEAKS` to an executable. The lead can use
-`--no-secret-scan REASON` to skip the scan; the reason is printed and recorded in
-`meta.json`. A blocked run prints `codex-wp done <run-id>` for cleanup.
+`brew install gitleaks`, or set `CODEX_WP_GITLEAKS` to an executable.
+`--no-secret-scan REASON` is for a human: auto mode refuses it in an AI session.
+An AI session's way forward is a reviewed marker committed by the repo owner, or a
+FALLBACK subagent. A human's skip reason is printed and recorded in `meta.json`.
+A blocked run prints `codex-wp done <run-id>` for cleanup.
 
 The sandbox limits writes, not reads: a worker can read files outside the worktree.
 In November 2026 workers read `~/.agents/skills` on their own. The preflight stops a
