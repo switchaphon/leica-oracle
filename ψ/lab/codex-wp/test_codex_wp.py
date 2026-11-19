@@ -1032,7 +1032,7 @@ class SlotWait(unittest.TestCase):
 
 class Cli014(unittest.TestCase):
     def test_version(self):
-        self.assertEqual(cw.VERSION, "0.1.4")
+        self.assertEqual(cw.VERSION, "0.1.5")
 
     def test_wait_flag(self):
         self.assertEqual(cw.build_parser().parse_args(["run", "wp.md", "--wait", "600"]).wait, 600)
@@ -1104,6 +1104,52 @@ class Cli014(unittest.TestCase):
     def test_readme_documents_0_1_4(self):
         text = Path(__file__).with_name("README.md").read_text()
         for needle in ("--wait", "--no-secret-scan", "not run by the tool", "outside the worktree"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text)
+
+
+class UrlRuleSuppression(unittest.TestCase):
+    """pops-pet, 2026-11-20: a README placeholder blocked a dispatch, and neither gitleaks:allow nor .gitleaksignore
+    could clear it because the URL rule ignored both, while auto mode refuses an AI's --no-secret-scan. A reviewed,
+    committed exception must clear a URL hit exactly as it clears a gitleaks hit."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = Path(self.tmp.name)
+        self.repo = make_repo(self.d)
+        self.gl, _ = fake_gitleaks(self.d, 0)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def commit(self, name, text):
+        (self.repo / name).write_text(text)
+        sh(self.repo, "git", "add", name)
+        sh(self.repo, "git", "commit", "-q", "-m", f"add {name}")
+
+    def test_a_gitleaks_allow_marker_turns_the_hit_into_a_note(self):
+        self.commit("README.md", f"DB=postgres://app:{SECRET}@db.internal/x  # gitleaks:allow\n")
+        r = cw.secret_preflight(self.repo, "", str(self.gl))
+        self.assertEqual(r["blocking"], [])
+        self.assertEqual([(n["file"], n["line"]) for n in r["noted"]], [("README.md", 1)])
+        self.assertIn("gitleaks:allow", r["noted"][0]["why"])
+
+    def test_a_gitleaksignore_fingerprint_turns_the_hit_into_a_note(self):
+        self.commit("config.txt", f"x\nDB=postgres://app:{SECRET}@db.internal/x\n")  # gitleaks:allow
+        self.commit(".gitleaksignore", "# reviewed: a placeholder\nconfig.txt:url-credential:2\n")
+        r = cw.secret_preflight(self.repo, "", str(self.gl))
+        self.assertEqual(r["blocking"], [])
+        self.assertIn(".gitleaksignore", r["noted"][0]["why"])
+
+    def test_an_unmarked_line_still_blocks(self):
+        self.commit("config.txt", f"A=postgres://app:{SECRET}@db.internal/x  # gitleaks:allow\n"
+                                  f"B=postgres://app:{SECRET}@db.internal/y\n")  # gitleaks:allow
+        r = cw.secret_preflight(self.repo, "", str(self.gl))
+        self.assertEqual([(b["file"], b["line"]) for b in r["blocking"]], [("config.txt", 2)])
+
+    def test_readme_documents_0_1_5(self):
+        text = Path(__file__).with_name("README.md").read_text()
+        for needle in ("url-credential", "gitleaks:allow", "for a human"):
             with self.subTest(needle=needle):
                 self.assertIn(needle, text)
 
@@ -1202,6 +1248,8 @@ class RunFlow(unittest.TestCase):
         self.assertNotIn(SECRET, out)
         self.assertNotIn(SECRET, json.dumps(meta))
         self.assertIn("codex-wp done", out)  # the blocked run says how to clean up its worktree
+        self.assertIn("gitleaks:allow", out)  # the reviewed-exception path an AI lead CAN take
+        self.assertIn("for a human", out)  # auto mode refuses an AI's --no-secret-scan: say so up front
 
     def test_a_credential_in_the_wp_text_blocks(self):
         wp_text = WP_TEXT + f"- Note: connect with postgres://app:{SECRET}@db.internal/x\n"  # gitleaks:allow
