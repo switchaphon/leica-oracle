@@ -165,7 +165,7 @@ sudo ufw allow 51820/udp   # WireGuard
 Dashboard: https://143.198.58.67.sslip.io
 Email:     admin@oracle.school
 Password:  OracleSchool2026!
-Setup Key: E238C17A-22C1-42FE-9EED-0EB2F9857A83
+Setup Key: <NETBIRD_SETUP_KEY>
 ```
 
 ---
@@ -184,7 +184,7 @@ cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
 
 ```js
 const client = await NetBirdClient({
-  setupKey: "E238C17A-22C1-42FE-9EED-0EB2F9857A83",
+  setupKey: "<NETBIRD_SETUP_KEY>",
   managementURL: "https://143.198.58.67.sslip.io",
   deviceName: "browser-client"
 });
