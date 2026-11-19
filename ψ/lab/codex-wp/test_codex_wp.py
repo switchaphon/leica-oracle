@@ -9,8 +9,11 @@ Every test here encodes something that went wrong, or nearly did, on 2026-11-02 
   - the quota is a weekly window with no credits -> pace the burst, hard stop near the cap
 """
 import argparse
+import contextlib
+import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -795,6 +798,464 @@ class BaseCheck(unittest.TestCase):
         ok, detail = self.check(["false"], setup="exit 3")
         self.assertFalse(ok)
         self.assertIn("setup failed", detail)
+
+
+# --------------------------------------------------------------------------- 0.1.4
+# A: a secret preflight before the worker starts. B: a PASS that says what it checked. C: run --wait.
+# Why B: run 20261103-151816 was PASS while the worker's own test run was red (1 of 71); only report.md said so.
+# Why A: nothing scanned what a worker is shown; on 2026-11-19 the run records held 0 real secrets, by luck.
+# Why C: one pops-pet window wrote its own retry loop after 10 BUSY exits (exit 11 never waits).
+
+# Fixture URLs below carry `# gitleaks:allow`: every credential in them is made up, and without the marker the repo's
+# oracle-service-uri-credentials rule (and codex-wp's own preflight on this repo) would block on its own tests.
+SECRET = "S3cr3tPw0rd9"  # made up, never a real credential
+GH_TOKEN = "ghp_" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7cF0hJ3kLm"  # made up, correctly shaped; split so no scanner sees it here
+
+
+def write_exec(path, body):
+    path = Path(path)
+    path.write_text(body)
+    path.chmod(0o755)
+    return path
+
+
+def fake_gitleaks(d, exit_code=0, findings=None, raw=None, sleep=0):
+    """Stands in for gitleaks: logs cwd and argv, optionally sleeps, writes a report where --report-path says (JSON of
+    `findings`, or `raw` text as is), then exits as told."""
+    log = Path(d, "gitleaks-calls.log")
+    report = raw if raw is not None else json.dumps(findings or [])
+    script = write_exec(Path(d, f"fake-gitleaks-{exit_code}-{sleep}"), f"""#!/usr/bin/env python3
+import json, os, sys, time
+with open({str(log)!r}, "a") as fh:
+    fh.write(json.dumps({{"cwd": os.getcwd(), "argv": sys.argv[1:]}}) + "\\n")
+time.sleep({sleep})
+args = sys.argv[1:]
+if "--report-path" in args:
+    with open(args[args.index("--report-path") + 1], "w") as fh:
+        fh.write({report!r})
+sys.exit({exit_code})
+""")
+    return script, log
+
+
+def fake_codex(d, report_text, mark):
+    """Stands in for `codex exec`: edits add.py in the worktree (-C), prints a minimal event stream, writes the final
+    report where -o says, and leaves a mark so a test can tell whether the worker was started at all."""
+    return write_exec(Path(d, "fake-codex"), f"""#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+wt = args[args.index("-C") + 1]
+out = args[args.index("-o") + 1]
+sys.stdin.read()
+open({str(mark)!r}, "w").write("started")
+open(wt + "/add.py", "w").write("def add(a, b):\\n    return a + b\\n")
+print(json.dumps({{"type": "thread.started", "thread_id": "fake-thread"}}))
+print(json.dumps({{"type": "turn.completed", "usage": {{"input_tokens": 10, "cached_input_tokens": 0, "output_tokens": 5}}}}))
+open(out, "w").write({report_text!r})
+""")
+
+
+class UrlCredentials(unittest.TestCase):
+    """gitleaks does not look at scheme://user:password@host. The rule never keeps or prints the password."""
+
+    def test_a_real_looking_password_blocks_and_is_never_kept(self):
+        hits = cw.url_credentials(f"a\nDATABASE_URL=postgres://app:{SECRET}@db.internal:5432/x\n")  # gitleaks:allow
+        self.assertEqual([(h.line, h.scheme, h.user, h.host, h.kind) for h in hits],
+                         [(2, "postgres", "app", "db.internal", "block")])
+        self.assertNotIn(SECRET, repr(hits))
+
+    def test_loopback_hosts_are_only_noted(self):
+        for url in ("postgres://postgres:postgres@127.0.0.1:5432/db", f"mysql://root:{SECRET}@localhost/db",  # gitleaks:allow
+                    f"redis://app:{SECRET}@[::1]:6379"):  # gitleaks:allow
+            with self.subTest(url=url):
+                self.assertEqual([h.kind for h in cw.url_credentials(url)], ["note"])
+
+    def test_placeholders_and_defaults_are_only_noted(self):
+        for url in ("postgres://user:pass@host/db", "postgres://app:${DB_PASSWORD}@db.internal/x",
+                    "redis://:<password>@redis:6379", "amqp://guest:password@rabbit/",
+                    "postgres://postgres:postgres@db:5432/app"):  # gitleaks:allow
+            with self.subTest(url=url):
+                self.assertEqual([h.kind for h in cw.url_credentials(url)], ["note"])
+
+    def test_an_empty_user_still_counts(self):
+        self.assertEqual([h.kind for h in cw.url_credentials(f"redis://:{SECRET}@cache.internal:6379/0")], ["block"])
+
+    def test_urls_without_a_password_are_not_hits(self):
+        self.assertEqual(cw.url_credentials("https://example.com/a?b=1 git@github.com:x/y.git ssh://git@host/repo"), [])
+
+    def test_a_lookalike_of_localhost_is_not_loopback(self):
+        self.assertEqual([h.kind for h in cw.url_credentials(f"postgres://app:{SECRET}@localhost.example.com/db")],  # gitleaks:allow
+                         ["block"])
+
+
+class Gitleaks(unittest.TestCase):
+    def test_exit_0_is_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            gl, _ = fake_gitleaks(d, 0)
+            r = cw.run_gitleaks(Path(d), str(gl))
+            self.assertEqual((r.status, r.findings), ("clean", []))
+
+    def test_exit_1_lists_findings_without_values(self):
+        with tempfile.TemporaryDirectory() as d:
+            gl, _ = fake_gitleaks(d, 1, [{"RuleID": "github-pat", "File": "a.txt", "StartLine": 3,
+                                          "Secret": GH_TOKEN, "Match": "token=" + GH_TOKEN}])
+            r = cw.run_gitleaks(Path(d), str(gl))
+            self.assertEqual(r.status, "leaks")
+            self.assertEqual(r.findings, [{"rule": "github-pat", "file": "a.txt", "line": 3}])
+            self.assertNotIn(GH_TOKEN, repr(r))
+
+    def test_any_other_exit_is_an_error_never_clean(self):
+        """zsh word-splitting once made gitleaks exit 126; a broken scanner must never read as a clean one."""
+        for code in (2, 126):
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as d:
+                gl, _ = fake_gitleaks(d, code)
+                self.assertEqual(cw.run_gitleaks(Path(d), str(gl)).status, "error")
+
+    def test_a_missing_binary_is_missing(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(cw.run_gitleaks(Path(d), str(Path(d, "no-such-gitleaks"))).status, "missing")
+            self.assertEqual(cw.run_gitleaks(Path(d), None).status, "missing")
+
+    def test_a_corrupt_report_is_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            gl, _ = fake_gitleaks(d, 1, raw="{not json")
+            self.assertEqual(cw.run_gitleaks(Path(d), str(gl)).status, "error")
+
+    def test_a_scan_that_runs_too_long_is_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            gl, _ = fake_gitleaks(d, 0, sleep=5)
+            self.assertEqual(cw.run_gitleaks(Path(d), str(gl), timeout=1).status, "error")
+
+    def test_it_scans_dot_from_the_target_so_gitleaksignore_matches(self):
+        """pops-pet, 2026-11-19: .gitleaksignore fingerprints only match when gitleaks scans `.` from the repo root."""
+        with tempfile.TemporaryDirectory() as d:
+            gl, log = fake_gitleaks(d, 0)
+            cw.run_gitleaks(Path(d), str(gl))
+            call = json.loads(log.read_text().splitlines()[0])
+            self.assertEqual(Path(call["cwd"]).resolve(), Path(d).resolve())
+            self.assertEqual(call["argv"][:2], ["dir", "."])
+            self.assertIn("--redact", call["argv"])
+
+    @unittest.skipUnless(shutil.which("gitleaks"), "gitleaks is not installed")
+    def test_positive_control_with_the_real_gitleaks(self):
+        """The fakes prove the plumbing. Only the real binary proves the flags still work."""
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, "notes.md").write_text(f"token: {GH_TOKEN}\n")
+            r = cw.run_gitleaks(Path(d), shutil.which("gitleaks"))
+            self.assertEqual(r.status, "leaks")
+            self.assertEqual([f["rule"] for f in r.findings], ["github-pat"])
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, "notes.md").write_text("nothing to see here\n")
+            self.assertEqual(cw.run_gitleaks(Path(d), shutil.which("gitleaks")).status, "clean")
+
+
+class ReportHead(unittest.TestCase):
+    def test_first_line_of_prose_without_the_heading_marks(self):
+        self.assertEqual(cw.report_head("\n\n# Implemented X\nmore\n"), "Implemented X")
+
+    def test_fenced_blocks_are_skipped(self):
+        self.assertEqual(cw.report_head("```text\nRUN v4\n```\nThe real summary\n"), "The real summary")
+
+    def test_long_lines_are_clipped_with_three_plain_dots(self):
+        head = cw.report_head("a" * 300)
+        self.assertEqual(len(head), 160)
+        self.assertTrue(head.endswith("..."))
+
+    def test_an_empty_report_gives_an_empty_head(self):
+        self.assertEqual(cw.report_head(""), "")
+        self.assertEqual(cw.report_head("\n  \n"), "")
+
+    def test_the_run_that_started_this(self):
+        text = ("Implemented the specified one-item housing behavior, but verification is blocked by one stale test "
+                "expectation that still requires two housing items.\n\nFiles changed:\n")
+        self.assertIn("verification is blocked by one stale test", cw.report_head(text))
+
+    def test_terminal_control_characters_are_removed(self):
+        """The head is the worker's text, printed to the lead's terminal: no escape sequences get through."""
+        self.assertEqual(cw.report_head("\x1b[31mRED\x1b[0m tests\x07 here\n"), "RED tests here")
+
+
+class ResultLine(unittest.TestCase):
+    def test_pass_without_tests_says_the_tool_did_not_run_them(self):
+        line = cw.result_line("PASS", [], tests_run=False)
+        self.assertTrue(line.startswith("RESULT  PASS"))
+        self.assertIn("verify not run by the tool", line)
+
+    def test_pass_after_green_tests_is_plain(self):
+        self.assertEqual(cw.result_line("PASS", [], tests_run=True), "RESULT  PASS")
+
+    def test_other_statuses_keep_their_reasons(self):
+        self.assertEqual(cw.result_line("REVISE", ["a", "b"], tests_run=False), "RESULT  REVISE  (a; b)")
+        self.assertEqual(cw.result_line("FAIL", [], tests_run=False), "RESULT  FAIL")
+
+
+class SlotWait(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = Path(self.tmp.name)
+        self.held = [cw.acquire_slot(self.d, 2) for _ in range(2)]
+
+    def tearDown(self):
+        for fd, _ in self.held:
+            os.close(fd)
+        self.tmp.cleanup()
+
+    def test_wait_0_is_todays_behaviour(self):
+        sleeps = []
+        with self.assertRaises(cw.SlotBusy):
+            cw.acquire_slot_waiting(self.d, 2, 0, sleep=sleeps.append, say=lambda m: None)
+        self.assertEqual(sleeps, [])
+
+    def test_it_waits_until_a_slot_frees(self):
+        said = []
+
+        def sleep(_seconds):  # a run finishes while we wait
+            fd, _ = self.held.pop(0)
+            os.close(fd)
+
+        fd, slot = cw.acquire_slot_waiting(self.d, 2, 600, interval=15, sleep=sleep, say=said.append)
+        os.close(fd)
+        self.assertEqual(slot, 1)
+        self.assertEqual(len(said), 1)
+
+    def test_it_gives_up_at_the_deadline(self):
+        now, sleeps = [1000.0], []
+
+        def sleep(seconds):
+            sleeps.append(seconds)
+            now[0] += seconds
+
+        with self.assertRaises(cw.SlotBusy):
+            cw.acquire_slot_waiting(self.d, 2, 40, interval=15, sleep=sleep, clock=lambda: now[0], say=lambda m: None)
+        self.assertEqual(sleeps, [15, 15, 10])
+
+
+class Cli014(unittest.TestCase):
+    def test_version(self):
+        self.assertEqual(cw.VERSION, "0.1.4")
+
+    def test_wait_flag(self):
+        self.assertEqual(cw.build_parser().parse_args(["run", "wp.md", "--wait", "600"]).wait, 600)
+        self.assertEqual(cw.build_parser().parse_args(["run", "wp.md"]).wait, 0)
+
+    def test_no_secret_scan_needs_a_reason(self):
+        a = cw.build_parser().parse_args(["run", "wp.md", "--no-secret-scan", "scratch repo, no secrets"])
+        self.assertEqual(a.no_secret_scan, "scratch repo, no secrets")
+        self.assertIsNone(cw.build_parser().parse_args(["run", "wp.md"]).no_secret_scan)
+
+    def test_run_waits_then_reports_busy(self):
+        with tempfile.TemporaryDirectory() as d:
+            old_state, old_check = cw.STATE_DIR, cw.seat_check
+            cw.STATE_DIR = Path(d, "state")
+            cw.seat_check = lambda **kw: (cw.EXIT_PASS, [])
+            held = [cw.acquire_slot(cw.STATE_DIR / "slots", cw.MAX_SLOTS) for _ in range(cw.MAX_SLOTS)]
+            try:
+                repo = make_repo(d)
+                wp = Path(d, "wp.md")
+                wp.write_text(WP_TEXT)
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = cw.main(["run", str(wp), "--repo", str(repo), "--wait", "1"])
+                self.assertEqual(rc, cw.EXIT_BUSY)
+                self.assertIn("WAIT", buf.getvalue())
+            finally:
+                for fd, _ in held:
+                    os.close(fd)
+                cw.STATE_DIR, cw.seat_check = old_state, old_check
+
+    def test_a_negative_wait_is_a_usage_error(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit):
+            cw.build_parser().parse_args(["run", "wp.md", "--wait", "-5"])
+        self.assertIn("argument --wait", err.getvalue())  # rejected as a bad value, not as an unknown flag
+
+    def test_after_a_wait_the_seat_is_checked_again_and_the_slot_released_on_hold(self):
+        """A GO from before a long wait may be stale. Re-check; if no longer GO, give the slot back."""
+        with tempfile.TemporaryDirectory() as d:
+            old_state, old_check = cw.STATE_DIR, cw.seat_check
+            cw.STATE_DIR = Path(d, "state")
+            calls = []
+
+            def seat(**kw):
+                calls.append(kw)
+                return (cw.EXIT_PASS, []) if len(calls) == 1 else (cw.EXIT_HOLD, ["quota HOLD"])
+
+            cw.seat_check = seat
+            held = [cw.acquire_slot(cw.STATE_DIR / "slots", cw.MAX_SLOTS) for _ in range(cw.MAX_SLOTS)]
+            timer = threading.Timer(0.3, lambda: os.close(held.pop(0)[0]))  # a run finishes during the wait
+            try:
+                repo = make_repo(d)
+                wp = Path(d, "wp.md")
+                wp.write_text(WP_TEXT)
+                timer.start()
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc = cw.main(["run", str(wp), "--repo", str(repo), "--wait", "1"])
+                timer.join()
+                self.assertEqual(rc, cw.EXIT_HOLD)
+                self.assertEqual(len(calls), 2)
+                fd, _ = cw.acquire_slot(cw.STATE_DIR / "slots", cw.MAX_SLOTS)  # the slot was given back
+                os.close(fd)
+            finally:
+                timer.cancel()
+                for fd, _ in held:
+                    os.close(fd)
+                cw.STATE_DIR, cw.seat_check = old_state, old_check
+
+    def test_readme_documents_0_1_4(self):
+        text = Path(__file__).with_name("README.md").read_text()
+        for needle in ("--wait", "--no-secret-scan", "not run by the tool", "outside the worktree"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text)
+
+
+class VerifyState(unittest.TestCase):
+    """`codex-wp verify` wrote its results but left status PASS on a red verify, so every reader had to dig into
+    verify_results. The record now says what the lead's verify found."""
+
+    def test_cmd_verify_records_green_and_red(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = cw.STATE_DIR
+            cw.STATE_DIR = Path(d, "state")
+            try:
+                wt = Path(d, "wt")
+                wt.mkdir()
+                run = cw.STATE_DIR / "runs" / "r1"
+                run.mkdir(parents=True)
+                for cmds, state in ((["true"], "green"), (["true", "false"], "red")):
+                    with self.subTest(state=state):
+                        (run / "meta.json").write_text(json.dumps(
+                            {"run_id": "r1", "worktree": str(wt), "verify_cmds": cmds, "status": "PASS"}))
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            cw.cmd_verify(argparse.Namespace(run="r1", verbose=False))
+                        self.assertEqual(json.loads((run / "meta.json").read_text())["verify_state"], state)
+            finally:
+                cw.STATE_DIR = old
+
+
+class RunFlow(unittest.TestCase):
+    """_run_locked end to end with a fake Codex and a fake gitleaks: no network, no quota."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = Path(self.tmp.name)
+        self.repo = make_repo(self.d)
+        self.mark = self.d / "worker-started"
+        self.old_state = cw.STATE_DIR
+        cw.STATE_DIR = self.d / "state"
+        self.old_env = {k: os.environ.get(k) for k in ("CODEX_WP_BIN", "CODEX_WP_GITLEAKS", "CODEX_HOME")}
+        os.environ["CODEX_HOME"] = str(self.d / "codex-home")
+        self.gl, self.gl_log = fake_gitleaks(self.d, 0)
+        os.environ["CODEX_WP_GITLEAKS"] = str(self.gl)
+
+    def tearDown(self):
+        cw.STATE_DIR = self.old_state
+        for k, v in self.old_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        self.tmp.cleanup()
+
+    def commit_file(self, name, text):
+        (self.repo / name).write_text(text)
+        sh(self.repo, "git", "add", name)
+        sh(self.repo, "git", "commit", "-q", "-m", f"add {name}")
+
+    def run_locked(self, report_text="Implemented add().\n", wp_text=WP_TEXT, **kw):
+        os.environ["CODEX_WP_BIN"] = str(fake_codex(self.d, report_text, self.mark))
+        args = dict(wp="wp.md", repo=str(self.repo), base="HEAD", model="fake-model", effort=None, tdd=False,
+                    setup=None, verify_now=False, timeout=60, force_pace=None, follow=False, wait=0,
+                    no_secret_scan=None)
+        args.update(kw)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = cw._run_locked(argparse.Namespace(**args), cw.parse_wp(wp_text), self.repo, 1)
+        run_dir = next((cw.STATE_DIR / "runs").iterdir())
+        return rc, buf.getvalue(), json.loads((run_dir / "meta.json").read_text())
+
+    def test_pass_says_the_tool_did_not_run_the_tests_and_quotes_the_report(self):
+        rc, out, meta = self.run_locked("Implemented add(), but verification is blocked by one stale test.\nMore.\n")
+        self.assertEqual(rc, cw.EXIT_PASS)
+        line = next(ln for ln in out.splitlines() if ln.startswith("RESULT"))
+        self.assertTrue(line.startswith("RESULT  PASS"))
+        self.assertIn("verify not run by the tool", line)
+        self.assertIn("  report   Implemented add(), but verification is blocked by one stale test.", out)
+        self.assertEqual(meta["report_head"], "Implemented add(), but verification is blocked by one stale test.")
+        self.assertEqual(meta["verify_state"], "not run")
+        self.assertEqual(meta["timeout_s"], 60)  # the six SIGTERM runs could not be diagnosed: nobody knew this value
+
+    def test_verify_now_green_is_a_plain_pass(self):
+        rc, out, meta = self.run_locked(verify_now=True)
+        self.assertEqual(rc, cw.EXIT_PASS)
+        self.assertEqual(next(ln for ln in out.splitlines() if ln.startswith("RESULT")).strip(), "RESULT  PASS")
+        self.assertEqual(meta["verify_state"], "green")
+
+    def test_a_url_credential_blocks_the_worker_before_setup_runs(self):
+        self.commit_file("config.txt", f"DATABASE_URL=postgres://app:{SECRET}@db.internal:5432/x\n")  # gitleaks:allow
+        rc, out, meta = self.run_locked(setup="touch SETUP_RAN")
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertEqual(meta["status"], "PRECONDITION")
+        self.assertFalse(self.mark.exists(), "the worker must not start")
+        self.assertFalse(Path(meta["worktree"], "SETUP_RAN").exists(), "the scan runs before --setup")
+        self.assertEqual([(b["source"], b["file"], b["line"], b["rule"]) for b in meta["secret_scan"]["blocking"]],
+                         [("worktree", "config.txt", 1, "url-credential")])
+        self.assertNotIn(SECRET, out)
+        self.assertNotIn(SECRET, json.dumps(meta))
+        self.assertIn("codex-wp done", out)  # the blocked run says how to clean up its worktree
+
+    def test_a_credential_in_the_wp_text_blocks(self):
+        wp_text = WP_TEXT + f"- Note: connect with postgres://app:{SECRET}@db.internal/x\n"  # gitleaks:allow
+        rc, out, meta = self.run_locked(wp_text=wp_text)
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertFalse(self.mark.exists())
+        self.assertIn("wp", [b["source"] for b in meta["secret_scan"]["blocking"]])
+        self.assertNotIn(SECRET, out)
+
+    def test_loopback_defaults_are_noted_and_the_worker_runs(self):
+        self.commit_file("test.env", "DB=postgres://postgres:postgres@127.0.0.1:5432/test\n")  # gitleaks:allow
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PASS)
+        self.assertTrue(self.mark.exists())
+        self.assertEqual(meta["secret_scan"]["blocking"], [])
+        self.assertEqual([n["file"] for n in meta["secret_scan"]["noted"]], ["test.env"])
+        self.assertIn("noted", out)  # an allowance is visible, never silent
+
+    def test_a_gitleaks_finding_blocks(self):
+        gl, _ = fake_gitleaks(self.d, 1, [{"RuleID": "github-pat", "File": "notes.md", "StartLine": 4,
+                                           "Secret": "REDACTED", "Match": "REDACTED"}])
+        os.environ["CODEX_WP_GITLEAKS"] = str(gl)
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertFalse(self.mark.exists())
+        self.assertIn({"source": "worktree", "rule": "github-pat", "file": "notes.md", "line": 4},
+                      meta["secret_scan"]["blocking"])
+
+    def test_a_gitleaks_error_fails_closed(self):
+        gl, _ = fake_gitleaks(self.d, 126)
+        os.environ["CODEX_WP_GITLEAKS"] = str(gl)
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertFalse(self.mark.exists())
+        self.assertTrue(meta["secret_scan"]["error"])
+
+    def test_missing_gitleaks_fails_closed_with_a_hint(self):
+        os.environ["CODEX_WP_GITLEAKS"] = str(self.d / "no-such-gitleaks")
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertIn("gitleaks", meta["secret_scan"]["error"])
+        self.assertIn("--no-secret-scan", out)
+
+    def test_no_secret_scan_is_recorded_with_its_reason(self):
+        os.environ["CODEX_WP_GITLEAKS"] = str(self.d / "no-such-gitleaks")
+        rc, out, meta = self.run_locked(no_secret_scan="scratch repo, no secrets")
+        self.assertEqual(rc, cw.EXIT_PASS)
+        self.assertEqual(meta["secret_scan"], {"skipped": "scratch repo, no secrets"})
+
+    def test_gitleaks_scans_dot_from_the_worktree_root(self):
+        rc, out, meta = self.run_locked()
+        calls = [json.loads(ln) for ln in self.gl_log.read_text().splitlines()]
+        wt = Path(meta["worktree"]).resolve()
+        self.assertEqual([c["argv"][:2] for c in calls if Path(c["cwd"]).resolve() == wt], [["dir", "."]])
 
 
 if __name__ == "__main__":
