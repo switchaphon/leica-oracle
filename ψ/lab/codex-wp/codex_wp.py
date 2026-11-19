@@ -31,9 +31,10 @@ import tempfile
 import textwrap
 import threading
 import time
+import unicodedata
 from pathlib import Path
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 DEFAULT_MODEL = os.environ.get("CODEX_WP_MODEL", "gpt-5.6-sol")
 STATE_DIR = Path(os.environ.get("CODEX_WP_HOME", str(Path.home() / ".codex-wp")))
 MAX_SLOTS = int(os.environ.get("CODEX_WP_SLOTS", "3"))
@@ -304,6 +305,148 @@ def run_commands(cmds, cwd, timeout=900):
     return out
 
 
+@dataclasses.dataclass
+class UrlCred:
+    line: int
+    scheme: str
+    user: str
+    host: str
+    kind: str
+    why: str = ""
+
+
+def url_credentials(text: str) -> list[UrlCred]:
+    pattern = r'''([A-Za-z][A-Za-z0-9+.-]*)://([^:/@\s'"]*):([^/@\s'"]+)@(\[[^\]\s]+\]|[^/:?#@\s'"]+)'''
+    placeholders = {"pass", "password", "passwd", "secret", "changeme", "example", "placeholder", "xxx", "xxxx"}
+    hits = []
+    for match in re.finditer(pattern, text):
+        scheme, user, password, host = match.groups()
+        why = ""
+        if host.lower().strip("[]") in {"127.0.0.1", "localhost", "::1"}:
+            why = "loopback host"
+        elif (password.lower() in placeholders or password.startswith(("$", "<", "{", "%("))
+              or re.fullmatch(r"\*+|[xX]+", password)):
+            why = "placeholder password"
+        elif user and password.lower() == user.lower():
+            why = "default credentials"
+        hits.append(UrlCred(text.count("\n", 0, match.start()) + 1, scheme, user, host,
+                            "note" if why else "block", why))
+    return hits
+
+
+@dataclasses.dataclass
+class GitleaksResult:
+    status: str
+    findings: list
+    detail: str = ""
+
+
+def run_gitleaks(target: Path, binary: str | None, timeout: int = 300) -> GitleaksResult:
+    executable = shutil.which(binary) if binary else None
+    if not executable:
+        return GitleaksResult("missing", [])
+    try:
+        scan_root = target.resolve()
+        report_dir = Path(tempfile.gettempdir()).resolve()
+        if report_dir.is_relative_to(scan_root):
+            report_dir = scan_root.parent
+        if report_dir.is_relative_to(scan_root):
+            return GitleaksResult("error", [], "no report directory outside target")
+        with tempfile.NamedTemporaryFile(prefix="codex-wp-gitleaks-", suffix=".json", dir=report_dir) as report:
+            result = subprocess.run(
+                [str(Path(executable).resolve()), "dir", ".", "--redact", "--no-banner",
+                 "--report-format", "json", "--report-path", report.name, "--exit-code", "1"],
+                cwd=target, capture_output=True, timeout=timeout)
+            if result.returncode == 0:
+                return GitleaksResult("clean", [])
+            if result.returncode != 1:
+                return GitleaksResult("error", [], f"exit code {result.returncode}")
+            findings = json.loads(Path(report.name).read_text(encoding="utf-8"))
+            if not isinstance(findings, list) or not findings:
+                return GitleaksResult("error", [], "invalid or empty report")
+            safe = []
+            for finding in findings:
+                rule, file, line = finding["RuleID"], finding["File"], finding["StartLine"]
+                if not isinstance(rule, str) or not isinstance(file, str) or not isinstance(line, int):
+                    return GitleaksResult("error", [], "invalid report")
+                while file.startswith("./"):
+                    file = file[2:]
+                safe.append({"rule": rule, "file": file, "line": line})
+            return GitleaksResult("leaks", safe)
+    except (OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired) as exc:
+        return GitleaksResult("error", [], type(exc).__name__)
+
+
+def gitleaks_bin():
+    return os.environ.get("CODEX_WP_GITLEAKS") or shutil.which("gitleaks")
+
+
+def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None) -> dict:
+    result = {"blocking": [], "noted": [], "error": None}
+    errors = []
+
+    def scan(target, source):
+        scanned = run_gitleaks(target, gitleaks)
+        if scanned.status == "missing":
+            message = "gitleaks not found: install it (brew install gitleaks) or dispatch with --no-secret-scan REASON"
+            if message not in errors:
+                errors.append(message)
+        elif scanned.status == "error":
+            errors.append(f"{source}: {scanned.detail}")
+        result["blocking"].extend({"source": source, **finding} for finding in scanned.findings)
+
+    def urls(text, source, file):
+        for hit in url_credentials(text):
+            entry = {"source": source, "rule": "url-credential", "file": file, "line": hit.line}
+            if hit.kind == "note":
+                result["noted"].append({**entry, "why": hit.why})
+            else:
+                result["blocking"].append(entry)
+
+    scan(wt, "worktree")
+    with tempfile.TemporaryDirectory(prefix="codex-wp-preflight-") as directory:
+        target = Path(directory)
+        (target / "wp.md").write_text(wp_text, encoding="utf-8")
+        scan(target, "wp")
+    for file in git(["ls-files", "-z"], wt).stdout.split("\0"):
+        if not file:
+            continue
+        path = wt / file
+        if not path.is_file() or path.stat().st_size > 1_000_000:
+            continue
+        with path.open("rb") as stream:
+            head = stream.read(8192)
+            if b"\0" in head:
+                continue
+            text = (head + stream.read()).decode("utf-8", errors="replace")
+        urls(text, "worktree", file)
+    urls(wp_text, "wp", "wp.md")
+    result["error"] = "; ".join(errors) or None
+    return result
+
+
+def report_head(text: str, limit: int = 160) -> str:
+    fenced = False
+    for line in text.split("\n"):
+        if line.strip().startswith(("```", "~~~")):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        line = re.sub(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|[^\[])", "", line)
+        line = "".join(char for char in line if unicodedata.category(char) != "Cc")
+        line = line.strip().lstrip("#").strip()
+        if line:
+            return line[:limit - 3] + "..." if len(line) > limit else line
+    return ""
+
+
+def result_line(status: str, reasons: list, tests_run: bool) -> str:
+    if status == "PASS" and not tests_run:
+        return "RESULT  PASS  (mechanical checks only; verify not run by the tool: read the report, then codex-wp verify)"
+    return f"RESULT  {status}" + (f"  ({'; '.join(reasons)})" if reasons else "")
+
+
 # --------------------------------------------------------------------------- quota
 
 @dataclasses.dataclass
@@ -519,6 +662,23 @@ def acquire_slot(directory, n):
         os.write(fd, f"{os.getpid()} {int(time.time())}\n".encode())
         return fd, i
     raise SlotBusy(f"all {n} slots busy")
+
+
+def acquire_slot_waiting(directory, n, wait_s, interval=15.0, sleep=None, clock=None, say=None):
+    sleep = time.sleep if sleep is None else sleep
+    clock = time.monotonic if clock is None else clock
+    say = (lambda message: print(message, flush=True)) if say is None else say
+    deadline = clock() + max(0, wait_s)
+    while True:
+        try:
+            return acquire_slot(directory, n)
+        except SlotBusy:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                raise
+            pause = min(interval, remaining)
+            say(f"WAIT    all {n} slots busy; {remaining:.0f}s left")
+            sleep(pause)
 
 
 def busy_slots(directory, n) -> int:
@@ -886,12 +1046,27 @@ def cmd_run(a):
         code = EXIT_PASS
     if code != EXIT_PASS:
         return code
+    waited = False
     try:
-        slot_fd, slot = acquire_slot(STATE_DIR / "slots", MAX_SLOTS)
+        try:
+            slot_fd, slot = acquire_slot(STATE_DIR / "slots", MAX_SLOTS)
+        except SlotBusy:
+            if a.wait <= 0:
+                raise
+            waited = True
+            slot_fd, slot = acquire_slot_waiting(STATE_DIR / "slots", MAX_SLOTS, a.wait)
     except SlotBusy:
         print(f"BUSY: all {MAX_SLOTS} Codex slots are in use. Wait for one to finish, or fall back.")
         return EXIT_BUSY
     try:
+        if waited:
+            code, lines = seat_check(model=a.model)
+            print("\n".join(lines))
+            if code == EXIT_HOLD and a.force_pace:
+                print(f"PACE OVERRIDE by the lead: {a.force_pace}")
+                code = EXIT_PASS
+            if code != EXIT_PASS:
+                return code
         return _run_locked(a, wp, repo, slot)
     finally:
         os.close(slot_fd)
@@ -904,7 +1079,7 @@ def _run_locked(a, wp, repo, slot):
     (run_dir / "wp.md").write_text(wp.text)
     meta = {"run_id": run_id, "title": wp.title, "repo": str(repo), "owned": wp.owned, "ignore": wp.ignore,
             "verify_cmds": wp.verify, "model": a.model, "started": time.time(),
-            "tool_version": VERSION, "status": "STARTING"}
+            "tool_version": VERSION, "status": "STARTING", "timeout_s": a.timeout}
 
     def save():
         (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
@@ -930,6 +1105,28 @@ def _run_locked(a, wp, repo, slot):
     save()
     print(f"RUN     {run_id}\n  dir      {run_dir}\n  worktree {wt}\n"
           f"  branch   {branch} (base {base_sha[:9]})\n  slot     {slot}/{MAX_SLOTS}", flush=True)
+
+    if a.no_secret_scan:
+        meta["secret_scan"] = {"skipped": a.no_secret_scan}
+        print(f"WARN    secret scan skipped by the lead: {a.no_secret_scan}")
+    else:
+        try:
+            scanned = secret_preflight(wt, wp.text, gitleaks_bin())
+        except Exception as exc:
+            scanned = {"blocking": [], "noted": [], "error": type(exc).__name__}
+        meta["secret_scan"] = scanned
+        for hit in scanned["noted"]:
+            print(f"SECRETS noted (not blocking): {hit['rule']} {hit['source']}:{hit['file']}:{hit['line']} ({hit['why']})")
+        if scanned["blocking"] or scanned["error"]:
+            for hit in scanned["blocking"]:
+                print(f"SECRETS blocked: {hit['rule']} {hit['source']}:{hit['file']}:{hit['line']}")
+            if scanned["error"]:
+                print(f"SECRETS scan failed: {scanned['error']}")
+            print(f"  next     codex-wp done {run_id}; review secrets, or dispatch with --no-secret-scan REASON")
+            meta.update(status="PRECONDITION", reasons=["secret preflight blocked dispatch"])
+            save()
+            return EXIT_PRECONDITION
+    save()
 
     failures = []
     ran = False
@@ -995,18 +1192,24 @@ def _run_locked(a, wp, repo, slot):
     after = latest_snapshot(codex_homes())
     quota = pace_verdict(after.rate_limits if after else None, time.time())
     usage = summary.usage or {}
+    head = report_head(report.read_text(errors="replace") if report.exists() else "")
+    verify_state = ("no commands" if not wp.verify else "not run" if verify_results is None else
+                    "green" if all(code == 0 for _, code, _ in verify_results) else "red")
     meta.update(status=status, reasons=reasons, elapsed_s=round(elapsed, 1), worker_exit=rc,
                 completed=summary.completed, thread_id=summary.thread_id, usage=usage,
                 owned_changed=assess.owned_changed, violations=assess.violations,
                 committed_junk=assess.committed_junk, dirty_junk=assess.dirty_junk,
                 worker_commits=worker_commits, wrapper_commit=wrapper_commit,
-                quota=dataclasses.asdict(quota), verify_results=verify_results)
+                quota=dataclasses.asdict(quota), verify_results=verify_results,
+                report_head=head, verify_state=verify_state)
     save()
 
-    out = [f"RESULT  {status}" + (f"  ({'; '.join(reasons)})" if reasons else ""),
-           f"  worker   exit {rc} | completed {'yes' if summary.completed else 'NO'} | {elapsed:.0f}s | {a.model} | "
+    out = [result_line(status, reasons, tests_run=verify_results is not None)]
+    if head:
+        out.append(f"  report   {head}")
+    out.extend([f"  worker   exit {rc} | completed {'yes' if summary.completed else 'NO'} | {elapsed:.0f}s | {a.model} | "
            f"tokens in {usage.get('input_tokens')} (cached {usage.get('cached_input_tokens')}) out {usage.get('output_tokens')}",
-           f"  changed  {', '.join(assess.owned_changed) or '(nothing owned changed)'}"]
+           f"  changed  {', '.join(assess.owned_changed) or '(nothing owned changed)'}"])
     if worker_commits:
         out.append(f"  WARN     the worker made {worker_commits} commit(s) despite the rules; read them in the diff")
     if assess.dirty_junk:
@@ -1032,6 +1235,7 @@ def cmd_verify(a):
         if code != 0 or a.verbose:
             print(textwrap.indent(tail, "       "))
     meta["verify_results"] = [list(r) for r in results]
+    meta["verify_state"] = "green" if all(code == 0 for _, code, _ in results) else "red"
     (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
     return EXIT_PASS if all(c == 0 for _, c, _ in results) else EXIT_REVISE
 
@@ -1178,6 +1382,16 @@ def cmd_selftest(a):
     return EXIT_PASS if passed else EXIT_FAIL
 
 
+def nonnegative_int(value):
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer >= 0") from None
+    if number < 0:
+        raise argparse.ArgumentTypeError("must be an integer >= 0")
+    return number
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="codex-wp", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1199,6 +1413,8 @@ def build_parser():
     r.add_argument("--setup", help="shell command run in the worktree before the worker starts (e.g. dependency install; the worker has no network)")
     r.add_argument("--verify-now", action="store_true", help="run the WP's verify commands right after the worker (they execute worker-written code outside the sandbox: only for trusted repos, otherwise read the diff first and use `codex-wp verify`)")
     r.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S)
+    r.add_argument("--no-secret-scan", metavar="REASON", help="skip the secret preflight with a reason recorded for the lead")
+    r.add_argument("--wait", type=nonnegative_int, default=0, metavar="SECONDS", help="wait up to this many seconds for a free slot")
     r.add_argument("--force-pace", metavar="REASON", help="send this WP although the quota is ahead of pace (needs a reason, it is logged)")
     r.add_argument("--follow", action=argparse.BooleanOptionalAction, default=None,
                    help="print the live view (commands, edits, agent messages) while the worker runs; default: on when "

@@ -13,6 +13,42 @@ Built 2026-11-02 (v0.1.1) for the "Opus leads, Codex works" setup. Stdlib Python
 
 `codex-wp` never judges the work. A PASS means "nothing mechanical is wrong", not "this is good".
 
+## 0.1.4
+
+Before setup, the secret preflight scans the base checkout's tracked files and the WP text.
+It runs gitleaks from each scan directory so the worktree's `.gitleaks.toml` and
+`.gitleaksignore` apply there, and checks URLs for embedded credentials. The URL check skips
+tracked files larger than 1,000,000 bytes and files with a NUL byte in the first 8192 bytes.
+Loopback, placeholder and default URL credentials are noted, not blocked. Findings show
+only their source, rule, file and line, never credential values. Missing or broken gitleaks
+fails closed with PRECONDITION before setup or the worker starts. Install it with
+`brew install gitleaks`, or set `CODEX_WP_GITLEAKS` to an executable. The lead can use
+`--no-secret-scan REASON` to skip the scan; the reason is printed and recorded in
+`meta.json`. A blocked run prints `codex-wp done <run-id>` for cleanup.
+
+The sandbox limits writes, not reads: a worker can read files outside the worktree.
+In November 2026 workers read `~/.agents/skills` on their own. The preflight stops a
+dispatch into secrets but does not confine what a worker can read. It scans before setup,
+so it does not cover files created by setup or later worker reads.
+
+`run --wait SECONDS` waits for a free slot for up to that many seconds, printing WAIT
+messages. The default is 0, which returns BUSY immediately; negative values are rejected.
+After waiting, the tool checks the seat again and releases the slot if dispatch is no
+longer allowed. `--force-pace REASON` can override HOLD only, including after a wait.
+
+A PASS without tool-run verification now says:
+
+```text
+RESULT  PASS  (mechanical checks only; verify not run by the tool: read the report, then codex-wp verify)
+  report   <first non-empty line outside fenced blocks in the worker report>
+```
+
+The report head is the worker's own text, with heading marks and terminal controls removed
+and long lines clipped. It is not an independent verdict. `--verify-now` runs the WP's
+verify commands; a PASS after green verification prints exactly `RESULT  PASS`.
+`meta.json` records `report_head`, `timeout_s` and `verify_state`: `no commands`, `not run`,
+`green` or `red`. A later `codex-wp verify` updates `verify_state` to `green` or `red`.
+
 ## Quick start
 
 ```bash
@@ -49,7 +85,7 @@ A WP without `Files owned:` is refused. Ambiguity belongs to the lead; never sen
    wrong reason and the red is fake; found by pops-658 on the first pilot run), and the output ends with the first failure line:
    read it and check it is the right red.
 3. Cuts `wp/<run-id>` in a worktree under `~/.codex-wp/worktrees/`, from `--base` (default `HEAD`).
-4. Runs `codex exec -s workspace-write --json --ignore-user-config -c shell_environment_policy.inherit=core`, prompt on stdin.
+4. Runs the secret preflight before setup, then `codex exec -s workspace-write --json --ignore-user-config -c shell_environment_policy.inherit=core`, prompt on stdin.
    Never a bypass flag (the code refuses `danger-full-access`). The worker has no network.
 5. Success needs `turn.completed` in the event log **and** a non-empty report. Exit code 0 alone is not proof.
 6. The wrapper, not the worker, stages and commits only dirty paths that are in `Files owned` and are not junk.
@@ -67,7 +103,7 @@ Run records live in `~/.codex-wp/runs/<run-id>/` (`wp.md`, `prompt.md`, `events.
 | 10 | HOLD: ahead of the weekly pace | wait, or `--force-pace "reason"` for urgent work |
 | 11 | BUSY: no free slot | wait |
 | 12 | UNAVAILABLE: not logged in, no binary, quota at the hard stop | fall back to a Claude subagent labelled FALLBACK, or wait for the reset |
-| 14 | PRECONDITION: `--tdd` and verify already passes on base | fix the test |
+| 14 | PRECONDITION: TDD check refused, secrets found, or secret scan failed | fix the test or resolve the secret preflight |
 | 20 | REVISE: violations, junk, nothing owned changed, or verify failed | send a new WP on top of the branch |
 | 30 | FAIL: worker error, timeout, no `turn.completed`, empty report | look at `events.jsonl` and `stderr.txt` |
 
