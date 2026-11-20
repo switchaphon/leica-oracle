@@ -35,7 +35,7 @@ import time
 import unicodedata
 from pathlib import Path
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 DEFAULT_MODEL = os.environ.get("CODEX_WP_MODEL", "gpt-5.6-sol")
 STATE_DIR = Path(os.environ.get("CODEX_WP_HOME", str(Path.home() / ".codex-wp")))
 MAX_SLOTS = int(os.environ.get("CODEX_WP_SLOTS", "3"))
@@ -44,6 +44,9 @@ PACE_CAP = 85.0    # above this: HOLD, whatever the clock says
 HARD_STOP = 90.0   # at or above this: FALLBACK
 DEFAULT_TIMEOUT_S = 40 * 60
 DEFAULT_SCAN_TIMEOUT_S = 900
+KILL_GRACE_S = 10
+VERIFY_TIMEOUT_S = 900
+SETUP_TIMEOUT_S = 1800
 CACHE_MAX_AGE_S = 14 * 86400
 NOTED_SHOWN = 5
 SELFTEST_FILE = STATE_DIR / "selftest.json"
@@ -295,18 +298,54 @@ def commit_owned(wt, owned, message, ignore=()):
     return git(["rev-parse", "--short", "HEAD"], wt).stdout.strip()
 
 
-def run_commands(cmds, cwd, timeout=900):
+def run_shell(cmd, cwd, timeout):
+    proc = subprocess.Popen(cmd, shell=True, cwd=str(cwd), stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, start_new_session=True)
+    try:
+        output, _ = proc.communicate(timeout=timeout)
+        return proc.returncode, output
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        output, _ = proc.communicate(timeout=KILL_GRACE_S)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            output, _ = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired as exc:
+            output = exc.output or ""
+            if isinstance(output, bytes):
+                output = output.decode("utf-8", errors="replace")
+            proc.stdout.close()
+            proc.poll()
+    return None, output
+
+
+def run_commands(cmds, cwd, timeout=None):
+    timeout = VERIFY_TIMEOUT_S if timeout is None else timeout
     out = []
     for c in cmds:
-        try:
-            # shell=True on purpose: these strings are the lead's own "Verify with:" lines (trusted, and they
-            # need &&, pipes and env prefixes). Never build one from worker output or any file the worker wrote.
-            r = subprocess.run(c, shell=True, cwd=str(cwd), capture_output=True, text=True, timeout=timeout)
-            tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-25:])
-            out.append((c, r.returncode, tail))
-        except subprocess.TimeoutExpired:
-            out.append((c, 124, f"timeout after {timeout}s"))
+        # shell=True on purpose: these strings are the lead's own "Verify with:" lines (trusted, and they
+        # need &&, pipes and env prefixes). Never build one from worker output or any file the worker wrote.
+        code, output = run_shell(c, cwd, timeout)
+        lines = output.strip().splitlines()
+        if code is None:
+            lines.append(f"timeout after {timeout}s; the command's process group was stopped")
+        out.append((c, code, "\n".join(lines[-25:])))
     return out
+
+
+def verify_state_of(results):
+    if any(code is None for _, code, _ in results):
+        return "timeout"
+    return "green" if all(code == 0 for _, code, _ in results) else "red"
 
 
 @dataclasses.dataclass
@@ -387,8 +426,59 @@ def gitleaks_bin():
     return os.environ.get("CODEX_WP_GITLEAKS") or shutil.which("gitleaks")
 
 
+def leaked_list_path():
+    return Path(os.environ.get("CODEX_WP_LEAKED") or STATE_DIR / "leaked-sha12.txt")
+
+
+def load_leaked_list(path) -> dict:
+    try:
+        stream = Path(path).open(encoding="utf-8")
+    except FileNotFoundError:
+        return {}
+    leaked = {}
+    with stream:
+        for number, line in enumerate(stream, 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            fields = line.split(maxsplit=1)
+            if not re.fullmatch(r"[0-9A-Fa-f]{12}", fields[0]):
+                raise ValueError(f"{path} line {number}: expected a 12-character hex sha256 prefix")
+            leaked[fields[0].lower()] = fields[1].strip() if len(fields) > 1 else ""
+    return leaked
+
+
+def known_leaked_hits(text, leaked):
+    hits = set()
+    if not leaked:
+        return hits
+    for escaped in (r"\n", r"\r", r"\t"):
+        text = text.replace(escaped, " ")
+    text = text.replace(r'\"', '"')
+    patterns = (
+        r'''[^\s"'`=:,;(){}\[\]<>|]+''',
+        r"'([^'\r\n]{6,128})'",
+        r'"([^"\r\n]{6,128})"',
+        r"`([^`\r\n]{6,128})`",
+        r'''[:=][ \t]*([^\s'",;`]{6,128})''',
+        r'''//[^\s/:@]+:([^\s/@]+)@''',
+    )
+    for pattern in patterns:
+        for match in re.finditer(pattern, text):
+            candidate = match.group(1) if match.lastindex else match.group()
+            if not 6 <= len(candidate) <= 128:
+                continue
+            for value in (candidate, candidate.rstrip(".,;)}"), candidate.removesuffix("_mockup"),
+                          candidate.partition("_")[2], candidate.rpartition("_")[0]):
+                if value:
+                    prefix = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+                    if prefix in leaked:
+                        hits.add(prefix)
+    return hits
+
+
 def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None,
-                     timeout: int = DEFAULT_SCAN_TIMEOUT_S, cache_dir=None, rescan=False) -> dict:
+                     timeout: int = DEFAULT_SCAN_TIMEOUT_S, cache_dir=None, rescan=False, leaked=None) -> dict:
     tree_result = git(["rev-parse", "HEAD^{tree}"], wt, check=False)
     tree = tree_result.stdout.strip() if tree_result.returncode == 0 else None
     result = {"blocking": [], "noted": [], "error": None, "cached": False,
@@ -408,6 +498,7 @@ def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None,
             config_hash = (hashlib.sha256(config_path.read_bytes()).hexdigest()
                            if config_path is not None and config_path.is_file() else None)
             material = {"tree": tree, "version": VERSION,
+                        "leaked": hashlib.sha256(json.dumps(sorted((leaked or {}).items())).encode("utf-8")).hexdigest(),
                         "scanner": [str(scanner), stat.st_size, stat.st_mtime_ns],
                         "GITLEAKS_CONFIG": [config, config_hash],
                         "GITLEAKS_CONFIG_TOML": hashlib.sha256(
@@ -440,7 +531,7 @@ def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None,
                 result["timed_out"] = True
         result["blocking"].extend({"source": source, **finding} for finding in scanned.findings)
 
-    def urls(text, source, file):
+    def text_checks(text, source, file):
         lines = text.split("\n")
         for hit in url_credentials(text):
             entry = {"source": source, "rule": "url-credential", "file": file, "line": hit.line}
@@ -454,6 +545,20 @@ def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None,
                 result["noted"].append({**entry, "why": why})
             else:
                 result["blocking"].append(entry)
+        for match in re.finditer(r"(?<![0-9A-Fa-f])[0-9A-Fa-f]{32}_mockup\b", text):
+            line = text.count("\n", 0, match.start()) + 1
+            entry = {"source": source, "rule": "mockup-hex", "file": file, "line": line}
+            if "gitleaks:allow" in lines[line - 1]:
+                result["noted"].append({**entry, "why": "gitleaks:allow marker"})
+            elif source == "worktree" and f"{file}:mockup-hex:{line}" in ignored:
+                result["noted"].append({**entry, "why": ".gitleaksignore"})
+            else:
+                result["blocking"].append(entry)
+        if known_leaked_hits(text, leaked):
+            for line, content in enumerate(lines, 1):
+                for prefix in sorted(known_leaked_hits(content, leaked)):
+                    result["blocking"].append({"source": source, "rule": "known-leaked", "file": file,
+                                               "line": line, "label": leaked[prefix]})
 
     if not result["cached"]:
         started = time.monotonic()
@@ -473,7 +578,7 @@ def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None,
                 if b"\0" in head:
                     continue
                 text = (head + stream.read()).decode("utf-8", errors="replace")
-            urls(text, "worktree", file)
+            text_checks(text, "worktree", file)
         result["scan_s"] = time.monotonic() - started
         if entry_path is not None and not errors and not result["timed_out"]:
             entry = {"tree": tree, "created": time.time(), "scan_s": result["scan_s"],
@@ -499,7 +604,7 @@ def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None,
         target = Path(directory)
         (target / "wp.md").write_text(wp_text, encoding="utf-8")
         scan(target, "wp")
-    urls(wp_text, "wp", "wp.md")
+    text_checks(wp_text, "wp", "wp.md")
     result["error"] = "; ".join(errors) or None
     return result
 
@@ -712,7 +817,7 @@ def kill_group(proc):
     except ProcessLookupError:
         return
     try:
-        proc.wait(timeout=10)
+        proc.wait(timeout=KILL_GRACE_S)
     except subprocess.TimeoutExpired:
         try:
             os.killpg(proc.pid, signal.SIGKILL)
@@ -780,7 +885,15 @@ def busy_slots(directory, n) -> int:
 # --------------------------------------------------------------------------- seat
 
 def codex_bin():
-    return os.environ.get("CODEX_WP_BIN") or shutil.which("codex")
+    override = os.environ.get("CODEX_WP_BIN")
+    if override:
+        return override
+    record = read_selftest_record(SELFTEST_FILE)
+    if record and record.get("result") == "PASS":
+        binary = record.get("codex_path")
+        if binary and Path(binary).is_file() and os.access(binary, os.X_OK):
+            return binary
+    return shutil.which("codex")
 
 
 def codex_homes() -> list:
@@ -879,8 +992,22 @@ def seat_check(probe=False, now=None, model=DEFAULT_MODEL):
     lines = [f"codex   {binary} ({ver})",
              f"login   {msg or 'unknown'}" + (f" | plan {plan}" if plan else ""),
              f"model   {model} (pinned)"]
+    which = shutil.which("codex")
+    if which and os.path.realpath(which) != os.path.realpath(binary):
+        path_ver = subprocess.run([which, "--version"], capture_output=True, text=True).stdout.strip()
+        lines.insert(1, f"        PATH finds {which} ({path_ver}) first; codex-wp runs {binary}, "
+                        "the binary that passed the selftest")
     st_kind, st_text = selftest_status(read_selftest_record(SELFTEST_FILE), ver, model, now)
     lines.append(f"selftest {st_text}" if st_kind == "OK" else f"selftest WARN ({st_kind}) {st_text}")
+    path = leaked_list_path()
+    try:
+        leaked = load_leaked_list(path)
+        if path.exists():
+            lines.append(f"leaked  {len(leaked)} known-leaked value hash(es) checked from {path}")
+        else:
+            lines.append(f"leaked  no list at {path}: known-leaked values are not checked")
+    except (OSError, ValueError) as exc:
+        lines.append(f"leaked  BROKEN: {exc}")
     if not ok:
         lines.append("UNAVAILABLE: not logged in. Run `codex login`. Do not call Codex dead until `codex-wp selftest` fails.")
         return EXIT_UNAVAILABLE, lines
@@ -940,15 +1067,15 @@ def load_meta(run_id: str):
     return json.loads((cand / "meta.json").read_text()), cand
 
 
-def run_setup(cmd, cwd, timeout=1800):
+def run_setup(cmd, cwd, timeout=None):
     """Run the lead's --setup command (a dependency install, a node_modules link). Returns (ok, detail)."""
-    try:
-        # shell=True on purpose: --setup is typed by the lead (e.g. a dependency install), never by the worker.
-        r = subprocess.run(cmd, shell=True, cwd=str(cwd), capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return False, f"setup timed out after {timeout}s"
-    if r.returncode != 0:
-        return False, f"setup failed (exit {r.returncode}): {(r.stderr or r.stdout).strip()[-200:]}"
+    timeout = SETUP_TIMEOUT_S if timeout is None else timeout
+    # shell=True on purpose: --setup is typed by the lead (e.g. a dependency install), never by the worker.
+    code, output = run_shell(cmd, cwd, timeout)
+    if code is None:
+        return False, f"setup timed out after {timeout}s; its process group was stopped"
+    if code != 0:
+        return False, f"setup failed (exit {code}): {output.strip()[-200:]}"
     return True, ""
 
 
@@ -969,6 +1096,11 @@ def base_check(repo, base_ref, verify_cmds, run_id, setup=None):
         results = run_commands(verify_cmds, tmp)
     finally:
         git(["worktree", "remove", "--force", str(tmp)], repo, check=False)
+    for cmd, code, _ in results:
+        if code is None:
+            return False, (f"a verify command timed out on base after {VERIFY_TIMEOUT_S}s ({cmd}): "
+                           "a test that hangs is not a failing test, so this red cannot be trusted. "
+                           "Fix the hang, then dispatch again.")
     failing = [(c, rc, tail) for c, rc, tail in results if rc != 0]
     if not failing:
         return False, ("every Verify command already PASSES on the base commit, so passing afterwards proves "
@@ -1190,9 +1322,17 @@ def _run_locked(a, wp, repo, slot):
         meta["secret_scan"] = {"skipped": a.no_secret_scan}
         print(f"WARN    secret scan skipped by the lead: {a.no_secret_scan}")
     else:
+        scanned = {"blocking": [], "noted": [], "error": None, "cached": False,
+                   "tree": None, "timed_out": False, "scan_s": 0.0}
         try:
-            scanned = secret_preflight(wt, wp.text, gitleaks_bin(), timeout=a.scan_timeout,
-                                       cache_dir=STATE_DIR / "cache" / "preflight", rescan=a.rescan)
+            leaked = load_leaked_list(leaked_list_path())
+        except (OSError, ValueError) as exc:
+            scanned["error"] = f"known-leaked list: {exc}"
+        try:
+            if not scanned["error"]:
+                scanned = secret_preflight(wt, wp.text, gitleaks_bin(), timeout=a.scan_timeout,
+                                           cache_dir=STATE_DIR / "cache" / "preflight", rescan=a.rescan,
+                                           leaked=leaked)
         except Exception as exc:
             scanned = {"blocking": [], "noted": [], "error": type(exc).__name__, "cached": False,
                        "tree": None, "timed_out": False, "scan_s": 0.0}
@@ -1221,11 +1361,15 @@ def _run_locked(a, wp, repo, slot):
                 if key in seen:
                     continue
                 seen.add(key)
-                print(f"SECRETS blocked: {hit['rule']} {hit['source']}:{hit['file']}:{hit['line']}")
+                label = f" ({hit['label']})" if hit["rule"] == "known-leaked" and hit.get("label") else ""
+                print(f"SECRETS blocked: {hit['rule']} {hit['source']}:{hit['file']}:{hit['line']}{label}")
             if scanned["error"]:
                 print(f"SECRETS scan failed: {scanned['error']}")
             next_line = f"  next     codex-wp done {run_id}."
-            if scanned["blocking"]:
+            if any(hit["rule"] == "known-leaked" for hit in scanned["blocking"]):
+                next_line += (" A known-leaked value cannot be allowed by a marker: remove it from the tree, "
+                              "and rotate it if it is still live.")
+            if any(hit["rule"] != "known-leaked" for hit in scanned["blocking"]):
                 next_line += (" A false positive: the repo owner adds gitleaks:allow "
                               "to the line, or <file>:<rule>:<line> to .gitleaksignore. "
                               "--no-secret-scan REASON is for a human: auto mode refuses it.")
@@ -1296,17 +1440,18 @@ def _run_locked(a, wp, repo, slot):
     verify_results = None
     if a.verify_now and wp.verify and status in ("PASS", "REVISE"):
         verify_results = run_commands(wp.verify, wt)
-        bad = [c for c, code_, _ in verify_results if code_ != 0]
+        bad = [(c, code_) for c, code_, _ in verify_results if code_ != 0]
         if bad:
             status = "REVISE"
-            reasons.append("verify failed: " + bad[0])
+            reasons.extend(("verify timed out: " if code is None else "verify failed: ") + cmd
+                           for cmd, code in bad)
 
     after = latest_snapshot(codex_homes())
     quota = pace_verdict(after.rate_limits if after else None, time.time())
     usage = summary.usage or {}
     head = report_head(report.read_text(errors="replace") if report.exists() else "")
     verify_state = ("no commands" if not wp.verify else "not run" if verify_results is None else
-                    "green" if all(code == 0 for _, code, _ in verify_results) else "red")
+                    verify_state_of(verify_results))
     meta.update(status=status, reasons=reasons, elapsed_s=round(elapsed, 1), worker_exit=rc,
                 completed=summary.completed, thread_id=summary.thread_id, usage=usage,
                 owned_changed=assess.owned_changed, violations=assess.violations,
@@ -1327,7 +1472,8 @@ def _run_locked(a, wp, repo, slot):
     if assess.dirty_junk:
         out.append(f"  note     untracked junk left in the worktree (not committed): {', '.join(assess.dirty_junk[:3])}")
     if verify_results:
-        out.append("  verify   " + " | ".join(f"{'ok' if c == 0 else 'FAIL'} {cmd}" for cmd, c, _ in verify_results))
+        out.append("  verify   " + " | ".join(f"{'TIME' if c is None else 'ok' if c == 0 else 'FAIL'} {cmd}"
+                                             for cmd, c, _ in verify_results))
     out.append(f"  quota    {quota.kind}: {quota.reason}")
     out.append(f"  next     read the diff: git -C {wt} diff {base_sha[:9]}..HEAD")
     out.append(f"           then: codex-wp verify {run_id}      worker report: {report}")
@@ -1343,11 +1489,11 @@ def cmd_verify(a):
         return EXIT_USAGE
     results = run_commands(cmds, Path(meta["worktree"]))
     for cmd, code, tail in results:
-        print(f"{'ok  ' if code == 0 else 'FAIL'} [{code}] {cmd}")
+        print(f"{'TIME [timeout]' if code is None else f'ok   [{code}]' if code == 0 else f'FAIL [{code}]'} {cmd}")
         if code != 0 or a.verbose:
             print(textwrap.indent(tail, "       "))
     meta["verify_results"] = [list(r) for r in results]
-    meta["verify_state"] = "green" if all(code == 0 for _, code, _ in results) else "red"
+    meta["verify_state"] = verify_state_of(results)
     (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
     return EXIT_PASS if all(c == 0 for _, c, _ in results) else EXIT_REVISE
 
@@ -1416,6 +1562,7 @@ SELFTEST_WP = """\
 
 def cmd_selftest(a):
     """End to end positive control. 'Codex is dead' needs this to FAIL first."""
+    binary = codex_bin()
     d = Path(tempfile.mkdtemp(prefix="codex-wp-selftest-"))
     repo = d / "repo"
     repo.mkdir()
@@ -1440,7 +1587,8 @@ def cmd_selftest(a):
             "--tdd", "--setup", "true", "--follow", "--verify-now", "--model", a.model]  # setup and follow walked end to end
     print(f"selftest dir: {d}\nrunning: {' '.join(argv)}\n"
           "(spends roughly 150k tokens, a small fraction of one percent of a weekly window)\n", flush=True)
-    r = subprocess.run(argv, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_S)
+    r = subprocess.run(argv, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_S,
+                       env=dict(os.environ, CODEX_WP_BIN=binary))
     print(r.stdout)
     if r.stderr.strip():
         print(r.stderr, file=sys.stderr)
@@ -1484,10 +1632,10 @@ def cmd_selftest(a):
         print(f"  {tag} {name}" + (f"  [{detail}]" if detail and not ok else ""))
     passed = all(ok for _, ok, hard, _ in checks if hard)
     try:
-        ver = subprocess.run([codex_bin() or "codex", "--version"], capture_output=True, text=True).stdout.strip()
+        ver = subprocess.run([binary or "codex", "--version"], capture_output=True, text=True).stdout.strip()
     except OSError:
         ver = "unknown"
-    write_selftest_record(SELFTEST_FILE, {"codex_version": ver, "model": a.model, "ts": time.time(),
+    write_selftest_record(SELFTEST_FILE, {"codex_version": ver, "codex_path": binary, "model": a.model, "ts": time.time(),
                                           "result": "PASS" if passed else "FAIL", "tool_version": VERSION,
                                           "run": meta.get("run_id") if meta else None})
     print("SELFTEST " + ("PASS" if passed else "FAIL") + f"   (scratch repo kept at {d})")

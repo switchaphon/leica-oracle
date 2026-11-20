@@ -13,15 +13,16 @@ Built 2026-11-02 (v0.1.1) for the "Opus leads, Codex works" setup. Stdlib Python
 
 `codex-wp` never judges the work. A PASS means "nothing mechanical is wrong", not "this is good".
 
-## 0.1.6
+## 0.1.7
 
 Before setup, the secret preflight scans the base checkout's tracked files and the WP text.
 It runs gitleaks from each scan directory so the worktree's `.gitleaks.toml` and
 `.gitleaksignore` apply there, and checks URLs for embedded credentials. Like gitleaks findings,
 `url-credential` findings honour `gitleaks:allow` on the source line (including in WP text)
 and `.gitleaksignore` fingerprints `<file>:url-credential:<line>` for worktree files.
-The URL check skips
+The URL, mockup and known-leaked checks share these limits: they skip
 tracked files larger than 1,000,000 bytes and files with a NUL byte in the first 8192 bytes.
+Gitleaks still scans every file. The WP text is checked too.
 Loopback, placeholder and default URL credentials are noted, not blocked. Findings show
 only their source, rule, file and line, never credential values. Missing or broken gitleaks
 fails closed with PRECONDITION before setup or the worker starts. Install it with
@@ -31,11 +32,26 @@ An AI session's way forward is a reviewed marker committed by the repo owner, or
 FALLBACK subagent. A human's skip reason is printed and recorded in `meta.json`.
 A blocked run prints `codex-wp done <run-id>` for cleanup.
 
+The machine-local known-leaked list is `~/.codex-wp/leaked-sha12.txt`, or the path in
+`$CODEX_WP_LEAKED`. Keep it outside git and never put secret values in it. Each line
+contains a 12-character hex sha256 prefix, optionally followed by whitespace and a
+label; blank lines and lines starting with `#` are ignored. Candidate tokens and
+their common disguises are hashed in memory; findings keep only source, rule, file,
+line and label. Known-leaked hits cannot be allowed by a marker or `.gitleaksignore`:
+remove the value and rotate it if still live. A missing list disables this check;
+a broken or unreadable list fails closed. `check` reports the list's state.
+
+The `mockup-hex` rule catches exactly 32 hex characters followed by `_mockup`, with
+no preceding hex character and a word boundary after the suffix. This shape can be
+a false positive: like the URL rule, it honours `gitleaks:allow` on the line and
+worktree `.gitleaksignore` fingerprints `<file>:mockup-hex:<line>`.
+
 The scan result is cached per base tree (the tree, not the commit) in
 `~/.codex-wp/cache/preflight/`. The key includes the tree, the gitleaks binary's resolved
 path, size and modification time, codex-wp's version, and `GITLEAKS_CONFIG` /
-`GITLEAKS_CONFIG_TOML` (including the config file's contents). Only worktree findings
-are cached; the WP text is always scanned fresh. Failed or timed-out scans are never
+`GITLEAKS_CONFIG_TOML` (including the config file's contents). The known-leaked list
+(hashes and labels) is also part of the cache key, so a change to the list rescans.
+Only worktree findings are cached; the WP text is always scanned fresh. Failed or timed-out scans are never
 cached. Entries older than 14 days are removed when a new entry is written.
 `--rescan` ignores the cache and scans the tree again.
 
@@ -68,7 +84,21 @@ The report head is the worker's own text, with heading marks and terminal contro
 and long lines clipped. It is not an independent verdict. `--verify-now` runs the WP's
 verify commands; a PASS after green verification prints exactly `RESULT  PASS`.
 `meta.json` records `report_head`, `timeout_s` and `verify_state`: `no commands`, `not run`,
-`green` or `red`. A later `codex-wp verify` updates `verify_state` to `green` or `red`.
+`green`, `red` or `timeout`. A later `codex-wp verify` updates `verify_state` to
+`green`, `red` or `timeout`.
+
+Verify commands default to a 900 s timeout; setup defaults to 1800 s. A timeout
+stops the whole process group with SIGTERM, allows a 10 s grace period for cleanup,
+then uses SIGKILL if needed. Reading output is bounded even if a process outside
+the group holds the pipe open. It is reported as a timeout, never as an exit code,
+and makes verify record `timeout`. A timeout on base fails the `--tdd` precondition:
+a hanging test is not a trustworthy red test.
+
+Workers run the codex binary that passed the selftest, saved as `codex_path` in
+the selftest record, when that PASS record points to an executable file.
+`CODEX_WP_BIN` still wins; otherwise the tool falls back to PATH when no usable
+passing record exists. `check` says when PATH finds another binary, showing both
+paths and versions so the binary in use is clear.
 
 ## Quick start
 
