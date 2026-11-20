@@ -10,6 +10,7 @@ Every test here encodes something that went wrong, or nearly did, on 2026-11-02 
 """
 import argparse
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -1047,7 +1048,7 @@ class NeverTheRealCodex(unittest.TestCase):
 
 class Cli014(unittest.TestCase):
     def test_version(self):
-        self.assertEqual(cw.VERSION, "0.1.6")
+        self.assertEqual(cw.VERSION, "0.1.7")
 
     def test_wait_flag(self):
         self.assertEqual(cw.build_parser().parse_args(["run", "wp.md", "--wait", "600"]).wait, 600)
@@ -1411,6 +1412,343 @@ class Cli016(unittest.TestCase):
                 self.assertIn(needle, text)
 
 
+LEAKED = "Lk7" + "pQ2wZx9Rt4"  # made up, never a real credential; split so no scanner sees it whole
+
+
+def h12(value):
+    return hashlib.sha256(value.encode()).hexdigest()[:12]
+
+
+class LeakedList(unittest.TestCase):
+    """The known-leaked list is machine-local: ~/.codex-wp/leaked-sha12.txt, or $CODEX_WP_LEAKED. One sha256[:12]
+    prefix per line, an optional label after it, # comments. A list that cannot be read must stop dispatch, never
+    weaken the check in silence."""
+
+    def test_prefixes_labels_and_comments(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "leaked.txt")
+            p.write_text(f"# RPRO-16612, values never printed\n\n{h12(LEAKED)}  influx/pg-super/redis\n"
+                         f"{h12('other-value').upper()}\n")
+            self.assertEqual(cw.load_leaked_list(p), {h12(LEAKED): "influx/pg-super/redis", h12("other-value"): ""})
+
+    def test_a_missing_list_is_empty(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(cw.load_leaked_list(Path(d, "none.txt")), {})
+
+    def test_a_malformed_line_fails_loudly(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "leaked.txt")
+            p.write_text(f"{h12(LEAKED)}\nnot-a-hash\n")
+            with self.assertRaises(ValueError) as ctx:
+                cw.load_leaked_list(p)
+            self.assertIn("line 2", str(ctx.exception))
+
+    def test_the_path_follows_state_dir_or_the_environment(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(cw, "STATE_DIR", Path(d)):
+            with mock.patch.dict(os.environ, {"CODEX_WP_LEAKED": ""}):
+                self.assertEqual(cw.leaked_list_path(), Path(d, "leaked-sha12.txt"))
+            with mock.patch.dict(os.environ, {"CODEX_WP_LEAKED": str(Path(d, "x.txt"))}):
+                self.assertEqual(cw.leaked_list_path(), Path(d, "x.txt"))
+
+
+class KnownLeaked(unittest.TestCase):
+    """rpro-ent, 2026-11-20 (RPRO-16612): live cluster passwords sat in 35 RPRO service repos disguised as
+    <32hex>_mockup and mock_<value>. Stock gitleaks misses both shapes, so the preflight let them through to workers.
+    Every token is now hashed in memory and compared with the known-leaked list; a hit always blocks."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = Path(self.tmp.name)
+        self.repo = make_repo(self.d)
+        self.gl, _ = fake_gitleaks(self.d, 0)
+        self.leaked = {h12(LEAKED): "influx"}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def commit(self, name, text):
+        (self.repo / name).write_text(text)
+        sh(self.repo, "git", "add", name)
+        sh(self.repo, "git", "commit", "-q", "-m", f"add {name}")
+
+    def scan(self, wp_text="", **kw):
+        return cw.secret_preflight(self.repo, wp_text, str(self.gl), **kw)
+
+    @staticmethod
+    def known(r, source="worktree"):
+        return [b for b in r["blocking"] if b["rule"] == "known-leaked" and b["source"] == source]
+
+    def test_every_disguise_is_found_by_hash_and_no_value_is_kept(self):
+        self.commit("settings.js", "\n".join([
+            f"password: '{LEAKED}',",
+            f"INFLUX_PASSWORD={LEAKED}_mockup",
+            f"REDIS_PASSWORD=mock_{LEAKED}",
+            f"url=redis://u:{LEAKED}@cache.internal:6379",  # gitleaks:allow
+            '{"output":"A=' + LEAKED + '\\nB=x"}',  # a JSON-escaped newline glues the value to the next token
+            "nothing to see here",
+        ]) + "\n")
+        r = self.scan(leaked=self.leaked)
+        self.assertEqual([(b["line"], b["label"]) for b in self.known(r)],
+                         [(1, "influx"), (2, "influx"), (3, "influx"), (4, "influx"), (5, "influx")])
+        self.assertNotIn(LEAKED, json.dumps(r))
+
+    def test_a_marker_cannot_allow_a_known_leaked_value(self):
+        self.commit("config.txt", f"X={LEAKED}  # gitleaks:allow\n")
+        self.commit(".gitleaksignore", "config.txt:known-leaked:1\n")
+        self.assertEqual([b["line"] for b in self.known(self.scan(leaked=self.leaked))], [1])
+
+    def test_the_wp_text_is_checked_too(self):
+        r = self.scan(wp_text=f"- Context: the cluster password is mock_{LEAKED}\n", leaked=self.leaked)
+        self.assertEqual([(b["file"], b["line"]) for b in self.known(r, "wp")], [("wp.md", 1)])
+        self.assertNotIn(LEAKED, json.dumps(r))
+
+    def test_an_empty_or_absent_list_checks_nothing(self):
+        self.commit("config.txt", f"X={LEAKED}\n")
+        self.assertEqual(self.known(self.scan(leaked={})), [])
+        self.assertEqual(self.known(self.scan()), [])
+
+    def test_a_longer_token_is_not_a_hit(self):
+        self.commit("config.txt", f"Y={LEAKED}ff\nsha={'a' * 40}\n")
+        self.assertEqual(self.known(self.scan(leaked=self.leaked)), [])
+
+    def test_the_list_is_part_of_the_cache_key(self):
+        self.commit("config.txt", f"X=mock_{LEAKED}\n")
+        cache = self.d / "cache"
+        self.assertFalse(self.scan(leaked={}, cache_dir=cache)["cached"])
+        self.assertTrue(self.scan(leaked={}, cache_dir=cache)["cached"])
+        r = self.scan(leaked=self.leaked, cache_dir=cache)
+        self.assertFalse(r["cached"])  # a new list must rescan, or a cached "clean" would hide the leak
+        self.assertEqual([b["line"] for b in self.known(r)], [1])
+        self.assertTrue(self.scan(leaked=self.leaked, cache_dir=cache)["cached"])
+
+
+class MockupShape(unittest.TestCase):
+    """A disguised value that is not on the list yet: 32 hex characters with a _mockup suffix is the shape the RPRO
+    repos used. Unlike a known-leaked hit, a shape can be wrong, so it honours gitleaks:allow and .gitleaksignore."""
+
+    HEX = "0123456789abcdef" * 2
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = Path(self.tmp.name)
+        self.repo = make_repo(self.d)
+        self.gl, _ = fake_gitleaks(self.d, 0)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def commit(self, name, text):
+        (self.repo / name).write_text(text)
+        sh(self.repo, "git", "add", name)
+        sh(self.repo, "git", "commit", "-q", "-m", f"add {name}")
+
+    def scan(self, wp_text=""):
+        return cw.secret_preflight(self.repo, wp_text, str(self.gl))
+
+    def test_the_shape_blocks_without_keeping_the_value(self):
+        self.commit("settings.js", f"x\nINFLUX_PASSWORD={self.HEX}_mockup\n")
+        r = self.scan()
+        self.assertEqual([(b["rule"], b["file"], b["line"]) for b in r["blocking"]], [("mockup-hex", "settings.js", 2)])
+        self.assertNotIn(self.HEX, json.dumps(r))
+
+    def test_longer_hex_or_a_longer_suffix_is_not_the_shape(self):
+        self.commit("settings.js", f"SHA={'a' * 40}_mockup\nnope={self.HEX}_mockups\n")
+        self.assertEqual(self.scan()["blocking"], [])
+
+    def test_the_shape_honours_markers(self):
+        self.commit("a.js", f"P={self.HEX}_mockup  # gitleaks:allow\n")
+        self.commit("b.js", f"P={self.HEX}_mockup\n")
+        self.commit(".gitleaksignore", "b.js:mockup-hex:1\n")
+        r = self.scan()
+        self.assertEqual(r["blocking"], [])
+        self.assertEqual(sorted(n["file"] for n in r["noted"] if n["rule"] == "mockup-hex"), ["a.js", "b.js"])
+
+    def test_the_wp_text_is_checked(self):
+        r = self.scan(wp_text=f"use {self.HEX}_mockup\n")
+        self.assertEqual([(b["source"], b["rule"]) for b in r["blocking"]], [("wp", "mockup-hex")])
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+class ProcessGroups(unittest.TestCase):
+    """pops-vet 1165, 2026-11-20: a DB verify command ran past its 900 s timeout under load. subprocess.run killed only
+    the shell, so the script's EXIT trap never ran and its postgres container stayed up; its children also held the
+    output pipe open. A timed-out command now gets SIGTERM on its whole process group, a grace period, then SIGKILL,
+    and a timeout is reported as None, never as an exit code."""
+
+    def test_constants(self):
+        self.assertEqual((cw.KILL_GRACE_S, cw.VERIFY_TIMEOUT_S, cw.SETUP_TIMEOUT_S), (10, 900, 1800))
+
+    def test_sigterm_reaches_the_group_so_an_exit_trap_runs(self):
+        with tempfile.TemporaryDirectory() as d:
+            t0 = time.monotonic()
+            res = cw.run_commands([f"bash -c 'trap \"touch {d}/cleaned\" EXIT; sleep 20'"], Path(d), timeout=1)
+            self.assertLess(time.monotonic() - t0, 12)
+            self.assertIsNone(res[0][1])
+            self.assertIn("timeout after 1s", res[0][2])
+            self.assertTrue(Path(d, "cleaned").exists(), "SIGTERM first, so the EXIT trap ran")
+
+    def test_a_background_child_does_not_outlive_the_timeout(self):
+        with tempfile.TemporaryDirectory() as d:
+            t0 = time.monotonic()
+            cw.run_commands([f"sleep 20 & echo $! > {d}/child.pid; wait"], Path(d), timeout=1)
+            self.assertLess(time.monotonic() - t0, 12)
+            pid = int(Path(d, "child.pid").read_text())
+            deadline = time.monotonic() + 3
+            while alive(pid) and time.monotonic() < deadline:
+                time.sleep(0.1)
+            self.assertFalse(alive(pid))
+
+    def test_a_command_that_ignores_sigterm_is_killed_after_the_grace(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(cw, "KILL_GRACE_S", 1):
+            t0 = time.monotonic()
+            res = cw.run_commands(["trap '' TERM; sleep 20"], Path(d), timeout=1)
+            self.assertLess(time.monotonic() - t0, 12)
+            self.assertIsNone(res[0][1])
+
+    def test_a_setup_timeout_stops_the_group_too(self):
+        with tempfile.TemporaryDirectory() as d:
+            ok, detail = cw.run_setup(f"bash -c 'trap \"touch {d}/cleaned\" EXIT; sleep 20'", Path(d), timeout=1)
+            self.assertFalse(ok)
+            self.assertIn("timed out after 1s", detail)
+            self.assertTrue(Path(d, "cleaned").exists())
+
+    def test_a_timeout_on_base_is_not_a_red_test(self):
+        """A test that hangs used to pass the --tdd gate: the timeout counted as 'fails on base'."""
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(cw, "STATE_DIR", Path(d, "state")), \
+                mock.patch.object(cw, "VERIFY_TIMEOUT_S", 1):
+            repo = make_repo(d)
+            ok, detail = cw.base_check(repo, "HEAD", ["sleep 20"], "r1")
+            self.assertFalse(ok)
+            self.assertIn("timed out", detail)
+
+    def test_verify_records_a_timeout_as_its_own_state(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(cw, "STATE_DIR", Path(d, "state")), \
+                mock.patch.object(cw, "VERIFY_TIMEOUT_S", 1):
+            wt = Path(d, "wt")
+            wt.mkdir()
+            run = cw.STATE_DIR / "runs" / "r1"
+            run.mkdir(parents=True)
+            (run / "meta.json").write_text(json.dumps(
+                {"run_id": "r1", "worktree": str(wt), "verify_cmds": ["sleep 20"], "status": "PASS"}))
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = cw.cmd_verify(argparse.Namespace(run="r1", verbose=False))
+            meta = json.loads((run / "meta.json").read_text())
+            self.assertEqual(rc, cw.EXIT_REVISE)
+            self.assertEqual(meta["verify_state"], "timeout")
+            self.assertIsNone(meta["verify_results"][0][1])
+            self.assertIn("TIME", out.getvalue())
+
+
+FAKE_CODEX_SH = """#!/bin/sh
+case "$1" in
+  --version) echo "codex-cli {version}" ;;
+  login) echo "Logged in using ChatGPT" ;;
+  *) echo "fake codex: no real call in tests" >&2; exit 3 ;;
+esac
+"""
+
+
+class CodexBinary(unittest.TestCase):
+    """rpro-saas, 2026-11-20: this Mac has /opt/homebrew/bin/codex 0.144.1 and ~/.bun/bin/codex 0.166.0. A window whose
+    PATH found Homebrew first ran 0.144.1, which gets an HTTP 400 on gpt-6.1-sol, while the selftest had passed on
+    0.166.0. The binary that passed the selftest is now the one codex-wp runs, and check says when PATH differs."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = Path(self.tmp.name)
+        self.brew = self.fake("brew", "0.144.1")
+        self.bun = self.fake("bun", "0.166.0")
+        self.record = self.d / "selftest.json"
+        env = {k: v for k, v in os.environ.items() if k != "CODEX_WP_BIN"}
+        env["PATH"] = f"{self.d / 'brew'}:{self.d / 'bun'}:/usr/bin:/bin"
+        self.patches = [mock.patch.dict(os.environ, env, clear=True),
+                        mock.patch.object(cw, "SELFTEST_FILE", self.record)]
+        for p in self.patches:
+            p.start()
+
+    def tearDown(self):
+        for p in reversed(self.patches):
+            p.stop()
+        self.tmp.cleanup()
+
+    def fake(self, name, version):
+        (self.d / name).mkdir()
+        return str(write_exec(self.d / name / "codex", FAKE_CODEX_SH.format(version=version)))
+
+    def write_record(self, **kw):
+        rec = {"codex_version": "codex-cli 0.166.0", "model": "gpt-6.1-sol", "ts": time.time(), "result": "PASS"}
+        rec.update(kw)
+        cw.write_selftest_record(self.record, rec)
+
+    def test_without_a_record_the_first_codex_on_path_runs(self):
+        self.assertEqual(cw.codex_bin(), self.brew)
+
+    def test_a_passing_selftest_pins_the_binary_it_tested(self):
+        self.write_record(codex_path=self.bun)
+        self.assertEqual(cw.codex_bin(), self.bun)
+
+    def test_a_failed_selftest_or_a_vanished_binary_does_not_pin(self):
+        self.write_record(codex_path=self.bun, result="FAIL")
+        self.assertEqual(cw.codex_bin(), self.brew)
+        self.write_record(codex_path=str(self.d / "gone" / "codex"))
+        self.assertEqual(cw.codex_bin(), self.brew)
+
+    def test_the_environment_still_wins(self):
+        self.write_record(codex_path=self.bun)
+        with mock.patch.dict(os.environ, {"CODEX_WP_BIN": self.brew}):
+            self.assertEqual(cw.codex_bin(), self.brew)
+
+    def test_check_says_which_binary_runs_and_what_path_would_find(self):
+        self.write_record(codex_path=self.bun)
+        with mock.patch.object(cw, "STATE_DIR", self.d / "state"), \
+                mock.patch.dict(os.environ, {"CODEX_HOME": str(self.d / "codex-home")}):
+            _, lines = cw.seat_check(model="gpt-6.1-sol")
+        text = "\n".join(lines)
+        self.assertIn(f"codex   {self.bun} (codex-cli 0.166.0)", text)
+        self.assertIn(f"PATH finds {self.brew}", text)
+        self.assertIn("0.144.1", text)
+        self.assertIn("selftest PASS", text)
+        self.assertIn("leaked  ", text)  # the known-leaked list state is part of the seat check
+
+    def test_selftest_records_the_binary_it_tested_and_hands_it_to_the_run(self):
+        real_run, real_mkdtemp = subprocess.run, tempfile.mkdtemp
+        handed = []
+
+        def fake_run(argv, *args, **kw):
+            if isinstance(argv, list) and len(argv) > 2 and argv[2] == "run":
+                handed.append((kw.get("env") or {}).get("CODEX_WP_BIN"))
+                return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")
+            return real_run(argv, *args, **kw)
+
+        with mock.patch.dict(os.environ, {"CODEX_WP_BIN": self.bun}), \
+                mock.patch.object(cw.subprocess, "run", fake_run), \
+                mock.patch.object(cw.tempfile, "mkdtemp", lambda prefix=None: real_mkdtemp(prefix=prefix, dir=self.d)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            cw.cmd_selftest(argparse.Namespace(model="gpt-6.1-sol"))
+        self.assertEqual(handed, [self.bun])
+        record = cw.read_selftest_record(self.record)
+        self.assertEqual(record["codex_path"], self.bun)
+        self.assertEqual(record["result"], "FAIL")  # the fake run printed no RUN line, so nothing passed
+
+
+class Cli017(unittest.TestCase):
+    def test_readme_documents_0_1_7(self):
+        text = Path(__file__).with_name("README.md").read_text()
+        for needle in ("leaked-sha12.txt", "known-leaked", "mockup-hex", "process group", "passed the selftest"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text)
+
+
 class RunFlow(unittest.TestCase):
     """_run_locked end to end with a fake Codex and a fake gitleaks: no network, no quota."""
 
@@ -1421,8 +1759,10 @@ class RunFlow(unittest.TestCase):
         self.mark = self.d / "worker-started"
         self.old_state = cw.STATE_DIR
         cw.STATE_DIR = self.d / "state"
-        self.old_env = {k: os.environ.get(k) for k in ("CODEX_WP_BIN", "CODEX_WP_GITLEAKS", "CODEX_HOME")}
+        self.old_env = {k: os.environ.get(k) for k in ("CODEX_WP_BIN", "CODEX_WP_GITLEAKS", "CODEX_HOME",
+                                                       "CODEX_WP_LEAKED")}
         os.environ["CODEX_HOME"] = str(self.d / "codex-home")
+        os.environ.pop("CODEX_WP_LEAKED", None)  # the run must read only the test's own list, never the machine's
         self.gl, self.gl_log = fake_gitleaks(self.d, 0)
         os.environ["CODEX_WP_GITLEAKS"] = str(self.gl)
 
@@ -1601,6 +1941,30 @@ class RunFlow(unittest.TestCase):
         self.assertEqual(rc, cw.EXIT_PRECONDITION)
         self.assertEqual(len([ln for ln in out.splitlines() if ln.startswith("SECRETS blocked:")]), 7)
         self.assertNotIn(SECRET, out)
+
+    # 0.1.7: the known-leaked list
+
+    def test_a_known_leaked_value_blocks_and_names_its_label(self):
+        cw.STATE_DIR.mkdir(parents=True, exist_ok=True)
+        (cw.STATE_DIR / "leaked-sha12.txt").write_text(f"{h12(LEAKED)} minio-root\n")
+        self.commit_file("settings.js", f"MINIO_ROOT_PASSWORD=mock_{LEAKED}\n")
+        rc, out, meta = self.run_locked(setup="touch SETUP_RAN")
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertFalse(self.mark.exists(), "the worker must not start")
+        self.assertIn("known-leaked", out)
+        self.assertIn("minio-root", out)
+        self.assertIn("cannot be allowed by a marker", out)
+        self.assertNotIn("A false positive", out)  # no marker advice when every hit is a known-leaked value
+        self.assertNotIn(LEAKED, out)
+        self.assertNotIn(LEAKED, json.dumps(meta))
+
+    def test_a_broken_leaked_list_fails_closed(self):
+        cw.STATE_DIR.mkdir(parents=True, exist_ok=True)
+        (cw.STATE_DIR / "leaked-sha12.txt").write_text("not-a-hash\n")
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertFalse(self.mark.exists())
+        self.assertIn("leaked", meta["secret_scan"]["error"])
 
 
 if __name__ == "__main__":
