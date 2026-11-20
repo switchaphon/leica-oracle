@@ -724,7 +724,7 @@ Federation enables **multi-node orchestration** with signed communication.
 ```json
 {
   "node": "oracle-world",
-  "federationToken": "min-16-char-secret",
+  "federationToken": "<MAW_FEDERATION_TOKEN>",
   "namedPeers": [
     { "name": "white", "url": "http://10.20.0.7:3456" },
     { "name": "mba", "url": "http://10.20.0.3:3457" }

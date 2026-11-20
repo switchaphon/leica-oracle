@@ -17,6 +17,15 @@
 ψ/lab/twa-thaiwater/twa_pull.py:generic-api-key:31
 ψ/learn/thaiwater/twa/2026-09-04/1711_QUICK-REFERENCE.md:generic-api-key:15
 ψ/learn/thaiwater/twa/2026-09-04/1711_CODE-SNIPPETS.md:generic-api-key:8
-ψ/lab/hii-water-level/waterviz/layers.py:generic-api-key:44
+# Moved from line 44 to 54 when lines were added above it: line fingerprints drift.
+ψ/lab/hii-water-level/waterviz/layers.py:generic-api-key:54
 ψ/lab/twa-thaiwater/compare_stations.py:generic-api-key:10
 ψ/lab/twa-thaiwater/compare_hosts.py:generic-api-key:16
+
+# ---------------------------------------------------------------------------
+# vets-hub quick reference: postgresql:// to localhost  (recorded 2026-11-19)
+#
+# A local development default on the loopback interface, not a credential that works
+# anywhere else. Found by codex-wp 0.1.4's secret preflight.
+ψ/learn/_POPs_/vets-hub/2026-04-26/1735_QUICK-REFERENCE.md:oracle-service-uri-credentials:213
+ψ/learn/_POPs_/vets-hub/2026-04-26/1735_QUICK-REFERENCE.md:oracle-service-uri-credentials:214
