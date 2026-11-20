@@ -13,7 +13,7 @@ Built 2026-11-02 (v0.1.1) for the "Opus leads, Codex works" setup. Stdlib Python
 
 `codex-wp` never judges the work. A PASS means "nothing mechanical is wrong", not "this is good".
 
-## 0.1.5
+## 0.1.6
 
 Before setup, the secret preflight scans the base checkout's tracked files and the WP text.
 It runs gitleaks from each scan directory so the worktree's `.gitleaks.toml` and
@@ -30,6 +30,22 @@ fails closed with PRECONDITION before setup or the worker starts. Install it wit
 An AI session's way forward is a reviewed marker committed by the repo owner, or a
 FALLBACK subagent. A human's skip reason is printed and recorded in `meta.json`.
 A blocked run prints `codex-wp done <run-id>` for cleanup.
+
+The scan result is cached per base tree (the tree, not the commit) in
+`~/.codex-wp/cache/preflight/`. The key includes the tree, the gitleaks binary's resolved
+path, size and modification time, codex-wp's version, and `GITLEAKS_CONFIG` /
+`GITLEAKS_CONFIG_TOML` (including the config file's contents). Only worktree findings
+are cached; the WP text is always scanned fresh. Failed or timed-out scans are never
+cached. Entries older than 14 days are removed when a new entry is written.
+`--rescan` ignores the cache and scans the tree again.
+
+`--scan-timeout SECONDS` (default 900) bounds each gitleaks call; a timeout fails closed.
+Gitleaks took 216 s on a 778 MB repo. A timed-out run suggests doubling the scan timeout:
+a finished scan is cached, so only the first run on a tree waits. The scan still runs
+while the run holds a Codex slot. Repeated noted lines are shown once, capped at 5,
+with the rest in `meta.json`; the record keeps every hit, including repeats.
+Blocking lines are shown once each and are never capped. `meta.json` also records
+`scan_timeout_s` and whether the scan used the cache, its base tree and scan duration.
 
 The sandbox limits writes, not reads: a worker can read files outside the worktree.
 In November 2026 workers read `~/.agents/skills` on their own. The preflight stops a

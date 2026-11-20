@@ -20,6 +20,7 @@ import base64
 import dataclasses
 import datetime as dt
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -34,7 +35,7 @@ import time
 import unicodedata
 from pathlib import Path
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 DEFAULT_MODEL = os.environ.get("CODEX_WP_MODEL", "gpt-5.6-sol")
 STATE_DIR = Path(os.environ.get("CODEX_WP_HOME", str(Path.home() / ".codex-wp")))
 MAX_SLOTS = int(os.environ.get("CODEX_WP_SLOTS", "3"))
@@ -42,6 +43,9 @@ PACE_SLACK = 10.0  # percentage points a long window may run ahead of a straight
 PACE_CAP = 85.0    # above this: HOLD, whatever the clock says
 HARD_STOP = 90.0   # at or above this: FALLBACK
 DEFAULT_TIMEOUT_S = 40 * 60
+DEFAULT_SCAN_TIMEOUT_S = 900
+CACHE_MAX_AGE_S = 14 * 86400
+NOTED_SHOWN = 5
 SELFTEST_FILE = STATE_DIR / "selftest.json"
 SELFTEST_STALE_S = 3 * 86400  # a passing selftest older than this is reported as stale
 
@@ -341,7 +345,7 @@ class GitleaksResult:
     detail: str = ""
 
 
-def run_gitleaks(target: Path, binary: str | None, timeout: int = 300) -> GitleaksResult:
+def run_gitleaks(target: Path, binary: str | None, timeout: int = DEFAULT_SCAN_TIMEOUT_S) -> GitleaksResult:
     executable = shutil.which(binary) if binary else None
     if not executable:
         return GitleaksResult("missing", [])
@@ -373,7 +377,9 @@ def run_gitleaks(target: Path, binary: str | None, timeout: int = 300) -> Gitlea
                     file = file[2:]
                 safe.append({"rule": rule, "file": file, "line": line})
             return GitleaksResult("leaks", safe)
-    except (OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired:
+        return GitleaksResult("timeout", [], f"gitleaks did not finish within {timeout}s")
+    except (OSError, ValueError, TypeError, KeyError) as exc:
         return GitleaksResult("error", [], type(exc).__name__)
 
 
@@ -381,23 +387,57 @@ def gitleaks_bin():
     return os.environ.get("CODEX_WP_GITLEAKS") or shutil.which("gitleaks")
 
 
-def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None) -> dict:
-    result = {"blocking": [], "noted": [], "error": None}
+def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None,
+                     timeout: int = DEFAULT_SCAN_TIMEOUT_S, cache_dir=None, rescan=False) -> dict:
+    tree_result = git(["rev-parse", "HEAD^{tree}"], wt, check=False)
+    tree = tree_result.stdout.strip() if tree_result.returncode == 0 else None
+    result = {"blocking": [], "noted": [], "error": None, "cached": False,
+              "tree": tree, "timed_out": False, "scan_s": 0.0}
     errors = []
-    ignore_path = wt / ".gitleaksignore"
     ignored = set()
-    if ignore_path.is_file():
-        ignored = {line.strip() for line in ignore_path.read_text(encoding="utf-8").splitlines()
-                   if line.strip() and not line.lstrip().startswith("#")}
+    entry_path = None
+    executable = shutil.which(gitleaks) if gitleaks else None
+    if cache_dir is not None and tree and executable:
+        try:
+            scanner = Path(executable).resolve()
+            stat = scanner.stat()
+            config = os.environ.get("GITLEAKS_CONFIG")
+            config_path = Path(config) if config else None
+            if config_path is not None and not config_path.is_absolute():
+                config_path = wt / config_path
+            config_hash = (hashlib.sha256(config_path.read_bytes()).hexdigest()
+                           if config_path is not None and config_path.is_file() else None)
+            material = {"tree": tree, "version": VERSION,
+                        "scanner": [str(scanner), stat.st_size, stat.st_mtime_ns],
+                        "GITLEAKS_CONFIG": [config, config_hash],
+                        "GITLEAKS_CONFIG_TOML": hashlib.sha256(
+                            os.environ.get("GITLEAKS_CONFIG_TOML", "").encode("utf-8")).hexdigest()}
+            key = hashlib.sha256(json.dumps(material, sort_keys=True).encode("utf-8")).hexdigest()
+            cache_dir = Path(cache_dir)
+            entry_path = cache_dir / f"{key}.json"
+        except OSError:
+            pass
+    if entry_path is not None and not rescan:
+        try:
+            entry = json.loads(entry_path.read_text(encoding="utf-8"))
+            if (isinstance(entry, dict) and isinstance(entry.get("blocking"), list)
+                    and isinstance(entry.get("noted"), list)):
+                result.update(blocking=entry["blocking"], noted=entry["noted"], cached=True,
+                              scan_s=entry.get("scan_s", 0.0), scanned_at=entry.get("created"))
+        except (OSError, ValueError):
+            pass
 
     def scan(target, source):
-        scanned = run_gitleaks(target, gitleaks)
+        scanned = run_gitleaks(target, gitleaks, timeout=timeout)
         if scanned.status == "missing":
-            message = "gitleaks not found: install it (brew install gitleaks) or dispatch with --no-secret-scan REASON"
+            message = ("gitleaks not found: install it (brew install gitleaks). "
+                       "--no-secret-scan REASON is for a human: auto mode refuses it.")
             if message not in errors:
                 errors.append(message)
-        elif scanned.status == "error":
+        elif scanned.status in ("error", "timeout"):
             errors.append(f"{source}: {scanned.detail}")
+            if scanned.status == "timeout":
+                result["timed_out"] = True
         result["blocking"].extend({"source": source, **finding} for finding in scanned.findings)
 
     def urls(text, source, file):
@@ -415,23 +455,50 @@ def secret_preflight(wt: Path, wp_text: str, gitleaks: str | None) -> dict:
             else:
                 result["blocking"].append(entry)
 
-    scan(wt, "worktree")
+    if not result["cached"]:
+        started = time.monotonic()
+        ignore_path = wt / ".gitleaksignore"
+        if ignore_path.is_file():
+            ignored = {line.strip() for line in ignore_path.read_text(encoding="utf-8").splitlines()
+                       if line.strip() and not line.lstrip().startswith("#")}
+        scan(wt, "worktree")
+        for file in git(["ls-files", "-z"], wt).stdout.split("\0"):
+            if not file:
+                continue
+            path = wt / file
+            if not path.is_file() or path.stat().st_size > 1_000_000:
+                continue
+            with path.open("rb") as stream:
+                head = stream.read(8192)
+                if b"\0" in head:
+                    continue
+                text = (head + stream.read()).decode("utf-8", errors="replace")
+            urls(text, "worktree", file)
+        result["scan_s"] = time.monotonic() - started
+        if entry_path is not None and not errors and not result["timed_out"]:
+            entry = {"tree": tree, "created": time.time(), "scan_s": result["scan_s"],
+                     "blocking": result["blocking"], "noted": result["noted"]}
+            temporary = None
+            try:
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=cache_dir,
+                                                 suffix=".tmp", delete=False) as stream:
+                    temporary = Path(stream.name)
+                    json.dump(entry, stream)
+                os.replace(temporary, entry_path)
+                cutoff = time.time() - CACHE_MAX_AGE_S
+                for old in cache_dir.glob("*.json"):
+                    if old.stat().st_mtime < cutoff:
+                        old.unlink()
+            except OSError:
+                pass
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="codex-wp-preflight-") as directory:
         target = Path(directory)
         (target / "wp.md").write_text(wp_text, encoding="utf-8")
         scan(target, "wp")
-    for file in git(["ls-files", "-z"], wt).stdout.split("\0"):
-        if not file:
-            continue
-        path = wt / file
-        if not path.is_file() or path.stat().st_size > 1_000_000:
-            continue
-        with path.open("rb") as stream:
-            head = stream.read(8192)
-            if b"\0" in head:
-                continue
-            text = (head + stream.read()).decode("utf-8", errors="replace")
-        urls(text, "worktree", file)
     urls(wp_text, "wp", "wp.md")
     result["error"] = "; ".join(errors) or None
     return result
@@ -1091,7 +1158,8 @@ def _run_locked(a, wp, repo, slot):
     (run_dir / "wp.md").write_text(wp.text)
     meta = {"run_id": run_id, "title": wp.title, "repo": str(repo), "owned": wp.owned, "ignore": wp.ignore,
             "verify_cmds": wp.verify, "model": a.model, "started": time.time(),
-            "tool_version": VERSION, "status": "STARTING", "timeout_s": a.timeout}
+            "tool_version": VERSION, "status": "STARTING", "timeout_s": a.timeout,
+            "scan_timeout_s": a.scan_timeout}
 
     def save():
         (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
@@ -1123,20 +1191,50 @@ def _run_locked(a, wp, repo, slot):
         print(f"WARN    secret scan skipped by the lead: {a.no_secret_scan}")
     else:
         try:
-            scanned = secret_preflight(wt, wp.text, gitleaks_bin())
+            scanned = secret_preflight(wt, wp.text, gitleaks_bin(), timeout=a.scan_timeout,
+                                       cache_dir=STATE_DIR / "cache" / "preflight", rescan=a.rescan)
         except Exception as exc:
-            scanned = {"blocking": [], "noted": [], "error": type(exc).__name__}
+            scanned = {"blocking": [], "noted": [], "error": type(exc).__name__, "cached": False,
+                       "tree": None, "timed_out": False, "scan_s": 0.0}
+        tree = (scanned["tree"] or "unknown")[:9]
+        if scanned["cached"]:
+            print(f"SECRETS cache hit: base tree {tree} was scanned {fmt_local(scanned['scanned_at'])} "
+                  f"({scanned['scan_s']:.0f}s)")
+        elif not scanned["error"]:
+            print(f"SECRETS scanned base tree {tree} in {scanned['scan_s']:.0f}s")
         meta["secret_scan"] = scanned
+        noted = []
+        seen = set()
         for hit in scanned["noted"]:
+            key = tuple(hit[field] for field in ("rule", "source", "file", "line", "why"))
+            if key not in seen:
+                seen.add(key)
+                noted.append(hit)
+        for hit in noted[:NOTED_SHOWN]:
             print(f"SECRETS noted (not blocking): {hit['rule']} {hit['source']}:{hit['file']}:{hit['line']} ({hit['why']})")
+        if len(noted) > NOTED_SHOWN:
+            print(f"SECRETS noted: {len(noted) - NOTED_SHOWN} more not shown, all in meta.json")
         if scanned["blocking"] or scanned["error"]:
+            seen = set()
             for hit in scanned["blocking"]:
+                key = tuple(hit[field] for field in ("rule", "source", "file", "line"))
+                if key in seen:
+                    continue
+                seen.add(key)
                 print(f"SECRETS blocked: {hit['rule']} {hit['source']}:{hit['file']}:{hit['line']}")
             if scanned["error"]:
                 print(f"SECRETS scan failed: {scanned['error']}")
-            print(f"  next     codex-wp done {run_id}. A false positive: the repo owner adds gitleaks:allow "
-                  "to the line, or <file>:<rule>:<line> to .gitleaksignore. "
-                  "--no-secret-scan REASON is for a human: auto mode refuses it.")
+            next_line = f"  next     codex-wp done {run_id}."
+            if scanned["blocking"]:
+                next_line += (" A false positive: the repo owner adds gitleaks:allow "
+                              "to the line, or <file>:<rule>:<line> to .gitleaksignore. "
+                              "--no-secret-scan REASON is for a human: auto mode refuses it.")
+            if scanned["timed_out"]:
+                next_line += (f" Then dispatch again with --scan-timeout {2 * a.scan_timeout}: "
+                              "a finished scan is cached per base tree, so only the first run on a tree waits.")
+            elif scanned["error"] and not scanned["blocking"]:
+                next_line += " Then fix the scanner and dispatch again."
+            print(next_line)
             meta.update(status="PRECONDITION", reasons=["secret preflight blocked dispatch"])
             save()
             return EXIT_PRECONDITION
@@ -1406,6 +1504,16 @@ def nonnegative_int(value):
     return number
 
 
+def positive_int(value):
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer > 0") from None
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be an integer > 0")
+    return number
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="codex-wp", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1427,6 +1535,10 @@ def build_parser():
     r.add_argument("--setup", help="shell command run in the worktree before the worker starts (e.g. dependency install; the worker has no network)")
     r.add_argument("--verify-now", action="store_true", help="run the WP's verify commands right after the worker (they execute worker-written code outside the sandbox: only for trusted repos, otherwise read the diff first and use `codex-wp verify`)")
     r.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S)
+    r.add_argument("--scan-timeout", type=positive_int, default=DEFAULT_SCAN_TIMEOUT_S, metavar="SECONDS",
+                   help="seconds each gitleaks call may take; a timeout fails closed")
+    r.add_argument("--rescan", action="store_true",
+                   help="ignore the cached secret scan of the base tree and scan again")
     r.add_argument("--no-secret-scan", metavar="REASON", help="skip the secret preflight with a reason recorded for the lead")
     r.add_argument("--wait", type=nonnegative_int, default=0, metavar="SECONDS", help="wait up to this many seconds for a free slot")
     r.add_argument("--force-pace", metavar="REASON", help="send this WP although the quota is ahead of pace (needs a reason, it is logged)")
