@@ -461,7 +461,7 @@ def known_leaked_hits(text, leaked):
         r'"([^"\r\n]{6,128})"',
         r"`([^`\r\n]{6,128})`",
         r'''[:=][ \t]*([^\s'",;`]{6,128})''',
-        r'''//[^\s/:@]+:([^\s/@]+)@''',
+        r'''//[^\s/:@]*:([^\s/@]+)@''',
     )
     for pattern in patterns:
         for match in re.finditer(pattern, text):
@@ -1587,8 +1587,8 @@ def cmd_selftest(a):
             "--tdd", "--setup", "true", "--follow", "--verify-now", "--model", a.model]  # setup and follow walked end to end
     print(f"selftest dir: {d}\nrunning: {' '.join(argv)}\n"
           "(spends roughly 150k tokens, a small fraction of one percent of a weekly window)\n", flush=True)
-    r = subprocess.run(argv, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_S,
-                       env=dict(os.environ, CODEX_WP_BIN=binary))
+    env = dict(os.environ, **({"CODEX_WP_BIN": binary} if binary else {}))
+    r = subprocess.run(argv, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_S, env=env)
     print(r.stdout)
     if r.stderr.strip():
         print(r.stderr, file=sys.stderr)

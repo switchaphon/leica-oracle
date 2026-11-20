@@ -1511,6 +1511,12 @@ class KnownLeaked(unittest.TestCase):
         self.commit("config.txt", f"Y={LEAKED}ff\nsha={'a' * 40}\n")
         self.assertEqual(self.known(self.scan(leaked=self.leaked)), [])
 
+    def test_an_empty_user_url_password_is_found(self):
+        """Lead review of the 0.1.7 code: redis://:PASSWORD@host, the usual Redis form, slipped past a pattern that
+        required a user. The rpro-ent guard this check follows allows an empty one, and Redis is on the list."""
+        self.commit("config.txt", f"REDIS_URL=redis://:{LEAKED}@cache.internal:6379\n")  # gitleaks:allow
+        self.assertEqual([b["line"] for b in self.known(self.scan(leaked=self.leaked))], [1])
+
     def test_the_list_is_part_of_the_cache_key(self):
         self.commit("config.txt", f"X=mock_{LEAKED}\n")
         cache = self.d / "cache"
@@ -1739,6 +1745,28 @@ class CodexBinary(unittest.TestCase):
         record = cw.read_selftest_record(self.record)
         self.assertEqual(record["codex_path"], self.bun)
         self.assertEqual(record["result"], "FAIL")  # the fake run printed no RUN line, so nothing passed
+
+    def test_a_selftest_without_any_codex_fails_cleanly(self):
+        """Lead review of the 0.1.7 code: with no codex anywhere, CODEX_WP_BIN=None went into the child's environment,
+        which a real spawn refuses with TypeError instead of a failed selftest."""
+        real_run, real_mkdtemp = subprocess.run, tempfile.mkdtemp
+        envs = []
+
+        def fake_run(argv, *args, **kw):
+            if isinstance(argv, list) and len(argv) > 2 and argv[2] == "run":
+                envs.append(kw.get("env"))
+                return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")
+            return real_run(argv, *args, **kw)
+
+        with mock.patch.dict(os.environ, {"PATH": "/usr/bin:/bin"}), \
+                mock.patch.object(cw.subprocess, "run", fake_run), \
+                mock.patch.object(cw.tempfile, "mkdtemp", lambda prefix=None: real_mkdtemp(prefix=prefix, dir=self.d)), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            rc = cw.cmd_selftest(argparse.Namespace(model="gpt-6.1-sol"))
+        self.assertEqual(rc, cw.EXIT_FAIL)
+        self.assertEqual(len(envs), 1)
+        self.assertTrue(all(isinstance(v, str) for v in (envs[0] or {}).values()),
+                        "a real spawn refuses a None in the environment")
 
 
 class Cli017(unittest.TestCase):
