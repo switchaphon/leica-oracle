@@ -21,9 +21,15 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import codex_wp as cw  # noqa: E402
+
+# No test may reach the real Codex. On 2026-11-20 a slot-wait test raced under load, slipped past the wait and
+# dispatched a real worker on gpt-5.6-sol (168k tokens in). A test that wants a worker sets its own fake; any other
+# path to a worker now fails loudly instead of spending quota.
+os.environ["CODEX_WP_BIN"] = str(Path(tempfile.gettempdir(), "codex-wp-tests-never-call-the-real-codex"))
 
 WP_TEXT = """## WP-1: implement add()
 - Goal: make test_add.py pass.
@@ -921,10 +927,13 @@ class Gitleaks(unittest.TestCase):
             gl, _ = fake_gitleaks(d, 1, raw="{not json")
             self.assertEqual(cw.run_gitleaks(Path(d), str(gl)).status, "error")
 
-    def test_a_scan_that_runs_too_long_is_an_error(self):
+    def test_a_scan_that_runs_too_long_is_a_timeout_never_clean(self):
+        """0.1.6: a timeout is its own status, so the lead is told to raise --scan-timeout, not to fix the scanner."""
         with tempfile.TemporaryDirectory() as d:
             gl, _ = fake_gitleaks(d, 0, sleep=5)
-            self.assertEqual(cw.run_gitleaks(Path(d), str(gl), timeout=1).status, "error")
+            r = cw.run_gitleaks(Path(d), str(gl), timeout=1)
+            self.assertEqual(r.status, "timeout")
+            self.assertIn("did not finish within 1s", r.detail)
 
     def test_it_scans_dot_from_the_target_so_gitleaksignore_matches(self):
         """pops-pet, 2026-11-19: .gitleaksignore fingerprints only match when gitleaks scans `.` from the repo root."""
@@ -1030,9 +1039,15 @@ class SlotWait(unittest.TestCase):
         self.assertEqual(sleeps, [15, 15, 10])
 
 
+class NeverTheRealCodex(unittest.TestCase):
+    def test_the_worker_binary_is_a_dead_end_unless_a_test_sets_a_fake(self):
+        self.assertEqual(cw.codex_bin(), os.environ["CODEX_WP_BIN"])
+        self.assertFalse(Path(cw.codex_bin()).exists())
+
+
 class Cli014(unittest.TestCase):
     def test_version(self):
-        self.assertEqual(cw.VERSION, "0.1.5")
+        self.assertEqual(cw.VERSION, "0.1.6")
 
     def test_wait_flag(self):
         self.assertEqual(cw.build_parser().parse_args(["run", "wp.md", "--wait", "600"]).wait, 600)
@@ -1072,7 +1087,7 @@ class Cli014(unittest.TestCase):
     def test_after_a_wait_the_seat_is_checked_again_and_the_slot_released_on_hold(self):
         """A GO from before a long wait may be stale. Re-check; if no longer GO, give the slot back."""
         with tempfile.TemporaryDirectory() as d:
-            old_state, old_check = cw.STATE_DIR, cw.seat_check
+            old_state, old_check, old_waiting = cw.STATE_DIR, cw.seat_check, cw.acquire_slot_waiting
             cw.STATE_DIR = Path(d, "state")
             calls = []
 
@@ -1080,26 +1095,29 @@ class Cli014(unittest.TestCase):
                 calls.append(kw)
                 return (cw.EXIT_PASS, []) if len(calls) == 1 else (cw.EXIT_HOLD, ["quota HOLD"])
 
-            cw.seat_check = seat
             held = [cw.acquire_slot(cw.STATE_DIR / "slots", cw.MAX_SLOTS) for _ in range(cw.MAX_SLOTS)]
-            timer = threading.Timer(0.3, lambda: os.close(held.pop(0)[0]))  # a run finishes during the wait
+
+            def waiting(directory, n, wait_s, **kw):
+                """A run finishes during the wait. It used to be a 0.3 s timer, which under load fired before the
+                first try, so the run never waited, skipped the re-check and dispatched a real worker."""
+                os.close(held.pop(0)[0])
+                return cw.acquire_slot(directory, n)
+
+            cw.seat_check, cw.acquire_slot_waiting = seat, waiting
             try:
                 repo = make_repo(d)
                 wp = Path(d, "wp.md")
                 wp.write_text(WP_TEXT)
-                timer.start()
                 with contextlib.redirect_stdout(io.StringIO()):
                     rc = cw.main(["run", str(wp), "--repo", str(repo), "--wait", "1"])
-                timer.join()
                 self.assertEqual(rc, cw.EXIT_HOLD)
                 self.assertEqual(len(calls), 2)
                 fd, _ = cw.acquire_slot(cw.STATE_DIR / "slots", cw.MAX_SLOTS)  # the slot was given back
                 os.close(fd)
             finally:
-                timer.cancel()
                 for fd, _ in held:
                     os.close(fd)
-                cw.STATE_DIR, cw.seat_check = old_state, old_check
+                cw.STATE_DIR, cw.seat_check, cw.acquire_slot_waiting = old_state, old_check, old_waiting
 
     def test_readme_documents_0_1_4(self):
         text = Path(__file__).with_name("README.md").read_text()
@@ -1178,6 +1196,221 @@ class VerifyState(unittest.TestCase):
                 cw.STATE_DIR = old
 
 
+def gitleaks_calls(log, cwd):
+    """The fake gitleaks calls made from `cwd`: the scans of that tree."""
+    if not Path(log).exists():
+        return []
+    calls = [json.loads(ln) for ln in Path(log).read_text().splitlines()]
+    return [c for c in calls if Path(c["cwd"]).resolve() == Path(cwd).resolve()]
+
+
+def canonical(entries):
+    return sorted(json.dumps(e, sort_keys=True) for e in entries)
+
+
+class PreflightCache(unittest.TestCase):
+    """2026-11-19: the preflight rescanned the whole base tree on every dispatch: 76 s on the clinic app, and past
+    the 300 s cap on pops-vet-oracle (24,747 files, 778 MB), which then could not dispatch at all. A finished scan is
+    now cached per base TREE, keyed with the scanner's identity and codex-wp's version. The WP text is always
+    scanned fresh."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = Path(self.tmp.name)
+        self.repo = make_repo(self.d)
+        self.cache = self.d / "cache"
+        self.gl, self.log = fake_gitleaks(self.d, 0)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def commit(self, name, text):
+        (self.repo / name).write_text(text)
+        sh(self.repo, "git", "add", name)
+        sh(self.repo, "git", "commit", "-q", "-m", f"add {name}")
+
+    def scan(self, wp_text="", gl=None, **kw):
+        return cw.secret_preflight(self.repo, wp_text, str(gl or self.gl), cache_dir=self.cache, **kw)
+
+    def other_gitleaks(self, name, *args, **kw):
+        d = self.d / name
+        d.mkdir()
+        return fake_gitleaks(d, *args, **kw)
+
+    def entries(self):
+        return sorted(self.cache.glob("*.json"))
+
+    def test_the_result_says_what_happened(self):
+        r = self.scan()
+        for key in ("blocking", "noted", "error", "cached", "tree", "timed_out", "scan_s"):
+            with self.subTest(key=key):
+                self.assertIn(key, r)
+        self.assertEqual(r["tree"], sh(self.repo, "git", "rev-parse", "HEAD^{tree}"))
+        self.assertEqual((r["cached"], r["timed_out"], r["error"]), (False, False, None))
+
+    def test_a_second_scan_of_the_same_tree_is_a_cache_hit(self):
+        self.assertFalse(self.scan()["cached"])
+        self.assertTrue(self.scan()["cached"])
+        self.assertEqual(len(gitleaks_calls(self.log, self.repo)), 1)
+
+    def test_the_key_is_the_tree_not_the_commit(self):
+        self.scan()
+        sh(self.repo, "git", "commit", "-q", "--allow-empty", "-m", "same tree, new commit")
+        self.assertTrue(self.scan()["cached"])
+
+    def test_a_new_tree_is_scanned(self):
+        self.scan()
+        self.commit("notes.md", "more\n")
+        self.assertFalse(self.scan()["cached"])
+        self.assertEqual(len(gitleaks_calls(self.log, self.repo)), 2)
+
+    def test_findings_come_back_from_the_cache_unchanged(self):
+        self.commit("test.env", "DB=postgres://postgres:postgres@127.0.0.1:5432/test\n")  # gitleaks:allow
+        self.commit("config.txt", f"DB=postgres://app:{SECRET}@db.internal/x\n")  # gitleaks:allow
+        fresh, cached = self.scan(), self.scan()
+        self.assertTrue(cached["cached"])
+        for key in ("blocking", "noted"):
+            with self.subTest(key=key):
+                self.assertEqual(canonical(fresh[key]), canonical(cached[key]))
+        self.assertEqual([(b["file"], b["line"]) for b in cached["blocking"]], [("config.txt", 1)])
+        self.assertEqual([n["file"] for n in cached["noted"]], ["test.env"])
+
+    def test_a_gitleaks_finding_is_cached_too(self):
+        gl, log = self.other_gitleaks("leaky", 1, [{"RuleID": "github-pat", "File": "notes.md", "StartLine": 4,
+                                                     "Secret": "REDACTED", "Match": "REDACTED"}])
+        want = {"source": "worktree", "rule": "github-pat", "file": "notes.md", "line": 4}
+        self.assertIn(want, self.scan(gl=gl)["blocking"])
+        second = self.scan(gl=gl)
+        self.assertTrue(second["cached"])
+        self.assertIn(want, second["blocking"])
+        self.assertEqual(len(gitleaks_calls(log, self.repo)), 1)
+
+    def test_the_wp_text_is_always_scanned_fresh(self):
+        self.scan()
+        r = self.scan(wp_text=f"connect with postgres://app:{SECRET}@db.internal/x\n")  # gitleaks:allow
+        self.assertTrue(r["cached"])
+        self.assertEqual([b["source"] for b in r["blocking"]], ["wp"])
+
+    def test_another_scanner_or_another_codex_wp_version_misses(self):
+        self.scan()
+        other, _ = self.other_gitleaks("other", 0)
+        self.assertFalse(self.scan(gl=other)["cached"])
+        with mock.patch.object(cw, "VERSION", cw.VERSION + "-next"):
+            self.assertFalse(self.scan()["cached"])
+
+    def test_a_gitleaks_config_from_the_environment_is_part_of_the_key(self):
+        """GITLEAKS_CONFIG and GITLEAKS_CONFIG_TOML replace the repo's rules: a result made under other rules must
+        not answer."""
+        self.scan()
+        rules = self.d / "rules.toml"
+        rules.write_text("# rules one\n")
+        with mock.patch.dict(os.environ, {"GITLEAKS_CONFIG": str(rules)}):
+            self.assertFalse(self.scan()["cached"])
+            self.assertTrue(self.scan()["cached"])
+            rules.write_text("# rules two\n")
+            self.assertFalse(self.scan()["cached"])
+        with mock.patch.dict(os.environ, {"GITLEAKS_CONFIG_TOML": "# inline rules\n"}):
+            self.assertFalse(self.scan()["cached"])
+
+    def test_rescan_ignores_the_cache_and_refreshes_it(self):
+        self.scan()
+        self.assertFalse(self.scan(rescan=True)["cached"])
+        self.assertEqual(len(gitleaks_calls(self.log, self.repo)), 2)
+        self.assertTrue(self.scan()["cached"])
+
+    def test_a_failed_scan_is_not_cached(self):
+        broken, _ = self.other_gitleaks("broken", 126)
+        self.assertTrue(self.scan(gl=broken)["error"])
+        again = self.scan(gl=broken)
+        self.assertFalse(again["cached"])
+        self.assertTrue(again["error"])
+        self.assertEqual(self.entries(), [])
+
+    def test_a_timed_out_scan_is_not_cached_and_says_so(self):
+        slow, _ = self.other_gitleaks("slow", 0, sleep=2)
+        r = self.scan(gl=slow, timeout=1)
+        self.assertTrue(r["timed_out"])
+        self.assertIn("did not finish within 1s", r["error"])
+        self.assertFalse(r["cached"])
+        self.assertEqual(self.entries(), [])
+
+    def test_the_cache_holds_findings_from_the_tree_only_and_no_secret_value(self):
+        self.commit("config.txt", f"DB=postgres://app:{SECRET}@db.internal/x\n")  # gitleaks:allow
+        self.scan(wp_text=f"also postgres://app:{SECRET}@db.internal/y\n")  # gitleaks:allow
+        (entry,) = self.entries()
+        self.assertRegex(entry.name, r"^[0-9a-f]{64}\.json$")
+        text = entry.read_text()
+        self.assertNotIn(SECRET, text)
+        data = json.loads(text)
+        self.assertEqual({e["source"] for e in data["blocking"] + data["noted"]}, {"worktree"})
+        self.assertEqual(data["tree"], sh(self.repo, "git", "rev-parse", "HEAD^{tree}"))
+
+    def test_a_hit_returns_the_stored_entry_without_reading_the_tree(self):
+        """An entry edited by hand comes back as stored: the hit skipped the URL scan as well as gitleaks."""
+        self.scan()
+        (entry,) = self.entries()
+        data = json.loads(entry.read_text())
+        data["noted"].append({"source": "worktree", "rule": "url-credential", "file": "sentinel.txt", "line": 7,
+                              "why": "loopback host"})
+        entry.write_text(json.dumps(data))
+        r = self.scan()
+        self.assertTrue(r["cached"])
+        self.assertIn("sentinel.txt", [n["file"] for n in r["noted"]])
+
+    def test_a_corrupt_entry_is_a_miss_and_is_replaced(self):
+        self.scan()
+        (entry,) = self.entries()
+        for bad in ("{not json", '{"blocking": "x", "noted": []}', "[]"):
+            with self.subTest(bad=bad):
+                entry.write_text(bad)
+                self.assertFalse(self.scan()["cached"])
+                self.assertTrue(self.scan()["cached"])
+
+    def test_entries_older_than_14_days_go_when_a_new_one_is_written(self):
+        self.cache.mkdir(parents=True)
+        old, recent = self.cache / ("0" * 64 + ".json"), self.cache / ("1" * 64 + ".json")
+        now = time.time()
+        for path, age_days in ((old, 15), (recent, 1)):
+            path.write_text("{}")
+            os.utime(path, (now - age_days * 86400, now - age_days * 86400))
+        self.scan()
+        self.assertFalse(old.exists())
+        self.assertTrue(recent.exists())
+        self.assertEqual(len(self.entries()), 2)
+
+    def test_without_a_cache_dir_nothing_is_cached(self):
+        cw.secret_preflight(self.repo, "", str(self.gl))
+        r = cw.secret_preflight(self.repo, "", str(self.gl))
+        self.assertFalse(r["cached"])
+        self.assertEqual(len(gitleaks_calls(self.log, self.repo)), 2)
+
+
+class Cli016(unittest.TestCase):
+    def test_scan_timeout_flag_and_its_default(self):
+        p = cw.build_parser()
+        self.assertEqual(p.parse_args(["run", "wp.md", "--scan-timeout", "1800"]).scan_timeout, 1800)
+        self.assertEqual(p.parse_args(["run", "wp.md"]).scan_timeout, cw.DEFAULT_SCAN_TIMEOUT_S)
+        self.assertEqual(cw.DEFAULT_SCAN_TIMEOUT_S, 900)
+
+    def test_scan_timeout_must_be_a_positive_integer(self):
+        for bad in ("0", "-5", "ten"):
+            with self.subTest(bad=bad):
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err), self.assertRaises(SystemExit):
+                    cw.build_parser().parse_args(["run", "wp.md", "--scan-timeout", bad])
+                self.assertIn("argument --scan-timeout", err.getvalue())
+
+    def test_rescan_flag(self):
+        self.assertTrue(cw.build_parser().parse_args(["run", "wp.md", "--rescan"]).rescan)
+        self.assertFalse(cw.build_parser().parse_args(["run", "wp.md"]).rescan)
+
+    def test_readme_documents_0_1_6(self):
+        text = Path(__file__).with_name("README.md").read_text()
+        for needle in ("--scan-timeout", "--rescan", "base tree", "cached"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text)
+
+
 class RunFlow(unittest.TestCase):
     """_run_locked end to end with a fake Codex and a fake gitleaks: no network, no quota."""
 
@@ -1211,12 +1444,14 @@ class RunFlow(unittest.TestCase):
         os.environ["CODEX_WP_BIN"] = str(fake_codex(self.d, report_text, self.mark))
         args = dict(wp="wp.md", repo=str(self.repo), base="HEAD", model="fake-model", effort=None, tdd=False,
                     setup=None, verify_now=False, timeout=60, force_pace=None, follow=False, wait=0,
-                    no_secret_scan=None)
+                    no_secret_scan=None, scan_timeout=60, rescan=False)
         args.update(kw)
+        runs = cw.STATE_DIR / "runs"
+        before = set(runs.iterdir()) if runs.exists() else set()
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = cw._run_locked(argparse.Namespace(**args), cw.parse_wp(wp_text), self.repo, 1)
-        run_dir = next((cw.STATE_DIR / "runs").iterdir())
+        (run_dir,) = set(runs.iterdir()) - before  # the run this call made, also when a test makes several
         return rc, buf.getvalue(), json.loads((run_dir / "meta.json").read_text())
 
     def test_pass_says_the_tool_did_not_run_the_tests_and_quotes_the_report(self):
@@ -1292,6 +1527,7 @@ class RunFlow(unittest.TestCase):
         self.assertEqual(rc, cw.EXIT_PRECONDITION)
         self.assertIn("gitleaks", meta["secret_scan"]["error"])
         self.assertIn("--no-secret-scan", out)
+        self.assertIn("for a human", meta["secret_scan"]["error"])  # 0.1.6: the last hint that still offered it to an AI
 
     def test_no_secret_scan_is_recorded_with_its_reason(self):
         os.environ["CODEX_WP_GITLEAKS"] = str(self.d / "no-such-gitleaks")
@@ -1304,6 +1540,67 @@ class RunFlow(unittest.TestCase):
         calls = [json.loads(ln) for ln in self.gl_log.read_text().splitlines()]
         wt = Path(meta["worktree"]).resolve()
         self.assertEqual([c["argv"][:2] for c in calls if Path(c["cwd"]).resolve() == wt], [["dir", "."]])
+
+    # 0.1.6: the preflight cache, --scan-timeout, quieter notes
+
+    def test_a_second_run_on_the_same_base_uses_the_cache(self):
+        rc1, out1, meta1 = self.run_locked()
+        rc2, out2, meta2 = self.run_locked()
+        self.assertEqual((rc1, rc2), (cw.EXIT_PASS, cw.EXIT_PASS))
+        self.assertIn("SECRETS scanned base tree", out1)
+        self.assertNotIn("cache hit", out1)
+        self.assertIn("SECRETS cache hit: base tree", out2)
+        self.assertEqual((meta1["secret_scan"]["cached"], meta2["secret_scan"]["cached"]), (False, True))
+        self.assertEqual(gitleaks_calls(self.gl_log, meta2["worktree"]), [])  # the second worktree was never scanned
+        self.assertTrue(list((cw.STATE_DIR / "cache" / "preflight").glob("*.json")))  # the cache lives in STATE_DIR
+
+    def test_a_blocked_tree_is_blocked_again_from_the_cache(self):
+        self.commit_file("config.txt", f"DATABASE_URL=postgres://app:{SECRET}@db.internal:5432/x\n")  # gitleaks:allow
+        self.run_locked()
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertTrue(meta["secret_scan"]["cached"])
+        self.assertEqual([(b["file"], b["line"]) for b in meta["secret_scan"]["blocking"]], [("config.txt", 1)])
+        self.assertNotIn(SECRET, out)
+
+    def test_rescan_scans_the_tree_again(self):
+        self.run_locked()
+        rc, out, meta = self.run_locked(rescan=True)
+        self.assertFalse(meta["secret_scan"]["cached"])
+        self.assertEqual(len(gitleaks_calls(self.gl_log, meta["worktree"])), 1)
+
+    def test_a_scan_timeout_fails_closed_and_says_how_to_go_on(self):
+        slow, _ = fake_gitleaks(self.d, 0, sleep=2)
+        os.environ["CODEX_WP_GITLEAKS"] = str(slow)
+        rc, out, meta = self.run_locked(scan_timeout=1)
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertFalse(self.mark.exists(), "the worker must not start")
+        self.assertTrue(meta["secret_scan"]["timed_out"])
+        self.assertEqual(meta["scan_timeout_s"], 1)
+        self.assertIn("codex-wp done", out)
+        self.assertIn("--scan-timeout 2", out)  # double it: a finished scan is cached, so only the first run waits
+        self.assertNotIn("gitleaks:allow", out)  # nothing was found, so false-positive advice would mislead
+
+    def test_noted_lines_are_capped_and_deduplicated_but_all_are_recorded(self):
+        lines = "".join(f"DB{i}=postgres://postgres:postgres@127.0.0.1:5432/t{i}\n" for i in range(7))  # gitleaks:allow
+        pair = "PAIR=postgres://a:a@localhost/x postgres://a:a@localhost/y\n"  # gitleaks:allow
+        self.commit_file("test.env", lines + pair)
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PASS)
+        shown = [ln for ln in out.splitlines() if ln.startswith("SECRETS noted (not blocking)")]
+        self.assertEqual(cw.NOTED_SHOWN, 5)
+        self.assertEqual(len(shown), 5)
+        self.assertEqual(len(set(shown)), 5)  # the pair on line 8 is one line, not two
+        self.assertIn("SECRETS noted: 3 more not shown", out)  # 8 distinct lines, 5 shown
+        self.assertEqual(len(meta["secret_scan"]["noted"]), 9)  # the record keeps every hit
+
+    def test_blocking_lines_are_never_capped(self):
+        text = "".join(f"K{i}=postgres://app:{SECRET}@db{i}.internal/x\n" for i in range(7))  # gitleaks:allow
+        self.commit_file("config.txt", text)
+        rc, out, meta = self.run_locked()
+        self.assertEqual(rc, cw.EXIT_PRECONDITION)
+        self.assertEqual(len([ln for ln in out.splitlines() if ln.startswith("SECRETS blocked:")]), 7)
+        self.assertNotIn(SECRET, out)
 
 
 if __name__ == "__main__":
